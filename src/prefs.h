@@ -60,6 +60,7 @@ typedef struct
 
 typedef struct
 {
+	char			NAME[8];					// 7 character max name
 	uint8_t			IS_SERIAL;					// off, on; default depends on the Pedal
 	uint8_t			MIDI_CHANNEL;				// the midi channel to send on
 	uint8_t			MIDI_CC;					// the CC number to use

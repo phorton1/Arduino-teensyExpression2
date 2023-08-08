@@ -26,7 +26,10 @@ prefs_t last_prefs;
 #define PP_ONE			(PP_MAX / 3)
 #define PP_TWO			(2 * PP_MAX / 3)
 
-prefs_t prefs =
+prefs_t prefs;
+
+
+const prefs_t default_prefs =
 {
 	.BRIGHTNESS			= 30,				// LED brightness, 1..100 - default=30
 	.DEBUG_DEVICE		= 2,				// off, USB, Serial - default(2=Serial)
@@ -34,6 +37,7 @@ prefs_t prefs =
 	.FTP_ENABLE			= 1,				// off, on - default - default(on)
 	.PEDAL = {
 		{											// pedal 0 - Synth
+			.NAME = {'S','y','n','t','h', 0},
 			.IS_SERIAL = 0,							// off, on; default depends on the Pedal
 			.MIDI_CHANNEL = SYNTH_VOLUME_CHANNEL,	// the midi channel to send on
 			.MIDI_CC = SYNTH_VOLUME_CC,				// the CC number to use
@@ -47,6 +51,7 @@ prefs_t prefs =
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{											// pedal 1 = Looper
+			.NAME = {'L','o','o','p', 0},
 			.IS_SERIAL = 1,							// off, on; default depends on the Pedal
 			.MIDI_CHANNEL = 0,						// the midi channel to send on
 			.MIDI_CC = LOOP_CONTROL_BASE_CC + RPI_CONTROL_LOOP_VOLUME,	// the CC number to use
@@ -59,6 +64,7 @@ prefs_t prefs =
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{											// pedal 2 = WAH
+			.NAME = {'W','a','h', 0},
 			.IS_SERIAL = 0,							// off, on; default depends on the Pedal
 			.MIDI_CHANNEL = GUITAR_EFFECTS_CHANNEL,	// the midi channel to send on
 			.MIDI_CC = GUITAR_WAH_CONTROL_CC,		// the CC number to use
@@ -71,6 +77,7 @@ prefs_t prefs =
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{											// pedal 3 = Guitar Volume
+			.NAME = {'G','u','i','t','a','r', 0},
 			.IS_SERIAL = 0,							// off, on; default depends on the Pedal
 			.MIDI_CHANNEL = GUITAR_VOLUME_CHANNEL,	// the midi channel to send on
 			.MIDI_CC = GUITAR_VOLUME_CC,			// the CC number to use
@@ -157,6 +164,7 @@ const prefs_t prefs_max =
 	.FTP_ENABLE			= 1,				// off, on - default - default(on)
 	.PEDAL = {
 		{									// pedal 0
+			.NAME		= {0},
 			.IS_SERIAL 	= 1,				// off, on; default depends on the Pedal
 			.MIDI_CHANNEL = 127,			// the midi channel to send on
 			.MIDI_CC 	= 127,				// the CC number to use
@@ -169,6 +177,7 @@ const prefs_t prefs_max =
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{									// pedal 1
+			.NAME		= {0},
 			.IS_SERIAL 	= 1,				// off, on; default depends on the Pedal
 			.MIDI_CHANNEL = 127,			// the midi channel to send on
 			.MIDI_CC 	= 127,				// the CC number to use
@@ -181,6 +190,7 @@ const prefs_t prefs_max =
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{									// pedal 2
+			.NAME		= {0},
 			.IS_SERIAL 	= 1,				// off, on; default depends on the Pedal
 			.MIDI_CHANNEL = 127,			// the midi channel to send on
 			.MIDI_CC 	= 127,				// the CC number to use
@@ -193,6 +203,7 @@ const prefs_t prefs_max =
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{									// pedal 3
+			.NAME		= {0},
 			.IS_SERIAL 	= 1,				// off, on; default depends on the Pedal
 			.MIDI_CHANNEL = 127,			// the midi channel to send on
 			.MIDI_CC 	= 127,				// the CC number to use
@@ -283,13 +294,18 @@ void read_prefs()
 	// set any non default (!=255) values into in-memory prefs
 {
     display(dbg_prefs,"read_prefs(%d)",NUM_EEPROM_USED);
+	memcpy(&prefs,&default_prefs,NUM_EEPROM_USED);
+
 	uint8_t *ptr = (uint8_t*) &prefs;
 	uint8_t *last_ptr = (uint8_t*) &last_prefs;
     for (uint16_t i=0; i<NUM_EEPROM_USED; i++)
     {
         uint8_t byte = EEPROM.read(i);
 		if (byte != 255)
+		{
 			*ptr = byte;
+			// display(0,"NON DEFAULT PREF AT BYTE %d",i);
+		}
 		*last_ptr = *ptr;
 		ptr++;
 		last_ptr++;
@@ -308,12 +324,19 @@ void save_prefs()
     display(dbg_prefs,"save_prefs(%d)",NUM_EEPROM_USED);
 	uint8_t *ptr = (uint8_t*) &prefs;
 	uint8_t *last_ptr = (uint8_t*) &last_prefs;
+	const uint8_t *def_ptr = (const uint8_t *) &default_prefs;
+
     for (uint16_t i=0; i<NUM_EEPROM_USED; i++)
     {
-        EEPROM.write(i,*ptr);
-		*last_ptr = *ptr;
+		uint8_t val = *ptr;
+		*last_ptr = val;
+		if (val == *def_ptr)
+			val = 255;
+        EEPROM.write(i,val);
+
 		ptr++;
 		last_ptr++;
+		def_ptr++;
     }
 }
 

@@ -100,7 +100,7 @@ void setup()
         // stack_used     73
 
     display(0,"teensyExpression.ino " TEENSY_EXPRESSION_VERSION " setup() started",0);
-
+    read_prefs();
 
     //-----------------------------------------------
     // start the TFT display
