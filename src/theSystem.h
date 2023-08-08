@@ -11,24 +11,6 @@
 
 #define MIDI_ACTIVITY_INLINE  1
 
-
-
-
-#if 0
-
-#define MAX_EXP_RIGS        10
-#define MAX_MODAL_STACK     10
-
-
-class aSystem;
-
-#define WIN_FLAG_DELETE_ON_END      0x00010000
-    // window will be deleted after call to endModal
-#define WIN_FLAG_OWNER_TITLE        0x00001000
-    // window calls theSystem.setTitle() itself
-#define WIN_FLAG_SHOW_PEDALS        0x00002000
-    // window calls theSystem.setTitle() itself
-
 // globally defined screen regions
 
 extern int_rect tft_rect;                   // the full screen
@@ -46,6 +28,21 @@ extern int_rect song_state_rect;            // shows the current songmachine sta
 extern int_rect song_msg_rect[2];           // the two regions for user defined DISPLAY messages
 
 
+
+#if 0
+
+#define MAX_EXP_RIGS        10
+#define MAX_MODAL_STACK     10
+
+
+#define WIN_FLAG_DELETE_ON_END      0x00010000
+    // window will be deleted after call to endModal
+#define WIN_FLAG_OWNER_TITLE        0x00001000
+    // window calls theSystem.setTitle() itself
+#define WIN_FLAG_SHOW_PEDALS        0x00002000
+    // window calls theSystem.setTitle() itself
+
+class aSystem;
 
 class aWindow
     // base class for rigs, modal windows, and the configSystem
@@ -92,9 +89,8 @@ class aWindow
 
 };
 
-
-
 #endif  // 0
+
 
 
 class aSystem
@@ -107,6 +103,7 @@ class aSystem
         void begin();
         void loop();
 
+        void setTitle(const char *title);
         void buttonEvent(int row, int col, int event);
 
         #if MIDI_ACTIVITY_INLINE
@@ -116,7 +113,6 @@ class aSystem
         #endif
 
 #if 0
-
         void activateRig(int i);
 
         int getNumRigs()         { return m_num_rigs; }
@@ -124,17 +120,19 @@ class aSystem
         int getPrevRigNum()      { return m_prev_rig_num; }
         aWindow *getCurRig()   { return m_rigs[m_cur_rig_num]; }
 
-        void setTitle(const char *title);
 
         void startModal(aWindow *win);
         void swapModal(aWindow *win, uint32_t param);
         void endModal(aWindow *win, uint32_t param);
         aWindow *getTopModalWindow();
-
-        int getTempo()      { return m_tempo; }
 #endif
 
     private:
+
+        bool draw_title;
+        bool draw_pedals;
+        const char *m_title;
+        int last_battery_level;
 
         IntervalTimer m_timer;
         static void timer_handler();
@@ -142,14 +140,11 @@ class aSystem
         unsigned m_midi_activity[NUM_MIDI_PORTS];
         bool m_last_midi_activity[NUM_MIDI_PORTS];
 
-#if 0
 
+#if 0
         void addRig(aWindow *pRig);
         void startWindow(aWindow *win, bool warm);
         void handleSerialData();
-
-        static void critical_timer_handler();
-        IntervalTimer m_critical_timer;
 
         int m_num_rigs;
         int m_cur_rig_num;
@@ -161,13 +156,6 @@ class aSystem
         volatile int m_num_modals;
         aWindow *m_modal_stack[MAX_MODAL_STACK];
 
-        bool draw_title;
-        bool draw_pedals;
-        const char *m_title;
-        int last_battery_level;
-
-
-        int m_tempo;
 #endif
 
 };

@@ -8,10 +8,11 @@
 #include "pedals.h"
 #include "rotary.h"
 #include "midiQueue.h"
+#include "ftp.h"
 
 #if 0
 
-#include "ftp.h"
+
 #include "ftp_defs.h"
 
 #include "fileSystem.h"
@@ -26,6 +27,7 @@
 
 #define MIDI_ACTIVITY_TIMEOUT 			90
 
+#define BATTERY_CHECK_TIME  			30000
 
 //----------------------------------
 // normal timer loop
@@ -58,39 +60,6 @@
 //--------------------------------
 
 aSystem theSystem;
-
-
-
-
-#if 0
-
-
-
-	// 1 still shows midi messages
-	// 0 shows Serial3 issues
-
-#define GET_TEMPO_FROM_CLOCK           	0
-#define BATTERY_CHECK_TIME  			30000
-
-
-//-------------------------------------
-// critical timer loop
-//-------------------------------------
-// The critical_timer_handler() was ONLY used to dequeue DEVICE
-// (teensyDuino) usb midi events and send them as rapidly as
-// possible to the Hosted device and enqueue them for further
-// processing in the normal processing loop.
-//
-// I am going to try to re-do it with only one 3ms timer loop.
-
-#define EXP_CRITICAL_TIMER_INTERVAL 1000
-#define EXP_CRITICAL_TIMER_PRIORITY  192
-    // Available priorities:
-    // Cortex-M4: 0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240
-    // Cortex-M0: 0,64,128,192
-
-
-const char *rig_names[MAX_EXP_RIGS];
 
 int_rect tft_rect(0,0,479,319);				// full screen
 int_rect title_rect(0,0,479,35);			// not including line
@@ -125,6 +94,12 @@ int_rect song_msg_rect[2];
 
 
 
+
+
+#if 0
+
+const char *rig_names[MAX_EXP_RIGS];
+
 //----------------------------------------
 // aWindow (base class)
 //----------------------------------------
@@ -149,26 +124,11 @@ void aWindow::endModal(uint32_t param)
 
 aSystem::aSystem()
 {
-#if 0
-	m_tempo = 0;
-
-    m_num_rigs = 0;
-    m_cur_rig_num = -1;
-    m_prev_rig_num = 0;
-
-	m_num_modals = 0;
-
 	last_battery_level = 0;
-
-	// moved
-	// battery_time = BATTERY_CHECK_TIME;
 
 	draw_pedals = 1;
 	draw_title = 1;
 	m_title = 0;
-
-    for (int i=0; i<MAX_EXP_RIGS; i++)
-        m_rigs[i] = 0;
 
 	song_msg_rect[0].assign(
 		client_rect.xs,
@@ -182,11 +142,24 @@ aSystem::aSystem()
 		client_rect.xe,
 		client_rect.ye);
 
+#if 0
+
+    m_num_rigs = 0;
+    m_cur_rig_num = -1;
+    m_prev_rig_num = 0;
+
+	m_num_modals = 0;
+
+    for (int i=0; i<MAX_EXP_RIGS; i++)
+        m_rigs[i] = 0;
+
 #endif // 0
 
 }
 
-#if 0
+
+
+
 
 void aSystem::setTitle(const char *title)
 {
@@ -194,7 +167,8 @@ void aSystem::setTitle(const char *title)
 	draw_title = 1;
 }
 
-#endif // 0
+
+
 
 void aSystem::begin()
 {
@@ -205,6 +179,13 @@ void aSystem::begin()
 		m_midi_activity[i] = millis();
 		m_last_midi_activity[i] = 0;
 	}
+
+    theButtons.init();
+	thePedals.init();
+	initRotary();
+
+    m_timer.priority(EXP_TIMER_PRIORITY);
+    m_timer.begin(timer_handler,EXP_TIMER_INTERVAL);
 
 
 #if 0
@@ -233,21 +214,6 @@ void aSystem::begin()
 	setPrefMax(PREF_RIG_NUM,m_num_rigs-1);
 	setPrefStrings(PREF_RIG_NUM,rig_names);
 
-#endif // 0
-
-
-
-
-    theButtons.init();
-	thePedals.init();
-	initRotary();
-
-
-
-
-
-#if 0
-
     // get rig_num from prefs and activate it
 
     int rig_num = getPref8(PREF_RIG_NUM);
@@ -257,17 +223,6 @@ void aSystem::begin()
     // rig_num = 0;
         // override prefs setting
         // for working on a particular rig
-
-#endif // 0
-
-    m_timer.priority(EXP_TIMER_PRIORITY);
-    m_timer.begin(timer_handler,EXP_TIMER_INTERVAL);
-
-#if 0
-
-    m_critical_timer.priority(EXP_CRITICAL_TIMER_PRIORITY);
-    m_critical_timer.begin(critical_timer_handler,EXP_CRITICAL_TIMER_INTERVAL);
-        // start the timer
 
     activateRig(rig_num);
         // show the first windw
@@ -474,76 +429,6 @@ void aSystem::buttonEvent(int row, int col, int event)
 // timer handlers
 //-----------------------------------------
 
-#if 0
-
-// static
-void aSystem::critical_timer_handler()
-{
-	uint32_t msg = usb_midi_read_message();  // read from device
-
-    if (msg)
-    {
-		int pindex = (msg >> 4) & PORT_INDEX_MASK;
-		theSystem.midiActivity(pindex);
-			// the message comes in on port index 0 or 1
-			// PORT_INDEX_DUINO_INPUT0 or PORT_INDEX_DUINO_INPUT1
-
-		// MIDI CLOCK MESSAGES
-		// This experimental code is very processor intensive to
-		// get the MIDI tempo from incoming midi clock messages.
-		// It is defined out in my current 'production' code.
-
-		#if GET_TEMPO_FROM_CLOCK
-			if (((msg >> 8) & 0xff) == 0xF8)
-			{
-				static int beat_counter = 0;
-				static elapsedMillis bpm_millis = 0;
-				if (beat_counter == 24)  // every 24 messages = 1 beat
-				{
-					float millis = bpm_millis;
-					float bpm = 60000 / millis  + 0.5;
-						// I *think* this is rock solid with Quantiloop
-						// without rounding, if it's truncated to 1 decimal place
-					theSystem.m_tempo = bpm;
-						// I am going to use the nearest integer value
-						// so if I change the tempo once, I can only
-						// approximately return to the original tempo
-						// which is the case anyways cuz of audio_bus's
-						// implementation ...
-					bpm_millis = 0;
-					beat_counter = 0;
-				}
-				beat_counter++;
-			}
-		#endif 	// GET_TEMPO_FROM_CLOCK
-
-
-		// we only write through to the midi host if we are spoofing
-
-	    bool is_spoof = getPref8(PREF_SPOOF_FTP);
-		if (is_spoof)
-		{
-	        midi_host.write_packed(msg);
-			theSystem.midiActivity(pindex | INDEX_MASK_HOST | INDEX_MASK_OUTPUT);
-				// add the host and output bits to map it to port 6 or 7
-				// PORT_INDEX_HOST_OUTPUT0 or  PORT_INDEX_HOST_OUTPUT1
-		}
-
-        // enqueue it for processing (display from device)
-		// if we are monitoring the input port, or it is the remote FTP
-
-		if (prefs.MONITOR_PORT[pindex) || (  		// if monitoring the port, OR
-			(getPref8(PREF_FTP_PORT) == FTP_PORT_REMOTE) &&     // if this is the PREF_FTP_PORT==2==Remote, AND
-			INDEX_CABLE(pindex)))                       		// cable=1
-		{
-	        enqueueProcess(msg);
-		}
-    }
-}
-#endif // 0
-
-
-
 
 // static
 void aSystem::timer_handler()
@@ -556,9 +441,7 @@ void aSystem::timer_handler()
 
 #if 0
 
-
 	// check Serial3 for incoming midi or file commands
-
 	theSystem.handleSerialData();
 #endif
 
@@ -591,7 +474,6 @@ void aSystem::timer_handler()
 #if 0
 
 	// call window handler
-
 	if (theSystem.m_num_modals)
 		theSystem.getTopModalWindow()->timer_handler();
 	else
@@ -748,6 +630,8 @@ void aSystem::handleSerialData()
 }
 
 
+#endif // 0
+
 
 
 //--------------------------------------
@@ -769,15 +653,14 @@ void aSystem::handleSerialData()
 
 #define PEDAL_TEXT_AREA_HEIGHT  30
 
-#endif // 0
-
 
 void aSystem::loop()
 	//  called from Arduino loop()
 {
-#if 0
 	initQueryFTP();
 		// query the FTP battery level on a timer
+
+#if 0
 
 	aWindow *win = m_num_modals ?
 		getTopModalWindow() :
@@ -789,6 +672,8 @@ void aSystem::loop()
 	// draw the pedal frame and titles if needed
 
 	if (win->m_flags & WIN_FLAG_SHOW_PEDALS)
+#endif	// 0
+
 	{
 		bool draw_pedal_values = false;
 		int pedal_width = pedal_rect.width() / NUM_PEDALS;
@@ -821,7 +706,9 @@ void aSystem::loop()
 					TFT_YELLOW,
 					false,
 					"%s",
-					thePedals.getPedal(i)->getName());
+					prefs.PEDAL[i].NAME);
+
+				display(0,"name=%s",prefs.PEDAL[i].NAME);
 
 				if (i && i<NUM_PEDALS)
 					mylcd.Draw_Line(
@@ -979,7 +866,7 @@ void aSystem::loop()
 
 			if (draw_title_frame ||  midi_on != m_last_midi_activity[i])
 			{
-				lm_ast_midi_activity[i] = midi_on;
+				m_last_midi_activity[i] = midi_on;
 				int color = midi_on ?
 					out ? TFT_RED : TFT_GREEN :
 					0;
@@ -993,32 +880,9 @@ void aSystem::loop()
 		}
 	}
 
-	// tempo
-
-	#if GET_TEMPO_FROM_CLOCK
-		static int last_tempo = 0;
-		if (m_tempo != last_tempo)
-		{
-			last_tempo = m_tempo;
-			mylcd.setFont(Arial_14_Bold);
-			mylcd.Set_Text_colour(TFT_WHITE);
-			mylcd.printf_justified(
-				10,
-				200,
-				50,
-				30,
-				LCD_JUST_CENTER,
-				TFT_WHITE,
-				TFT_BLACK,
-				true,
-				"%d",
-				m_tempo);
-			display(0,"m_tempo=%d",m_tempo);
-		}
-	#endif
 
 	// call the current window's updateUI method
-
+#if 0
 	win->updateUI();
 #endif // 0
 

@@ -34,9 +34,9 @@ void setup()
 
     // things I might want to do:
     //
-    reset_prefs();
-    prefs.DEBUG_DEVICE = DEBUG_DEVICE_USB;
-    save_prefs();
+    // reset_prefs();
+    // prefs.DEBUG_DEVICE = DEBUG_DEVICE_USB;
+    // save_prefs();
 
     //-------------------------------------
     // Start the serial portS
@@ -100,7 +100,6 @@ void setup()
         // stack_used     73
 
     display(0,"teensyExpression.ino " TEENSY_EXPRESSION_VERSION " setup() started",0);
-    read_prefs();
 
     //-----------------------------------------------
     // start the TFT display
