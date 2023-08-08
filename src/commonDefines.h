@@ -2,14 +2,7 @@
 // This file is currently denormalized and stored in both the Arduino-TeensyExpresiona
 // project and in the circle-Looper projecte
 
-# pragma once
-
-// MOST OF THIS IS NOW IN THE RIG DEFINITION
-
-
-//---------------------------------------------
-// Previously from rPi Looper.h
-//---------------------------------------------
+#pragma once
 
 #define LOOPER_NUM_TRACKS     4
 #define LOOPER_NUM_LAYERS     4
@@ -32,13 +25,13 @@
 #define LOOP_COMMAND_LOOP_IMMEDIATE     0x08      // immediatly loop back to all clip starts ...
 #define LOOP_COMMAND_SET_LOOP_START     0x09      // immediatly set the "restart point" for the clips in the track
 #define LOOP_COMMAND_CLEAR_LOOP_START   0x0A      // immediatly set the "restart point" for the clips in the track
-#define LOOP_COMMAND_TRACK_BASE         0x10      // the seven possible "track" buttons are 0x10..0x17; we are, of course, only using four
+#define LOOP_COMMAND_TRACK_BASE         0x10      // the seven possible "track" buttons are 0x10..0x17
 #define LOOP_COMMAND_ERASE_TRACK_BASE   0x20      // erase the given track (stops it if playing)
 
         // the above commands can be sent to the loop machine.
         // the following are for internal "pending" command use only
-#define LOOP_COMMAND_RECORD             0x40
-#define LOOP_COMMAND_PLAY               0x50
+#define LOOP_COMMAND_RECORD             0x80
+#define LOOP_COMMAND_PLAY               0x81
 
 
 // Looper Serial CC numbers             // TE       rPi         descrip
@@ -52,11 +45,12 @@
 #define NOTIFY_LOOP            0x64     // recv     send        value=number of pending loop notifies
 
 
-// 2023-08-05 Moved from rigLooper.cpp
+// Looper Volume Controls
 // these are based off of LOOP_CONTROL_BASE_CC
 
-#define RPI_CONTROL_INPUT_GAIN          0
-#define RPI_CONTROL_THRU_VOLUME         1
-#define RPI_CONTROL_LOOP_VOLUME         2
-#define RPI_CONTROL_MIX_VOLUME          3
-#define RPI_CONTROL_OUTPUT_GAIN         4
+#define LOOPER_CONTROL_INPUT_GAIN      0
+#define LOOPER_CONTROL_THRU_VOLUME     1
+#define LOOPER_CONTROL_LOOP_VOLUME     2
+#define LOOPER_CONTROL_MIX_VOLUME      3
+#define LOOPER_CONTROL_OUTPUT_GAIN     4
+#define LOOPER_NUM_CONTROLS            5

@@ -159,11 +159,11 @@ CONSTANTS:
 	# Looper Volume Control CC offsets from LOOP_CONTROL_BASE_CC
 	# Four are represented as Rotary Controls
 
-	RPI_CONTROL_INPUT_GAIN          = 0;
-	RPI_CONTROL_THRU_VOLUME         = 1;
-	RPI_CONTROL_LOOP_VOLUME         = 2;		# sent out by Pedal
-	RPI_CONTROL_MIX_VOLUME          = 3;
-	RPI_CONTROL_OUTPUT_GAIN         = 4;
+	LOOPER_CONTROL_INPUT_GAIN          = 0;
+	LOOPER_CONTROL_THRU_VOLUME         = 1;
+	LOOPER_CONTROL_LOOP_VOLUME         = 2;		# sent out by Pedal
+	LOOPER_CONTROL_MIX_VOLUME          = 3;
+	LOOPER_CONTROL_OUTPUT_GAIN         = 4;
 
 
 # These are state variables that may change the
@@ -304,13 +304,13 @@ BUTTON(19) 		// Looper Stop Button
 
 ON_ROTARY_EVENT		# gets internal variables: rotary_num and rotary_value
 	rotary_num = 0 :
-		sendSerialCC(RPI_CONTROL_NUM_CC_OFFSET + RPI_CONTROL_INPUT_GAIN, value)
+		sendSerialCC(LOOPER_CONTROL_NUM_CC_OFFSET + LOOPER_CONTROL_INPUT_GAIN, value)
 	rotary_num = 1 :
-		sendSerialCC(RPI_CONTROL_NUM_CC_OFFSET + RPI_CONTROL_OUTPUT_GAIN, value)
+		sendSerialCC(LOOPER_CONTROL_NUM_CC_OFFSET + LOOPER_CONTROL_OUTPUT_GAIN, value)
 	rotary_num = 2 :
-		sendSerialCC(RPI_CONTROL_NUM_CC_OFFSET + RPI_CONTROL_THRU_VOLUME, value)
+		sendSerialCC(LOOPER_CONTROL_NUM_CC_OFFSET + LOOPER_CONTROL_THRU_VOLUME, value)
 	rotary_num = 3 :
-		sendSerialCC(RPI_CONTROL_NUM_CC_OFFSET + RPI_CONTROL_MIX_VOLUME, value)
+		sendSerialCC(LOOPER_CONTROL_NUM_CC_OFFSET + LOOPER_CONTROL_MIX_VOLUME, value)
 
 
 // There is probably some subtle behavior in the Pedals having to
@@ -324,7 +324,7 @@ PEDAL(0)		# implicitly uses internal pedal_value
 
 PEDAL(1)
 	name: "Loop"
-	serial_cc: LOOP_CONTROL_BASE_CC + RPI_CONTROL_LOOP_VOLUME
+	serial_cc: LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME
 
 PEDAL(2)
 	name: "Wah"

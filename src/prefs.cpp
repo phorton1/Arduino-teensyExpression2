@@ -54,7 +54,7 @@ const prefs_t default_prefs =
 			.NAME = {'L','o','o','p', 0},
 			.IS_SERIAL = 1,							// off, on; default depends on the Pedal
 			.MIDI_CHANNEL = 0,						// the midi channel to send on
-			.MIDI_CC = LOOP_CONTROL_BASE_CC + RPI_CONTROL_LOOP_VOLUME,	// the CC number to use
+			.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME,	// the CC number to use
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
 			.CURVE_TYPE	= 0,						// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -94,22 +94,22 @@ const prefs_t default_prefs =
 			{
 				.IS_SERIAL = 1,						// on/on, default(on)
 				.MIDI_CHANNEL = 0,					// midi_channel default(0)
-				.MIDI_CC = LOOP_CONTROL_BASE_CC + RPI_CONTROL_INPUT_GAIN,
+				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_INPUT_GAIN,
 			},
 			{
 				.IS_SERIAL = 1,						// on/on, default(on)
 				.MIDI_CHANNEL = 0,					// midi_channel default(0)
-				.MIDI_CC = LOOP_CONTROL_BASE_CC + RPI_CONTROL_THRU_VOLUME,
+				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_THRU_VOLUME,
 			},
 			{
 				.IS_SERIAL = 1,						// on/on, default(on)
 				.MIDI_CHANNEL = 0,					// midi_channel default(0)
-				.MIDI_CC = LOOP_CONTROL_BASE_CC + RPI_CONTROL_MIX_VOLUME,
+				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME,
 			},
 			{
 				.IS_SERIAL = 1,						// on/on, default(on)
 				.MIDI_CHANNEL = 0,					// midi_channel default(0)
-				.MIDI_CC = LOOP_CONTROL_BASE_CC + RPI_CONTROL_OUTPUT_GAIN,
+				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN,
 			},
 		},
 
