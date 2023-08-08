@@ -202,7 +202,7 @@ void buttonArray::select(int num, int pressed)
 
 
 
-void buttonArray::run()
+void buttonArray::task()
 {
     unsigned time = millis();
     for (int row=0; row<NUM_BUTTON_ROWS; row++)

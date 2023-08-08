@@ -93,7 +93,7 @@ class buttonArray
 
         void init();        // called once
         void clear();       // called on new windows
-        void run();         // called by theSystem timer
+        void task();        // called by theSystem timer
 
         static const char *buttonEventName(int event);
         arrayedButton *getButton(int num)            { return &m_buttons[num / NUM_BUTTON_COLS][num % NUM_BUTTON_COLS]; }

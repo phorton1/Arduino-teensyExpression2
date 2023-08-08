@@ -60,11 +60,22 @@ typedef struct
 
 typedef struct
 {
+	uint8_t			IS_SERIAL;					// off, on; default depends on the Pedal
+	uint8_t			MIDI_CHANNEL;				// the midi channel to send on
+	uint8_t			MIDI_CC;					// the CC number to use
+
 	uint16_t		CALIB_MIN;				 	// 0..1023 - default(0)
 	uint16_t		CALIB_MAX;               	// 0..1023 - default(1023)
 	uint8_t     	CURVE_TYPE;              	// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
 	pref_curve_t 	CURVE[NUM_PEDAL_CURVES];
 }	pref_pedal_t;
+
+typedef struct
+{
+	uint8_t			IS_SERIAL;					// off, on; default(on)
+	uint8_t			MIDI_CHANNEL;				// default(0),
+	uint8_t			MIDI_CC;					// the CC number to use
+}	pref_rotary_t;
 
 
 //====================================
@@ -78,6 +89,7 @@ typedef struct
 	uint8_t			FILE_SYS_DEVICE;   			// off, USB, Serial - default(0=off)
 	uint8_t			FTP_ENABLE;         		// off, on - default - default(on)
 	pref_pedal_t 	PEDAL[NUM_PEDALS];
+	pref_rotary_t	ROTARY[NUM_ROTARY];
 
 	// midi monitoring, general on/off
 
@@ -85,16 +97,11 @@ typedef struct
 
 	// whether to monitor specific ports
 
-	uint8_t			MONITOR_PORT_SERIAL_IN;  	// off, on - default(on)
-	uint8_t			MONITOR_PORT_SERIAL_OUT;  	// off, on - default(on)
-	uint8_t			MONITOR_PORT_INPUT0;   		// off, on - default(off)
-	uint8_t			MONITOR_PORT_INPUT1;   		// off, on - default(on)
-	uint8_t			MONITOR_PORT_OUTPUT0;  		// off, on - default(on)
-	uint8_t			MONITOR_PORT_OUTPUT1;  		// off, on - default(on)
+	uint8_t			MONITOR_PORT[NUM_MIDI_PORTS + 2];		// off, on, for 4 midi and 2 serial ports; only INPUT0 is off at this time
 
 	// whether to monitor specific channels
 
-	uint8_t 		MONITOR_CHANNEL[NUM_MIDI_CHANNELS];		// off, on - default(on)
+	uint8_t 		MONITOR_CHANNEL[NUM_MIDI_CHANNELS];		// off, on - default(on) for 16 channels
 
 	// what to monitor
 
@@ -131,33 +138,10 @@ typedef struct
 
 
 
-//------------------------
-// macros
-//------------------------
-
-#define pcast(m)			((uint32_t) &(m))
-#define poff(PREF)			((uint16_t) {pcast(prefs.PREF) - pcast(prefs)})
-#define STRINGIFY(x) 		#x
-#define TOSTRING(x) 		STRINGIFY(x)
-
 
 //================================================
-// fast direct accessors used by most code
+// methods
 //================================================
-// These get macros works with either 8 or 16 bit values
-
-#define getPref(PREF)			(prefs.PREF)
-#define getPrefMin(PREF)		(prefs_min.PREF)
-#define getPrefMax(PREF)		(prefs_maz.PREF)
-
-#define setPref8(PREF,value)	writePref8(poff(PREF),(value),TOSTRING(PREF))
-#define setPref16(PREF,value)	writePref16(poff(PREF),(value),TOSTRING(PREF))
-
-
-//-----------------------
-// extern declarations
-//-----------------------
-// in memory prefs, const minimums and maximums
 
 extern prefs_t prefs;
 extern const prefs_t prefs_min;
@@ -172,26 +156,38 @@ extern void save_prefs();
 // offset based accessors
 // used by config system
 
-extern void 	writePref8(uint16_t off, uint8_t value, const char *name);
-extern uint8_t 	readPref8(uint16_t off, const char *name);
+#define pcast(m)			((uint32_t) &(m))
+#define poff(PREF)		((uint16_t) {pcast(prefs.PREF) - pcast(prefs)})
+// #define STRINGIFY(x) 		#x
+// #define TOSTRING(x) 		STRINGIFY(x)
 
-extern void 	writePref16(uint16_t off, uint16_t value, const char *name);
-extern uint16_t readPref16(uint16_t off, const char *name);
 
-extern uint8_t 	readPref8Min(uint16_t off);
-extern uint8_t 	readPref8Max(uint16_t off);
-extern uint16_t readPref16Min(uint16_t off);
-extern uint16_t readPref16Max(uint16_t off);
+#if 0
 
-// dirty change detection and restore
-// note that to restore all prefs, you merely call read_prefs()
+	// written but not used so far
 
-extern bool 	prefs_dirty();
-extern bool 	pref8_dirty(uint16_t off);
-extern bool 	pref16_dirty(uint16_t off);
-extern uint8_t 	pref8_restore(uint16_t off, const char *name);
-extern uint16_t pref16_restore(uint16_t off, const char *name);
+	extern void 	writePref8(uint16_t off, uint8_t value, const char *name = 0);
+	extern uint8_t 	readPref8(uint16_t off, const char *name = 0);
 
+	extern void 	writePref16(uint16_t off, uint16_t value, const char *name = 0);
+	extern uint16_t readPref16(uint16_t off, const char *name = 0);
+
+	extern uint8_t 	readPref8Min(uint16_t off);
+	extern uint8_t 	readPref8Max(uint16_t off);
+	extern uint16_t readPref16Min(uint16_t off);
+	extern uint16_t readPref16Max(uint16_t off);
+
+
+	// dirty change detection and restore
+	// note that to restore all prefs, you merely call read_prefs()
+
+	extern bool 	prefs_dirty();
+	extern bool 	pref8_dirty(uint16_t off);
+	extern bool 	pref16_dirty(uint16_t off);
+	extern uint8_t 	pref8_restore(uint16_t off, const char *name);
+	extern uint16_t pref16_restore(uint16_t off, const char *name);
+
+#endif	// 0
 
 
 // end of prefs.h

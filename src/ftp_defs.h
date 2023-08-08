@@ -1,6 +1,4 @@
-#ifndef _ftp_defs_h_
-#define _ftp_defs_h_
-
+#pragma once
 
 // "CC" vslues (psram1)
 
@@ -588,8 +586,3 @@ const uint8_t FTP_CODE_PATCH_NAME  = 0x43;  // a 25 byte informative packet with
 // called from loop().   That whole thing could be cleaned up to work with
 // a single queue of 32 bit words, and to decode and show the queued messages
 // separately for display.
-
-
-
-
-#endif // !_ftp_defs_h_

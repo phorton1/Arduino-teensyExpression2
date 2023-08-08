@@ -3,7 +3,8 @@
 #include "ftp_defs.h"
 #include "prefs.h"
 // #include "myMidiHost.h"
-#include "midiQueue.h"
+
+// #include "midiQueue.h"
 
 
 
@@ -352,7 +353,7 @@ int           ftp_init_state = 0;
 
 void initQueryFTP()
 {
-    if (!getPref8(PREF_FTP_PORT))
+    if (!prefs.FTP_ENABLE)
         return;
 
     uint32_t use_check_time = ftp_battery_level == -1 ?

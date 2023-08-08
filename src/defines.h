@@ -11,17 +11,16 @@
 #define NUM_BUTTON_ROWS     5
 
 #define NUM_PEDALS          4
+#define NUM_ROTARY          4
+
+#define NUM_MIDI_PORTS      8       // ports defined in midiQueue.h
+
 
 extern void mem_check(const char *where = 0);
 
 #if 0
     #define NEW_DESIGN          0
         // 2023-07-29 Redesigned Everything
-
-    #define NUM_PORTS           8       // ports defined in midiQueue.h
-
-
-    #define NUM_MIDI_PORTS      8
 
     #define THE_SYSTEM_BUTTON   4
 
@@ -36,8 +35,6 @@ extern void mem_check(const char *where = 0);
     #define PEDAL_GUITAR    3
 
     #define LOOPER_NUM_TRACKS_TIMES_LAYERS    (LOOPER_NUM_TRACKS * LOOPER_NUM_LAYERS)
-
-
 
     typedef struct
         // structure common to New and Old rig patches
@@ -119,46 +116,43 @@ extern void mem_check(const char *where = 0);
 // the insertion switch to ground them when not in use!
 
 
+#define PIN_BUTTON_OUT0     24
+#define PIN_BUTTON_OUT1     25
+#define PIN_BUTTON_OUT2     26
+#define PIN_BUTTON_OUT3     27
+#define PIN_BUTTON_OUT4     28
+#define PIN_BUTTON_IN0      29
+#define PIN_BUTTON_IN1      30
+#define PIN_BUTTON_IN2      31
+#define PIN_BUTTON_IN3      32
+#define PIN_BUTTON_IN4      33
 
+#define PIN_EXPR1    23  // A6
+#define PIN_EXPR2    22  // A7
+#define PIN_EXPR3    21  // A8
+#define PIN_EXPR4    20  // A9
 
-    #define PIN_BUTTON_OUT0         24
-    #define PIN_BUTTON_OUT1         25
-    #define PIN_BUTTON_OUT2         26
-    #define PIN_BUTTON_OUT3         27
-    #define PIN_BUTTON_OUT4         28
-    #define PIN_BUTTON_IN0          29
-    #define PIN_BUTTON_IN1          30
-    #define PIN_BUTTON_IN2          31
-    #define PIN_BUTTON_IN3          32
-    #define PIN_BUTTON_IN4          33
-
-#if 0
-
-    #if NEW_DESIGN
-        #define ROTARY_1A   2     // mashed up pin assignments
-        #define ROTARY_1B   3
-        #define ROTARY_2B   4
-        #define ROTARY_2A   6
-        #define ROTARY_3A   9    //  I suspect this is backwards due to Looper
-        #define ROTARY_3B   10
-        #define ROTARY_4B   11
-        #define ROTARY_4A   12
-    #else
-        #define ROTARY_1A   4     // mashed up pin assignments
-        #define ROTARY_1B   6
-        #define ROTARY_2A   2
-        #define ROTARY_2B   3
-        #define ROTARY_3A   10    // this one is wired differently than the others
-        #define ROTARY_3B   9
-        #define ROTARY_4A   11
-        #define ROTARY_4B   12
-    #endif
-
-    #define PIN_EXPR1    23  // A6
-    #define PIN_EXPR2    22  // A7
-    #define PIN_EXPR3    21  // A8
-    #define PIN_EXPR4    20  // A9
+#if NEW_DESIGN
+    #define ROTARY_1A   2     // mashed up pin assignments
+    #define ROTARY_1B   3
+    #define ROTARY_2B   4
+    #define ROTARY_2A   6
+    #define ROTARY_3A   9    //  I suspect this is backwards due to Looper
+    #define ROTARY_3B   10
+    #define ROTARY_4B   11
+    #define ROTARY_4A   12
+#else
+    #define ROTARY_1A   4     // mashed up pin assignments
+    #define ROTARY_1B   6
+    #define ROTARY_2A   2
+    #define ROTARY_2B   3
+    #define ROTARY_3A   10    // this one is wired differently than the others
+    #define ROTARY_3B   9
+    #define ROTARY_4A   11
+    #define ROTARY_4B   12
 #endif
+
+
 
 
 //-----------------------------------------
@@ -208,6 +202,47 @@ extern void mem_check(const char *where = 0);
 // #define XP  CHEAP_TFT_DATA1  // 13           // 9  maps to LCD_D1 on arduino    // can be a digital pin
 
 
+
+// ansi colors
+
+#define ansi_color_black 	            30
+#define ansi_color_red 	     	        31
+#define ansi_color_green 	            32
+#define ansi_color_brown 	 	        33
+#define ansi_color_blue 	            34
+#define ansi_color_magenta 	 	        35
+#define ansi_color_cyan 	            36
+#define ansi_color_light_grey 	        37
+
+#define ansi_color_grey  	            90
+#define ansi_color_light_red 	        91
+#define ansi_color_light_green 	        92
+#define ansi_color_yellow 		        93
+#define ansi_color_light_blue  	        94
+#define ansi_color_light_magenta        95
+#define ansi_color_light_cyan 	        96
+#define ansi_color_white  		        97
+
+#define ansi_color_bg_black 	        40
+#define ansi_color_bg_red 	     	    41
+#define ansi_color_bg_green 	        42
+#define ansi_color_bg_brown 	 	    43
+#define ansi_color_bg_blue 	            44
+#define ansi_color_bg_magenta 	 	    45
+#define ansi_color_bg_cyan 	            46
+#define ansi_color_bg_light_grey 	    47
+
+#define ansi_color_bg_grey  	        100
+#define ansi_color_bg_light_red 	    101
+#define ansi_color_bg_light_green 	    102
+#define ansi_color_bg_yellow 		    103
+#define ansi_color_bg_light_blue  	    104
+#define ansi_color_bg_light_magenta     105
+#define ansi_color_bg_light_cyan 	    106
+#define ansi_color_bg_white  		    107
+
+
+
 #if 0
     // common buttons
 
@@ -217,45 +252,9 @@ extern void mem_check(const char *where = 0);
     #define BUTTON_MOVE_DOWN        22
     #define BUTTON_SELECT           17
 
-
-    // ansi colors
-
-    #define ansi_color_black 	            30
-    #define ansi_color_red 	     	        31
-    #define ansi_color_green 	            32
-    #define ansi_color_brown 	 	        33
-    #define ansi_color_blue 	            34
-    #define ansi_color_magenta 	 	        35
-    #define ansi_color_cyan 	            36
-    #define ansi_color_light_grey 	        37
-
-    #define ansi_color_grey  	            90
-    #define ansi_color_light_red 	        91
-    #define ansi_color_light_green 	        92
-    #define ansi_color_yellow 		        93
-    #define ansi_color_light_blue  	        94
-    #define ansi_color_light_magenta        95
-    #define ansi_color_light_cyan 	        96
-    #define ansi_color_white  		        97
-
-    #define ansi_color_bg_black 	        40
-    #define ansi_color_bg_red 	     	    41
-    #define ansi_color_bg_green 	        42
-    #define ansi_color_bg_brown 	 	    43
-    #define ansi_color_bg_blue 	            44
-    #define ansi_color_bg_magenta 	 	    45
-    #define ansi_color_bg_cyan 	            46
-    #define ansi_color_bg_light_grey 	    47
-
-    #define ansi_color_bg_grey  	        100
-    #define ansi_color_bg_light_red 	    101
-    #define ansi_color_bg_light_green 	    102
-    #define ansi_color_bg_yellow 		    103
-    #define ansi_color_bg_light_blue  	    104
-    #define ansi_color_bg_light_magenta     105
-    #define ansi_color_bg_light_cyan 	    106
-    #define ansi_color_bg_white  		    107
 #endif
+
+
 
 
 

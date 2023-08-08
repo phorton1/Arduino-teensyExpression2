@@ -1,5 +1,4 @@
-#ifndef __ftp_h__
-#define __ftp_h__
+#pragma once
 
 #include <Arduino.h>
 
@@ -108,6 +107,3 @@ void initQueryFTP();
     // of the EEPROM based settings.
     //
     // After that this method does nothing.
-
-
-#endif  // !__ftp_h__

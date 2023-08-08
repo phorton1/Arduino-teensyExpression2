@@ -34,9 +34,9 @@ void setup()
 
     // things I might want to do:
     //
-    // reset_prefs();
-    // setPref8(DEBUG_DEVICE,DEBUG_DEVICE_USB);
-    // save_prefs();
+    reset_prefs();
+    prefs.DEBUG_DEVICE = DEBUG_DEVICE_USB;
+    save_prefs();
 
     //-------------------------------------
     // Start the serial portS
@@ -54,7 +54,7 @@ void setup()
 
     // set the debug output to Serial3, or possibly nothing
 
-    uint8_t debug_device = getPref(DEBUG_DEVICE);
+    uint8_t debug_device = prefs.DEBUG_DEVICE;
     if (debug_device == DEBUG_DEVICE_SERIAL)
     {
         dbgSerial = &Serial3;
@@ -91,6 +91,12 @@ void setup()
         // mem used       9596
         // heap_used      0
         // free           252475
+        // stack_used     73
+        //
+        // added midiQueue, buttons, pedals, and rotaries
+        // mem used       55216
+        // heap_used      0
+        // free           206855
         // stack_used     73
 
     display(0,"teensyExpression.ino " TEENSY_EXPRESSION_VERSION " setup() started",0);
@@ -145,7 +151,7 @@ void setup()
 
     clearLEDs();
     showLEDs();
-    setLEDBrightness(getPref(BRIGHTNESS));
+    setLEDBrightness(prefs.BRIGHTNESS);
     LEDFancyStart();
 
     // delay before clearing LEDs and screen
@@ -181,6 +187,13 @@ void setup()
         // mem used       9596
         // heap_used      2692      less?
         // free           249783    more?
+        // stack_used     73
+        //
+        // added midiQueue, buttons, pedals, and rotaries
+        //
+        // mem used       55216     way more
+        // heap_used      2128      less again!
+        // free           204727    lost a lot
         // stack_used     73
 
 }   // setup()

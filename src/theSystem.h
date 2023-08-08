@@ -8,6 +8,12 @@
 #include "defines.h"
 #include <Arduino.h>        // for intevalTimer
 
+
+#define MIDI_ACTIVITY_INLINE  1
+
+
+
+
 #if 0
 
 #define MAX_EXP_RIGS        10
@@ -69,8 +75,6 @@ class aWindow
             // don't generally need to worry about buttons and LEDs,
             // but may want to unregister midi event handlers, etc
 
-        virtual bool onRotaryEvent(int num, int val)  { return false; }
-        // virtual bool onPedalEvent(int num, int val)   { return false; }
         virtual void onButtonEvent(int row, int col, int event) {}
         virtual void onSerialMidiEvent(int cc_num, int value) {}
 
@@ -90,8 +94,6 @@ class aWindow
 
 
 
-#define MIDI_ACTIVITY_INLINE  1
-
 #endif  // 0
 
 
@@ -105,6 +107,14 @@ class aSystem
         void begin();
         void loop();
 
+        void buttonEvent(int row, int col, int event);
+
+        #if MIDI_ACTIVITY_INLINE
+            inline void midiActivity(int port_num) { m_midi_activity[port_num]=millis(); }
+        #else
+            void midiActivity(int port_num);
+        #endif
+
 #if 0
 
         void activateRig(int i);
@@ -114,13 +124,6 @@ class aSystem
         int getPrevRigNum()      { return m_prev_rig_num; }
         aWindow *getCurRig()   { return m_rigs[m_cur_rig_num]; }
 
-        // void pedalEvent(int num, int val);
-        void rotaryEvent(int num, int val);
-#endif  // 0
-
-        void buttonEvent(int row, int col, int event);
-
-#if 0
         void setTitle(const char *title);
 
         void startModal(aWindow *win);
@@ -128,30 +131,26 @@ class aSystem
         void endModal(aWindow *win, uint32_t param);
         aWindow *getTopModalWindow();
 
-        #if MIDI_ACTIVITY_INLINE
-            inline void midiActivity(int port_num) { midi_activity[port_num]=millis(); }
-        #else
-            void midiActivity(int port_num);
-        #endif
-
         int getTempo()      { return m_tempo; }
 #endif
 
     private:
 
+        IntervalTimer m_timer;
+        static void timer_handler();
+
+        unsigned m_midi_activity[NUM_MIDI_PORTS];
+        bool m_last_midi_activity[NUM_MIDI_PORTS];
+
 #if 0
+
         void addRig(aWindow *pRig);
         void startWindow(aWindow *win, bool warm);
         void handleSerialData();
-#endif
 
-        static void timer_handler();
         static void critical_timer_handler();
-
-        IntervalTimer m_timer;
         IntervalTimer m_critical_timer;
 
-#if 0
         int m_num_rigs;
         int m_cur_rig_num;
         int m_prev_rig_num;
@@ -167,8 +166,6 @@ class aSystem
         const char *m_title;
         int last_battery_level;
 
-        unsigned midi_activity[NUM_PORTS];
-        bool last_midi_activity[NUM_PORTS];
 
         int m_tempo;
 #endif

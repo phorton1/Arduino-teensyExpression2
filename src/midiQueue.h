@@ -1,7 +1,4 @@
-#ifndef _midiQueue_h_
-#define _midiQueue_h_
-
-#include "defines.h"
+#pragma once
 
 // ORIGINAL MESSAGES
 //
@@ -46,31 +43,35 @@
 
 
 #define PORT_MASK           0xF0
-#define PORT_MASK_HOST      0x40
+// #define PORT_MASK_HOST      0x40
 #define PORT_MASK_OUTPUT    0x20
 #define PORT_MASK_CABLE     0x10
 #define PORT_MASK_PERFORM   0x80
 
-#define PORT_INDEX_MASK             0x7
+#define PORT_INDEX_MASK             0x3   // 0x7
 #define PORT_INDEX_DUINO_INPUT0     0x0   // input from teensyDuino on cable 0
 #define PORT_INDEX_DUINO_INPUT1     0x1   // input from teensyDuino on cable 1
 #define PORT_INDEX_DUINO_OUTPUT0    0x2   // output to teensyDuino on cable 0
 #define PORT_INDEX_DUINO_OUTPUT1    0x3   // output to teensyDuino on cable 1
-#define PORT_INDEX_HOST_INPUT0      0x4   // input from midi host on cable 0
-#define PORT_INDEX_HOST_INPUT1      0x5   // input from midi host on cable 1
-#define PORT_INDEX_HOST_OUTPUT0     0x6   // output to host on cable 0
-#define PORT_INDEX_HOST_OUTPUT1     0x7   // output to host on cable 1
+// #define PORT_INDEX_HOST_INPUT0      0x4   // input from midi host on cable 0
+// #define PORT_INDEX_HOST_INPUT1      0x5   // input from midi host on cable 1
+// #define PORT_INDEX_HOST_OUTPUT0     0x6   // output to host on cable 0
+// #define PORT_INDEX_HOST_OUTPUT1     0x7   // output to host on cable 1
 
-#define INDEX_MASK_HOST     0x04
+// #define INDEX_MASK_HOST     0x04
 #define INDEX_MASK_OUTPUT   0x02
 #define INDEX_MASK_CABLE    0x01
 
-#define INDEX_IS_HOST(i)       (i & INDEX_MASK_HOST)
+// #define INDEX_IS_HOST(i)       (i & INDEX_MASK_HOST)
 #define INDEX_IS_OUTPUT(i)     (i & INDEX_MASK_OUTPUT)
 #define INDEX_CABLE(i)         (i & INDEX_MASK_CABLE)
 
 #define PORT_OF_MSG(i)       ((i>>4) & PORT_MASK))
 
+
+#define FTP_OUTPUT_PORT    (prefs.FTP_ENABLE ? PORT_INDEX_DUINO_OUTPUT0 : 0)
+    // return the non-zero output port to use for the FTP
+    // if the FTP_ENABLE preference is turned on, zero otherwise.
 
 
 class msgUnion
@@ -86,7 +87,7 @@ class msgUnion
         void    setPort(uint8_t p)  { i |= p; }
         uint8_t getPort()           { return i & PORT_MASK; }
 
-        bool    isHost()            { return i & PORT_MASK_HOST; }
+        // bool    isHost()            { return i & PORT_MASK_HOST; }
         bool    isOutput()          { return i & PORT_MASK_OUTPUT; }
         bool    isCable1()          { return i & PORT_MASK_CABLE; }
 
@@ -124,11 +125,10 @@ extern bool showPerformanceCCs;
 
 
 extern void enqueueProcess(uint32_t msg);
-    // called by myMidiHost::rx_data for messages from host and
-    // expSystem::critical_timer_handler() for messages from device
+    // called by theSystem::timer_handler() for messages from device
 
 extern void dequeueProcess();
-    // called by expSystem::timer_handler() or updateUI()
+    // called by theSystem::timer_handler() or updateUI()
     // this method is currently doing all the work
     // and the return value is ignored, there are
     // no messages eneuqued for display
@@ -231,7 +231,3 @@ extern void sendSerialControlChange(uint8_t cc_num, uint8_t value, const char *d
 //  I have not even really conclusively determined if any of these things have any effect in Basic Mode
 //  or hardware mode, or if the Controller is just a complicated memory device ... though the "poly mode"
 //  setting in the selected patch (bank) DOES have an effect on the output.
-
-
-
-#endif // !_midiQueue_h_

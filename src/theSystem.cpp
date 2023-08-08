@@ -5,51 +5,26 @@
 #include "myTFT.h"
 #include "myLeds.h"
 #include "buttons.h"
-
-#define dbg_sys   0
+#include "pedals.h"
+#include "rotary.h"
+#include "midiQueue.h"
 
 #if 0
 
-#include "pedals.h"
-#include "rotary.h"
 #include "ftp.h"
 #include "ftp_defs.h"
-#include "myMidiHost.h"
-#include "midiQueue.h"
+
 #include "fileSystem.h"
 #include "configSystem.h"
-
 #include "rigLooper.h"
 #include "rigTest.h"
 #include "rigMidiHost.h"
-
-
-
-	// 1 still shows midi messages
-	// 0 shows Serial3 issues
-
-#define GET_TEMPO_FROM_CLOCK           	0
-#define BATTERY_CHECK_TIME  			30000
-#define MIDI_ACTIVITY_TIMEOUT 			90
-
-
-//-------------------------------------
-// critical timer loop
-//-------------------------------------
-// The critical_timer_handler() was ONLY used to dequeue DEVICE
-// (teensyDuino) usb midi events and send them as rapidly as
-// possible to the Hosted device and enqueue them for further
-// processing in the normal processing loop.
-//
-// I am going to try to re-do it with only one 3ms timer loop.
-
-#define EXP_CRITICAL_TIMER_INTERVAL 1000
-#define EXP_CRITICAL_TIMER_PRIORITY  192
-    // Available priorities:
-    // Cortex-M4: 0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240
-    // Cortex-M0: 0,64,128,192
-
 #endif // 0
+
+
+#define dbg_sys   0
+
+#define MIDI_ACTIVITY_TIMEOUT 			90
 
 
 //----------------------------------
@@ -84,7 +59,36 @@
 
 aSystem theSystem;
 
+
+
+
 #if 0
+
+
+
+	// 1 still shows midi messages
+	// 0 shows Serial3 issues
+
+#define GET_TEMPO_FROM_CLOCK           	0
+#define BATTERY_CHECK_TIME  			30000
+
+
+//-------------------------------------
+// critical timer loop
+//-------------------------------------
+// The critical_timer_handler() was ONLY used to dequeue DEVICE
+// (teensyDuino) usb midi events and send them as rapidly as
+// possible to the Hosted device and enqueue them for further
+// processing in the normal processing loop.
+//
+// I am going to try to re-do it with only one 3ms timer loop.
+
+#define EXP_CRITICAL_TIMER_INTERVAL 1000
+#define EXP_CRITICAL_TIMER_PRIORITY  192
+    // Available priorities:
+    // Cortex-M4: 0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240
+    // Cortex-M0: 0,64,128,192
+
 
 const char *rig_names[MAX_EXP_RIGS];
 
@@ -196,6 +200,13 @@ void aSystem::begin()
 {
 	display(dbg_sys,"aSystem::begin()",0);
 
+	for (int i=0; i<NUM_MIDI_PORTS; i++)
+	{
+		m_midi_activity[i] = millis();
+		m_last_midi_activity[i] = 0;
+	}
+
+
 #if 0
     addRig(new configSystem());
     addRig(new rigLooper());
@@ -216,11 +227,6 @@ void aSystem::begin()
 		client_rect.xe,
 		client_rect.ye);
 
-	for (int i=0; i<NUM_PORTS; i++)
-	{
-		midi_activity[i] = millis();
-		last_midi_activity[i] = 0;
-	}
 	for (int i=0; i<m_num_rigs; i++)
 		rig_names[i] = m_rigs[i]->short_name();
 
@@ -229,15 +235,18 @@ void aSystem::begin()
 
 #endif // 0
 
-    theButtons.init();
 
-#if 0
+
+
+    theButtons.init();
 	thePedals.init();
 	initRotary();
 
-    // set the brightness from prefs
 
-    setLEDBrightness(getPref8(PREF_BRIGHTNESS));
+
+
+
+#if 0
 
     // get rig_num from prefs and activate it
 
@@ -420,23 +429,11 @@ void aSystem::endModal(aWindow *win, uint32_t param)
 		delete win;
 }
 
-
+#endif // 0
 
 //-----------------------------------------
 // events
 //-----------------------------------------
-// Pedal behavior is orchestrated in pedals.cpp
-
-void aSystem::rotaryEvent(int num, int value)
-{
-	if (m_num_modals)
-		getTopModalWindow()->onRotaryEvent(num,value);
-	else
-		getCurRig()->onRotaryEvent(num,value);
-}
-
-#endif // 0
-
 
 void aSystem::buttonEvent(int row, int col, int event)
 {
@@ -535,7 +532,7 @@ void aSystem::critical_timer_handler()
         // enqueue it for processing (display from device)
 		// if we are monitoring the input port, or it is the remote FTP
 
-		if (getPref8(PREF_MONITOR_PORT0 + pindex) || (  		// if monitoring the port, OR
+		if (prefs.MONITOR_PORT[pindex) || (  		// if monitoring the port, OR
 			(getPref8(PREF_FTP_PORT) == FTP_PORT_REMOTE) &&     // if this is the PREF_FTP_PORT==2==Remote, AND
 			INDEX_CABLE(pindex)))                       		// cable=1
 		{
@@ -553,17 +550,39 @@ void aSystem::timer_handler()
 {
 	// basics
 
-    theButtons.run();
-
-#if 0
+    theButtons.task();
 	thePedals.task();
 	pollRotary();
+
+#if 0
+
 
 	// check Serial3 for incoming midi or file commands
 
 	theSystem.handleSerialData();
 #endif
 
+	// get and enque midi messages
+	// moved from old critical_timer_handler()
+
+	uint32_t msg = usb_midi_read_message();  // read from device
+
+    if (msg)
+    {
+		int pindex = (msg >> 4) & PORT_INDEX_MASK;
+		theSystem.midiActivity(pindex);
+			// the message comes in on port index 0 or 1
+			// PORT_INDEX_DUINO_INPUT0 or PORT_INDEX_DUINO_INPUT1
+
+        // enqueue it for processing (display from device)
+		// if we are monitoring the input port, or it is the remote FTP
+
+		if (prefs.MONITOR_PORT[pindex] || (  			// if monitoring the port, OR
+			prefs.FTP_ENABLE && INDEX_CABLE(pindex)))	// FTP enabled and cabler == 1
+		{
+	        enqueueProcess(msg);
+		}
+    }
 
     // process incoming and outgoing midi events
 
@@ -868,7 +887,7 @@ void aSystem::loop()
 		// midi indicator frames
 
         mylcd.Set_Draw_color(TFT_WHITE);
-		for (int i=0; i<NUM_PORTS; i++)
+		for (int i=0; i<NUM_MIDI_PORTS; i++)
 		{
 			mylcd.Fill_Circle(
 				INDICATOR_X + (i/2)*INDICATOR_PAIR_SPACING + (i&1)*INDICATOR_SPACING,
@@ -944,7 +963,7 @@ void aSystem::loop()
 	// to by cable-output:         Di0,Do0, Di1,Do1,  Hi0,Ho0, Hi1,Ho1
 
 	unsigned now = millis();
-	for (int cable_pair=0; cable_pair<NUM_PORTS/2; cable_pair++)
+	for (int cable_pair=0; cable_pair<NUM_MIDI_PORTS/2; cable_pair++)
 	{
 		for (int out=0; out<2; out++)
 		{
@@ -955,12 +974,12 @@ void aSystem::loop()
 			int i = ((cable_pair<<1)&INDEX_MASK_HOST) + (out*INDEX_MASK_OUTPUT) + (cable_pair&1);
 
 			bool midi_on =
-				now > midi_activity[i] &&
-				now < midi_activity[i] + MIDI_ACTIVITY_TIMEOUT;
+				now > m_midi_activity[i] &&
+				now < m_midi_activity[i] + MIDI_ACTIVITY_TIMEOUT;
 
-			if (draw_title_frame ||  midi_on != last_midi_activity[i])
+			if (draw_title_frame ||  midi_on != m_last_midi_activity[i])
 			{
-				last_midi_activity[i] = midi_on;
+				lm_ast_midi_activity[i] = midi_on;
 				int color = midi_on ?
 					out ? TFT_RED : TFT_GREEN :
 					0;
@@ -1007,13 +1026,10 @@ void aSystem::loop()
 
 
 
-#if 0
 #if !MIDI_ACTIVITY_INLINE
 	void aSystem::midiActivity(int port_num)
 	{
-		midi_activity[port_num] = millis();
+		m_midi_activity[port_num] = millis();
 		display(dbg_sys,"midiActivity(%d)",port_num);
 	}
 #endif
-#endif // 0
-
