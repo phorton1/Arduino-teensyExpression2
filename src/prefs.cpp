@@ -12,12 +12,14 @@
 
 #define NUM_EEPROM_USED	(sizeof(prefs_t))
 
+prefs_t prefs;
+	// in memory prefs
 prefs_t last_prefs;
 	// a copy of the prefs for change detectioni
 
 
 //----------------------------------------------------
-// IN_MEMORY_PREFS
+// DEFAULT PREFS
 //----------------------------------------------------
 // are statically initialized with the default values
 
@@ -25,8 +27,6 @@ prefs_t last_prefs;
 #define PP_HALF			(PP_MAX / 2)
 #define PP_ONE			(PP_MAX / 3)
 #define PP_TWO			(2 * PP_MAX / 3)
-
-prefs_t prefs;
 
 
 const prefs_t default_prefs =

@@ -215,15 +215,15 @@ void pedalManager::pedalEvent(int num, int value)
     if (pedal_pref->IS_SERIAL)
     {
         sendSerialControlChange(
-            pedal_pref->MIDI_CC,  // LOOP_CONTROL_BASE_CC + RPI_CONTROL_LOOP_VOLUME,
+            pedal_pref->MIDI_CC,
             value,
             "pedals.cpp");
     }
     else
     {
         mySendDeviceControlChange(
-            pedal_pref->MIDI_CHANNEL, // pedal->getCCNum(),
+            pedal_pref->MIDI_CC,
             value,
-            pedal_pref->MIDI_CC); // pedal->getCCChannel());
+            pedal_pref->MIDI_CHANNEL);
 	}
 }
