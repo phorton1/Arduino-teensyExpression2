@@ -24,58 +24,7 @@
 #include "src/myTFT.h"
 #include "src/prefs.h"
 #include "src/myLeds.h"
-
-extern char _sbss;          // start of bss segment
-extern char __bss_end;      // end of bss
-extern char* __brkval;      // end (top) of heape
-extern char _estack;        // start (top) of stack
-
-void print_one(bool hex, const char *name, uint32_t loc)
-{
-    int blanks = 15 - strlen(name);
-    Serial.print(name);
-    while (blanks > 0)
-    {
-        Serial.print(" ");
-        blanks--;
-    }
-    if (hex)
-    {
-        Serial.print("0x");
-        Serial.println(loc,HEX);
-    }
-    else
-    {
-        Serial.println(loc);
-    }
-}
-
-void mem_map(const char *where)
-{
-    char tos;
-    /*
-    print_one(1,"ram_start",0x1fff0000);
-    print_one(1,"bss_start",(uint32_t) &_sbss);
-    print_one(1,"heap_start",(uint32_t) &__bss_end);
-    print_one(1,"heap_end",(uint32_t) __brkval);
-    print_one(1,"stack_start",(uint32_t) &tos);
-    print_one(1,"stack_end",(uint32_t) &_estack);
-    Serial.println();
-    */
-    Serial.println();
-    Serial.println(where);
-
-    print_one(0,"mem used",((uint32_t) &__bss_end) - 0x1fff0000);
-    print_one(0,"heap_used",((uint32_t) __brkval) - ((uint32_t) &__bss_end) );
-    print_one(0,"free",((uint32_t) &tos) - ((uint32_t) __brkval) );
-    print_one(0,"stack_used",((uint32_t) &_estack) - ((uint32_t) &tos) );
-}
-
-// bare bones program
-// mem used       6752
-// heap_used      0
-// free           255351
-// stack_used     41
+#include "src/theSystem.h"
 
 
 
@@ -125,12 +74,24 @@ void setup()
     // output the initial message
 
     delay(400);
-    // mem_map("early in setup()");
+    mem_check("early in setup()");
         // at start of day 2023-08-05
         // mem used       8604
         // heap_used      0
         // free           253459
         // stack_used     81
+        //
+        // with buttons:
+        // mem used       9564
+        // heap_used      0
+        // free           252499
+        // stack_used     81
+        //
+        // with bare bones system
+        // mem used       9596
+        // heap_used      0
+        // free           252475
+        // stack_used     73
 
     display(0,"teensyExpression.ino " TEENSY_EXPRESSION_VERSION " setup() started",0);
 
@@ -199,19 +160,28 @@ void setup()
     // start the system
     //-----------------------------------
 
-    #if 0
-        display(0,"initializing system ...",0);
-        theSystem.begin();
-    #endif
+    display(0,"initializing system ...",0);
+    theSystem.begin();
 
     display(0,"teensyExpression.ino setup() completed.",0);
-
-    // mem_map("at end of setup()");
+    mem_check("at end of setup()");
         // at start of day 2023-08-05
         // mem used       8604
         // heap_used      3684
         // free           249775
         // stack_used     81
+        //
+        // with buttons
+        // mem used       9564
+        // heap_used      2724      less??
+        // free           249775    same!!
+        // stack_used     81
+        //
+        // with bare bones system
+        // mem used       9596
+        // heap_used      2692      less?
+        // free           249783    more?
+        // stack_used     73
 
 }   // setup()
 
@@ -224,4 +194,5 @@ void setup()
 
 void loop()
 {
+    theSystem.loop();
 }

@@ -1,5 +1,9 @@
-#pragma once
+//-----------------------------------------------
+// defines.h
+//-----------------------------------------------
+// highest level H file in teensyExpression
 
+#pragma once
 
 #define TEENSY_EXPRESSION_VERSION  "v2.0"
 
@@ -8,6 +12,7 @@
 
 #define NUM_PEDALS          4
 
+extern void mem_check(const char *where = 0);
 
 #if 0
     #define NEW_DESIGN          0
@@ -114,7 +119,7 @@
 // the insertion switch to ground them when not in use!
 
 
-#if 0
+
 
     #define PIN_BUTTON_OUT0         24
     #define PIN_BUTTON_OUT1         25
@@ -126,6 +131,8 @@
     #define PIN_BUTTON_IN2          31
     #define PIN_BUTTON_IN3          32
     #define PIN_BUTTON_IN4          33
+
+#if 0
 
     #if NEW_DESIGN
         #define ROTARY_1A   2     // mashed up pin assignments
