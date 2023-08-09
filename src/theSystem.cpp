@@ -10,8 +10,11 @@
 #include "midiQueue.h"
 #include "ftp.h"
 
-#if 0
 
+#include "rigParser.h"
+
+
+#if 0
 
 #include "ftp_defs.h"
 
@@ -187,6 +190,13 @@ void aSystem::begin()
     m_timer.priority(EXP_TIMER_PRIORITY);
     m_timer.begin(timer_handler,EXP_TIMER_INTERVAL);
 
+    theButtons.setButtonType(4, BUTTON_EVENT_CLICK, LED_BLACK, LED_BLACK, LED_BLACK, LED_PURPLE );
+        // int num,
+        // int mask,
+        // int default_color=-1,
+        // int selected_color=-1,
+        // int touch_color=-1,
+        // int pressed_color=-1);
 
 #if 0
     addRig(new configSystem());
@@ -392,6 +402,10 @@ void aSystem::endModal(aWindow *win, uint32_t param)
 
 void aSystem::buttonEvent(int row, int col, int event)
 {
+	int num = row * NUM_BUTTON_COLS + col;
+	if (num == 4)
+		parseRig();
+
 #if 0
 	int num = row * NUM_BUTTON_COLS + col;
 
@@ -657,7 +671,7 @@ void aSystem::handleSerialData()
 void aSystem::loop()
 	//  called from Arduino loop()
 {
-	initQueryFTP();
+	// initQueryFTP();
 		// query the FTP battery level on a timer
 
 #if 0
@@ -707,8 +721,6 @@ void aSystem::loop()
 					false,
 					"%s",
 					prefs.PEDAL[i].NAME);
-
-				display(0,"name=%s",prefs.PEDAL[i].NAME);
 
 				if (i && i<NUM_PEDALS)
 					mylcd.Draw_Line(

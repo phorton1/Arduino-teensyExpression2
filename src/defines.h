@@ -9,6 +9,7 @@
 
 #define NUM_BUTTON_COLS     5
 #define NUM_BUTTON_ROWS     5
+#define NUM_BUTTONS         (NUM_BUTTON_COLS * NUM_BUTTON_ROWS)
 
 #define NUM_PEDALS          4
 #define NUM_ROTARY          4
@@ -24,7 +25,6 @@ extern void mem_check(const char *where = 0);
 
     #define THE_SYSTEM_BUTTON   4
 
-    #define NUM_BUTTONS        (NUM_BUTTON_COLS * NUM_BUTTON_ROWS)
     #define BUTTON_NUM(r,c)    ((r) * NUM_BUTTON_COLS + (c))
     #define BUTTON_ROW(i)      ((i) / NUM_BUTTON_COLS)
     #define BUTTON_COL(i)      ((i) % NUM_BUTTON_COLS)

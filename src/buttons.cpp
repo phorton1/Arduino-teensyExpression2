@@ -51,7 +51,7 @@ arrayedButton::arrayedButton()
 
 void arrayedButton::initDefaults()
 {
-    m_event_mask = BUTTON_EVENT_CLICK | BUTTON_MASK_TOGGLE;	// 0;
+    m_event_mask = 0;	// BUTTON_EVENT_CLICK | BUTTON_MASK_TOGGLE;	// 0;
 
     m_press_time = 0;
     m_debounce_time = 0;

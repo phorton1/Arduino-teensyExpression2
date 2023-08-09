@@ -115,6 +115,56 @@ void setup()
     mylcd.print(TEENSY_EXPRESSION_VERSION);
     mylcd.println(" started ... ");
 
+    #if 0       // test all font sizes
+        // Before calling all the fonts
+        //
+        // Sketch uses 184860 bytes (17%) of program storage space. Maximum is 1048576 bytes.
+        // Global variables use 137280 bytes (52%) of dynamic memory, leaving 124864 bytes for local variables. Maximum is 262144 bytes.
+        //
+        // After calling all fonts:
+        //
+        // Sketch uses 221876 bytes (21%) of program storage space. Maximum is 1048576 bytes.
+        // Global variables use 137280 bytes (52%) of dynamic memory, leaving 124864 bytes for local variables. Maximum is 262144 bytes.
+        //
+        // Fonts don't take too much room
+
+        const ILI9341_t3_font_t *test_fonts[20] =
+        {
+            &Arial_12,
+            &Arial_12_Bold,
+            &Arial_14,
+            &Arial_14_Bold,
+            &Arial_16,
+            &Arial_16_Bold,
+            &Arial_18,
+            &Arial_18_Bold,
+            &Arial_20,
+            &Arial_20_Bold,
+            &Arial_24,
+            &Arial_24_Bold,
+            &Arial_28,
+            &Arial_28_Bold,
+            &Arial_32,
+            &Arial_32_Bold,
+            &Arial_40,
+            &Arial_40_Bold,
+            &Arial_48,
+            &Arial_48_Bold,
+        };
+
+        for (int i=0; i<20; i++)
+        {
+            mylcd.Fill_Screen(TFT_BLACK);
+            mylcd.setFont(*test_fonts[i]);
+            mylcd.Set_Text_Cursor(5,5);
+            mylcd.print("teensyExpression ");
+            mylcd.print(TEENSY_EXPRESSION_VERSION);
+            mylcd.println(" started ... ");
+            delay(500);
+        }
+    #endif  // test all fonts
+
+
     // write critical debugging messages to screen
     // with variable delays
 
