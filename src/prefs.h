@@ -27,9 +27,9 @@
 
 // Pref Constants
 
-#define DEBUG_DEVICE_OFF		0
-#define DEBUG_DEVICE_USB		1
-#define DEBUG_DEVICE_SERIAL		2
+#define OUTPUT_DEVICE_OFF			0
+#define OUTPUT_DEVICE_USB			1
+#define OUTPUT_DEVICE_SERIAL		2
 
 // Pref Names
 

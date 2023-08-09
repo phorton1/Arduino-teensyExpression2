@@ -96,60 +96,100 @@
 // Tokens
 //-------------------------------------------------
 
-#define RIG_TOKEN_BASE_RIG		"BaseRig"
-#define RIG_TOKEN_OVERLAY		"Overlay"
+#define RIG_ID_EOF					0
 
-#define RIG_TOKEN_LISTEN		"LISTEN"
-#define RIG_TOKEN_STRING		"STRING"
+#define RIG_ID_BASE_RIG				1	// "BaseRig"	// identifier range start
+#define RIG_ID_OVERLAY				2	// "Overlay"
 
-#define RIG_TOKEN_LED			"LED"
-#define RIG_TOKEN_COLOR			"color"
-#define RIG_TOKEN_BLINK			"blink"
+#define RIG_ID_AREA					3	// "AREA"
+#define RIG_ID_LISTEN				4	// "LISTEN"
+#define RIG_ID_STRING				5	// "STRING"
 
-#define RIG_TOKEN_BUTTON		"BUTTON"
-#define RIG_TOKEN_PRESS			"press"
-#define RIG_TOKEN_CLICK			"click"
-#define RIG_TOKEN_LONG			"long"
-#define RIG_TOKEN_RELEASE		"release"
-#define RIG_TOKEN_REPEAT		"repeat"
+#define RIG_ID_LED					6	// "LED"
+#define RIG_ID_COLOR				7	// "color"
+#define RIG_ID_BLINK				8	// "blink"
 
-#define RIG_TOKEN_VALUE			"VALUE"
-#define RIG_TOKEN_NOT			"NOT"
+#define RIG_ID_BUTTON				9	// "BUTTON"
+#define RIG_ID_PRESS				10	// "press"
+#define RIG_ID_CLICK				11	// "click"
+#define RIG_ID_LONG					12	// "long"
+#define RIG_ID_RELEASE				13	// "release"
+#define RIG_ID_REPEAT				14	// "repeat"
 
-#define RIG_TOKEN_LEFT_PAREN	"("
-#define RIG_TOKEN_RIGHT_PAREN	")"
-#define RIG_TOKEN_COLON			":"
-#define RIG_TOKEN_COMMA			","
-#define RIG_TOKEN_SEMICOLON		";"
+#define RIG_ID_VALUE				15	// "VALUE"
+#define RIG_ID_NOT					16	// "NOT"
 
-#define RIG_TOKEN_QUOTE			"\""
+// Statements
 
-#define RIG_TOKEN_ASSIGN		"="
-#define RIG_TOKEN_PLUS			"+"
-#define RIG_TOKEN_TIMES			"*"
-#define RIG_TOKEN_BITWISE_OR	"|"
-#define RIG_TOKEN_BITWISE_AND	"&"
-#define RIG_TOKEN_LOGICAL_OR	"||"
-#define RIG_TOKEN_LOGICAL_AND	"&&"
-#define RIG_TOKEN_EQUALS		"=="
-#define RIG_TOKEN_QUESTION_MARK "?"
+#define RIG_ID_DISPLAY 				17	// "display"			// statement range start
+#define RIG_ID_SEND_CC 				18	// "sendCC"
+#define RIG_ID_SEND_PGM_CHG			19	// "sendPgmChg"
+#define RIG_ID_NOTE_ON				20	// "noteOn"
+#define RIG_ID_NOTE_OFF				21	// "noteOff"
+#define RIG_ID_ALL_NOTES_OFF		22	// "allNotesOff"		// statement range end
 
-// following TOKEN types are generic and depend on their token values for resolution
+#define RIG_ID_FTP_TUNER			23	// "ftpTuner"			// button_statement range start
+#define RIG_ID_FTP_SENSITIVITY		24	// "ftpSensitivity"		// button_state range end
 
-#define RIG_TOKEN_NUMBER			"number"
-#define RIG_TOKEN_LED_COLOR			"LED_COLOR"
-#define RIG_TOKEN_DISPLAY_COLOR		"DISPLAY_COLOR"
+// LED COLORS
 
-// statement Tokens
+#define RIG_ID_LED_BLACK  			25	// led_color range start
+#define RIG_ID_LED_RED    			26
+#define RIG_ID_LED_GREEN  			27
+#define RIG_ID_LED_BLUE   			28
+#define RIG_ID_LED_YELLOW 			29
+#define RIG_ID_LED_PURPLE 			30
+#define RIG_ID_LED_ORANGE 			31
+#define RIG_ID_LED_WHITE  			32
+#define RIG_ID_LED_CYAN   			33	// led_color_range end
 
-#define RIG_TOKEN_DISPLAY 				"display"
-#define RIG_TOKEN_SEND_CC 				"sendCC"
-#define RIG_TOKEN_SEND_PGM_CHG			"sendPgmChg"
-#define RIG_TOKEN_NOTE_ON				"noteOn"
-#define RIG_TOKEN_NOTE_OFF				"noteOff"
-#define RIG_TOKEN_ALL_NOTES_OFF			"allNotesOff"
-#define RIG_TOKEN_FTP_TUNER				"ftpTuner"
-#define RIG_TOKEN_FTP_SENSITIVITY		"ftpSensitivity"
+// DISPLAY COLORS
 
+#define RIG_ID_DISPLAY_BLACK        34	// display_color range start
+#define RIG_ID_DISPLAY_BLUE         35
+#define RIG_ID_DISPLAY_RED          36
+#define RIG_ID_DISPLAY_GREEN        37
+#define RIG_ID_DISPLAY_CYAN         38
+#define RIG_ID_DISPLAY_MAGENTA      39
+#define RIG_ID_DISPLAY_YELLOW       40
+#define RIG_ID_DISPLAY_WHITE        41
+#define RIG_ID_DISPLAY_NAVY         42
+#define RIG_ID_DISPLAY_DARKGREEN    43
+#define RIG_ID_DISPLAY_DARKCYAN     44
+#define RIG_ID_DISPLAY_MAROON       45
+#define RIG_ID_DISPLAY_PURPLE       46
+#define RIG_ID_DISPLAY_OLIVE        47
+#define RIG_ID_DISPLAY_LIGHTGREY    48
+#define RIG_ID_DISPLAY_DARKGREY     49
+#define RIG_ID_DISPLAY_ORANGE       50
+#define RIG_ID_DISPLAY_GREENYELLOW  51
+#define RIG_ID_DISPLAY_PINK         52		// display_range end
+
+#define LAST_RIG_IDENTIFIER			52		// identifier range end
+
+// Special Types
+
+#define RIG_ID_TEXT					101		// a quoted string
+#define RIG_ID_NUMBER				102		// a literal number
+#define RIG_ID_IDENTIFIER			103		// an unresolved identifier
+
+// Symbols
+
+#define RIG_ID_LEFT_PAREN	 		110  	// "("
+#define RIG_ID_RIGHT_PAREN			111 	// ")"
+#define RIG_ID_LEFT_BRACKET			112 	// "["
+#define RIG_ID_RIGHT_BRACKET		113 	// "]"
+#define RIG_ID_COLON				114 	// ":"
+#define RIG_ID_COMMA				115 	// ","
+#define RIG_ID_SEMICOLON			116 	// ";"
+#define RIG_ID_PLUS					117		// "+"
+#define RIG_ID_TIMES				118		// "*"
+#define RIG_ID_QUESTION_MARK 		119		// "?"
+#define RIG_ID_ASSIGN				120		// "="
+#define RIG_ID_BITWISE_OR			121		// "|"
+#define RIG_ID_BITWISE_AND			122		// "&"
+#define RIG_ID_LOGICAL_OR			123		// "||"
+#define RIG_ID_LOGICAL_AND			124		// "&&"
+#define RIG_ID_EQUALS				125		// "=="
 
 

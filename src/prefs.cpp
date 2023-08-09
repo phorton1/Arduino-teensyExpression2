@@ -29,11 +29,15 @@ prefs_t last_prefs;
 #define PP_TWO			(2 * PP_MAX / 3)
 
 
+#define OUTPUT_DEVICE_OFF			0
+#define OUTPUT_DEVICE_USB			1
+#define OUTPUT_DEVICE_SERIAL		2
+
 const prefs_t default_prefs =
 {
 	.BRIGHTNESS			= 30,				// LED brightness, 1..100 - default=30
-	.DEBUG_DEVICE		= 2,				// off, USB, Serial - default(2=Serial)
-	.FILE_SYS_DEVICE	= 0,				// off, USB, Serial - default(0=off)
+	.DEBUG_DEVICE		= OUTPUT_DEVICE_SERIAL,		// off, USB, Serial - default(2=Serial)
+	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_SERIAL,		// off, USB, Serial - default(0=off)
 	.FTP_ENABLE			= 1,				// off, on - default - default(on)
 	.PEDAL = {
 		{											// pedal 0 - Synth
@@ -113,7 +117,7 @@ const prefs_t default_prefs =
 			},
 		},
 
-	.MIDI_MONITOR					= 0,	// off, USB, Serial - default(off)
+	.MIDI_MONITOR					= OUTPUT_DEVICE_OFF,	// off, USB, Serial - default(off)
 
 	.MONITOR_PORT = 				{0, 1, 1, 1, 1, 1, },	 // off, on, for 4 midi and 2 serial ports; only INPUT0 is off at this time
 	.MONITOR_CHANNEL =				{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, },	// 16 channels, default(on)
@@ -159,8 +163,8 @@ const prefs_t prefs_min = {
 const prefs_t prefs_max =
 {
 	.BRIGHTNESS			= 100,				// LED brightness, 1..100 - default=30
-	.DEBUG_DEVICE		= 2,				// off, USB, Serial - default(2=Serial)
-	.FILE_SYS_DEVICE	= 2,				// off, USB, Serial - default(2=Serial)
+	.DEBUG_DEVICE		= OUTPUT_DEVICE_SERIAL, // off, USB, Serial - default(2=Serial)
+	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_SERIAL, // off, USB, Serial - default(2=Serial)
 	.FTP_ENABLE			= 1,				// off, on - default - default(on)
 	.PEDAL = {
 		{									// pedal 0
@@ -239,7 +243,7 @@ const prefs_t prefs_max =
 			},
 		},
 
-	.MIDI_MONITOR					= 2,	// off, USB, Serial - default(off)
+	.MIDI_MONITOR					= OUTPUT_DEVICE_SERIAL,	// off, USB, Serial - default(off)
 	.MONITOR_PORT 					= { 1, 1, 1, 1, 1, 1, },	// 6 * off/on
 	.MONITOR_CHANNEL 				= { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, },	// 16 * off/on
 

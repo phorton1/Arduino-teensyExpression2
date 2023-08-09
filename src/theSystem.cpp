@@ -7,6 +7,7 @@
 #include "buttons.h"
 #include "pedals.h"
 #include "rotary.h"
+#include "fileSystem.h"
 #include "midiQueue.h"
 #include "ftp.h"
 
@@ -18,7 +19,7 @@
 
 #include "ftp_defs.h"
 
-#include "fileSystem.h"
+
 #include "configSystem.h"
 #include "rigLooper.h"
 #include "rigTest.h"
@@ -190,6 +191,14 @@ void aSystem::begin()
     m_timer.priority(EXP_TIMER_PRIORITY);
     m_timer.begin(timer_handler,EXP_TIMER_INTERVAL);
 
+	if (!fileSystem::init())
+	{
+        mylcd.Set_Text_colour(TFT_YELLOW);
+        mylcd.println("");
+        mylcd.println("aSystem: COULD NOT START FILE SYSTEM!!");
+		delay(10000);
+	}
+
     theButtons.setButtonType(4, BUTTON_EVENT_CLICK, LED_BLACK, LED_BLACK, LED_BLACK, LED_PURPLE );
         // int num,
         // int mask,
@@ -237,13 +246,7 @@ void aSystem::begin()
     activateRig(rig_num);
         // show the first windw
 
-	if (!fileSystem::init())
-	{
-        mylcd.Set_Text_colour(TFT_YELLOW);
-        mylcd.println("");
-        mylcd.println("aSystem: COULD NOT START FILE SYSTEM!!");
-		delay(10000);
-	}
+
 #endif // 0
 
 	display(dbg_sys,"returning from aSystem::begin()",0);
@@ -452,12 +455,7 @@ void aSystem::timer_handler()
     theButtons.task();
 	thePedals.task();
 	pollRotary();
-
-#if 0
-
-	// check Serial3 for incoming midi or file commands
 	theSystem.handleSerialData();
-#endif
 
 	// get and enque midi messages
 	// moved from old critical_timer_handler()
@@ -497,7 +495,7 @@ void aSystem::timer_handler()
 
 
 
-#if 0
+
 //--------------------------------------------------------
 // Serial Port Handler
 //--------------------------------------------------------
@@ -618,7 +616,7 @@ void aSystem::handleSerialData()
 	else if (finished && is_midi)
 	{
 		display_bytes(dbg_sys-1,"aSystem recv serial midi: ",(uint8_t*)static_serial_buffer,4);
-		theSystem.getCurRig()->onSerialMidiEvent(static_serial_buffer[2],static_serial_buffer[3]);
+		// theSystem.getCurRig()->onSerialMidiEvent(static_serial_buffer[2],static_serial_buffer[3]);
 	}
 	else if (finished)
 	{
@@ -643,8 +641,6 @@ void aSystem::handleSerialData()
 	}
 }
 
-
-#endif // 0
 
 
 

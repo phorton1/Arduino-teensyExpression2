@@ -140,11 +140,12 @@ class aSystem
         unsigned m_midi_activity[NUM_MIDI_PORTS];
         bool m_last_midi_activity[NUM_MIDI_PORTS];
 
+        void handleSerialData();
 
 #if 0
         void addRig(aWindow *pRig);
         void startWindow(aWindow *win, bool warm);
-        void handleSerialData();
+
 
         int m_num_rigs;
         int m_cur_rig_num;

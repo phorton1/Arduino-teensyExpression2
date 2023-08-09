@@ -35,8 +35,11 @@ void setup()
     // things I might want to do:
     //
     // reset_prefs();
-    // prefs.DEBUG_DEVICE = DEBUG_DEVICE_USB;
-    // save_prefs();
+    // prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
+
+    prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
+
+    save_prefs();
 
     //-------------------------------------
     // Start the serial portS
@@ -55,12 +58,11 @@ void setup()
     // set the debug output to Serial3, or possibly nothing
 
     uint8_t debug_device = prefs.DEBUG_DEVICE;
-    if (debug_device == DEBUG_DEVICE_SERIAL)
+    if (debug_device == OUTPUT_DEVICE_SERIAL)
     {
         dbgSerial = &Serial3;
-        display(0,"debugging output redirected to Serial3",0);
     }
-    else if (debug_device == DEBUG_DEVICE_OFF)
+    else if (debug_device == OUTPUT_DEVICE_OFF)
     {
         dbgSerial = 0;      // turns off output in myDebug.cpp
     }
@@ -175,7 +177,7 @@ void setup()
         mylcd.println("    NO SERIAL PORT IS ACTIVE!!");
         do_delay = 3000;
     }
-    else if (debug_device == DEBUG_DEVICE_SERIAL)
+    else if (debug_device == OUTPUT_DEVICE_SERIAL)
     {
         mylcd.Set_Text_colour(TFT_YELLOW);
         mylcd.println("    DEBUG_OUTPUT to hardware Serial3!");
