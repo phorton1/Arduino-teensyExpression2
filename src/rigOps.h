@@ -22,7 +22,7 @@
 
 #define EXP_TYPE_NONE				0x00		// illegal expression type
 #define EXP_TYPE_NUMBER				0x01		// expression is a Number (8 bit constant) 0..127 result
-#define EXP_TYPE_STRING				0x02		// expression is a String (16 bit string index)
+#define EXP_TYPE_STRING				0x02		// expression is a String (length byte then chars, inline)
 #define EXP_TYPE_VALUE				0x03		// expression is a Value  (8 bit value index 0..127)
 #define EXP_TYPE_LED_COLOR			0x04		// expression is a LED color (8 bit color number 0..10 or whatever)
 #define EXP_TYPE_DISP_COLOR			0x05		// expression is a DISPLAY color (8 bit display color number 0..30 or whatever)
@@ -101,71 +101,83 @@
 #define RIG_ID_BASE_RIG				1	// "BaseRig"	// identifier range start
 #define RIG_ID_OVERLAY				2	// "Overlay"
 
-#define RIG_ID_AREA					3	// "AREA"
-#define RIG_ID_LISTEN				4	// "LISTEN"
-#define RIG_ID_STRING				5	// "STRING"
+#define RIG_ID_PEDAL				3	// "PEDAL"
+#define RIG_ID_AREA					4	// "AREA"
+#define RIG_ID_LISTEN				5	// "LISTEN"
+#define RIG_ID_STRING_DEF			6	// "STRING_DEF"
 
-#define RIG_ID_LED					6	// "LED"
-#define RIG_ID_COLOR				7	// "color"
-#define RIG_ID_BLINK				8	// "blink"
-
-#define RIG_ID_BUTTON				9	// "BUTTON"
+#define RIG_ID_BUTTON				7	// "BUTTON"
+#define RIG_ID_COLOR				8	// "color"
+#define RIG_ID_BLINK				9	// "blink"
 #define RIG_ID_PRESS				10	// "press"
 #define RIG_ID_CLICK				11	// "click"
 #define RIG_ID_LONG					12	// "long"
 #define RIG_ID_RELEASE				13	// "release"
 #define RIG_ID_REPEAT				14	// "repeat"
 
-#define RIG_ID_VALUE				15	// "VALUE"
-#define RIG_ID_NOT					16	// "NOT"
+
+#define RIG_ID_STRING				15	// "STRING"
+#define RIG_ID_VALUE				16	// "VALUE"
+#define RIG_ID_NOT					17	// "NOT"
 
 // Statements
 
-#define RIG_ID_DISPLAY 				17	// "display"			// statement range start
-#define RIG_ID_SEND_CC 				18	// "sendCC"
-#define RIG_ID_SEND_PGM_CHG			19	// "sendPgmChg"
-#define RIG_ID_NOTE_ON				20	// "noteOn"
-#define RIG_ID_NOTE_OFF				21	// "noteOff"
-#define RIG_ID_ALL_NOTES_OFF		22	// "allNotesOff"		// statement range end
+#define RIG_ID_DISPLAY 				18	// "display"			// statement range start
+#define RIG_ID_SEND_CC 				19	// "sendCC"
+#define RIG_ID_SEND_PGM_CHG			10	// "sendPgmChg"
+#define RIG_ID_NOTE_ON				21	// "noteOn"
+#define RIG_ID_NOTE_OFF				22	// "noteOff"
+#define RIG_ID_ALL_NOTES_OFF		23	// "allNotesOff"		// statement range end
 
-#define RIG_ID_FTP_TUNER			23	// "ftpTuner"			// button_statement range start
-#define RIG_ID_FTP_SENSITIVITY		24	// "ftpSensitivity"		// button_state range end
+#define RIG_ID_FTP_TUNER			24	// "ftpTuner"			// button_statement range start
+#define RIG_ID_FTP_SENSITIVITY		25	// "ftpSensitivity"		// button_state range end
 
 // LED COLORS
 
-#define RIG_ID_LED_BLACK  			25	// led_color range start
-#define RIG_ID_LED_RED    			26
-#define RIG_ID_LED_GREEN  			27
-#define RIG_ID_LED_BLUE   			28
-#define RIG_ID_LED_YELLOW 			29
-#define RIG_ID_LED_PURPLE 			30
-#define RIG_ID_LED_ORANGE 			31
-#define RIG_ID_LED_WHITE  			32
-#define RIG_ID_LED_CYAN   			33	// led_color_range end
+#define RIG_ID_LED_BLACK  			26	// led_color range start
+#define RIG_ID_LED_RED    			27
+#define RIG_ID_LED_GREEN  			28
+#define RIG_ID_LED_BLUE   			29
+#define RIG_ID_LED_YELLOW 			20
+#define RIG_ID_LED_PURPLE 			31
+#define RIG_ID_LED_ORANGE 			32
+#define RIG_ID_LED_WHITE  			33
+#define RIG_ID_LED_CYAN   			34	// led_color_range end
 
 // DISPLAY COLORS
 
-#define RIG_ID_DISPLAY_BLACK        34	// display_color range start
-#define RIG_ID_DISPLAY_BLUE         35
-#define RIG_ID_DISPLAY_RED          36
-#define RIG_ID_DISPLAY_GREEN        37
-#define RIG_ID_DISPLAY_CYAN         38
-#define RIG_ID_DISPLAY_MAGENTA      39
-#define RIG_ID_DISPLAY_YELLOW       40
-#define RIG_ID_DISPLAY_WHITE        41
-#define RIG_ID_DISPLAY_NAVY         42
-#define RIG_ID_DISPLAY_DARKGREEN    43
-#define RIG_ID_DISPLAY_DARKCYAN     44
-#define RIG_ID_DISPLAY_MAROON       45
-#define RIG_ID_DISPLAY_PURPLE       46
-#define RIG_ID_DISPLAY_OLIVE        47
-#define RIG_ID_DISPLAY_LIGHTGREY    48
-#define RIG_ID_DISPLAY_DARKGREY     49
-#define RIG_ID_DISPLAY_ORANGE       50
-#define RIG_ID_DISPLAY_GREENYELLOW  51
-#define RIG_ID_DISPLAY_PINK         52		// display_range end
+#define RIG_ID_DISPLAY_BLACK        35	// display_color range start
+#define RIG_ID_DISPLAY_BLUE         36
+#define RIG_ID_DISPLAY_RED          37
+#define RIG_ID_DISPLAY_GREEN        38
+#define RIG_ID_DISPLAY_CYAN         39
+#define RIG_ID_DISPLAY_MAGENTA      30
+#define RIG_ID_DISPLAY_YELLOW       41
+#define RIG_ID_DISPLAY_WHITE        42
+#define RIG_ID_DISPLAY_NAVY         43
+#define RIG_ID_DISPLAY_DARKGREEN    44
+#define RIG_ID_DISPLAY_DARKCYAN     45
+#define RIG_ID_DISPLAY_MAROON       46
+#define RIG_ID_DISPLAY_PURPLE       47
+#define RIG_ID_DISPLAY_OLIVE        48
+#define RIG_ID_DISPLAY_LIGHTGREY    49
+#define RIG_ID_DISPLAY_DARKGREY     40
+#define RIG_ID_DISPLAY_ORANGE       51
+#define RIG_ID_DISPLAY_GREENYELLOW  52
+#define RIG_ID_DISPLAY_PINK         53		// display_range end
 
-#define LAST_RIG_IDENTIFIER			52		// identifier range end
+// midi ports
+
+#define RIG_ID_MIDI					54
+#define RIG_ID_SERIAL				55
+
+// font decoration
+
+#define RIG_ID_BOLD         		56
+#define RIG_ID_NORMAL         		57
+
+
+#define LAST_RIG_IDENTIFIER			57		// identifier range end
 
 // Special Types
 
@@ -191,5 +203,3 @@
 #define RIG_ID_LOGICAL_OR			123		// "||"
 #define RIG_ID_LOGICAL_AND			124		// "&&"
 #define RIG_ID_EQUALS				125		// "=="
-
-

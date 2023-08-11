@@ -2,28 +2,42 @@
 # test.rig
 #--------------------------------------------
 
+BaseRig		 # required initial rig type
+
+#--------------------------
 # Synth Constants
-#
+#--------------------------
+# NUM_BANKS = 2
+# NUM_PATCHES = 24
+# MULTI_OFFSET = 16
 # NUM_PATCH_ROWS = 3
 # NUM_PATCH_COLS = 4
 # NUM_BANK_PATCHES = 12
-# NUM_PATCHES = 24
-# NUM_BANKS = 2
-# MULTI_OFFSET = 16
+#
+# SYNTH_PROGRAM_CHANNEL	= 7
+# SYNTH_VOLUME_CHANNEL 	= 1
+# SYNTH_VOLUME_CC      	= 7
+#
 # FIRST_PATCH_SHORT_NAME_STRING_INDEX = 0
 # FIRST_PATCH_LONG_NAME_STRING_INDEX = 24
-# SYNTH_PROGRAM_CHANNEL = 7
 
+#--------------------------
 # Guitar Effect Constants
+#--------------------------
 #
+# GUITAR_VOLUME_CHANNEL         = 7;
+# GUITAR_VOLUME_CC              = 7;
 # GUITAR_EFFECTS_CHANNEL 		= 9;
+# GUITAR_WAH_CONTROL_CC         = 11
+#
 # GUITAR_DISTORTION_EFFECT_CC 	= 26
 # GUITAR_WAH_EFFECT_CC 			= 27
 # GUITAR_CHORUS_EFFECT_CC 		= 29
 # GUITAR_ECHO_EFFECT_CC 		= 30
 
+#--------------------------
 # Looper Constants
-#
+#--------------------------
 # TRACK_STATE_EMPTY               = 0  = 0x00;
 # TRACK_STATE_RECORDING           = 1  = 0x01;
 # TRACK_STATE_PLAYING             = 2  = 0x02;
@@ -35,42 +49,35 @@
 #
 # LOOP_COMMAND_NONE               = 0  = 0x00;
 # LOOP_COMMAND_CLEAR_ALL          = 1  = 0x01;
-# LOOP_COMMAND_STOP_IMMEDIATE     = 2  = 0x02;
-# LOOP_COMMAND_STOP               = 3  = 0x003
+# LOOP_COMMAND_STOP_IMMEDIATE     = 2  = 0x02;      # stop the looper immediately
+# LOOP_COMMAND_STOP               = 3  = 0x03       # stop at next cycle point
 # LOOP_COMMAND_DUB_MODE           = 4  = 0x04;     	# the dub mode is handled by rPi and modeled here
+# LOOP_COMMAND_ABORT_RECORDING    = 6  = 0x06;      # NOT_USED YET - abort the current recording if any
+# LOOP_COMMAND_LOOP_IMMEDIATE     = 6  = 0x08;      # NOT_USED YET - immediatly loop back to all clip starts ...
+# LOOP_COMMAND_SET_LOOP_START     = 6  = 0x09;      # NOT_USED YET - immediatly set the "restart point" for the clips in the track
+# LOOP_COMMAND_CLEAR_LOOP_START   = 6  = 0x0A;      # NOT_USED YET - immediatly set the "restart point" for the clips in the track
 # LOOP_COMMAND_TRACK_BASE         = 16 = 0x10;     	# the four used "track" buttons are 0x10..0x13 (although the protocol can support upto 8 buttons 0..7)
+# LOOP_COMMAND_ERASE_TRACK_BASE   = 32 = 0x20;      # NOT USED YET - erase the given track (stops it if playing)
+# LOOP_COMMAND_RECORD             = 128 = 0x80;		# FOR LOOPER INTERNAL USE ONLY
+# LOOP_COMMAND_PLAY               = 129 = 0x81;		# FOR LOOPER INTERNAL USE ONLY
 #
+# LOOP_CONTROL_BASE_CC   		  = 101 = 0x65      # send     recv        for 0..LOOPER_NUM_CONTROLS the value is the volume control (Looper pedal == 0x67)
 # LOOP_STOP_CMD_STATE_CC 		  = 38  = 0x26;		# recv     send        the value is 0, LOOP_COMMAND_STOP or STOP_IMMEDIATE
 # LOOP_DUB_STATE_CC      		  = 37  = 0x25;		# recv     send        value is currently only the DUB state
 # LOOP_COMMAND_CC        		  = 36  = 0x24;		# send     recv        the value is the LOOP command
 # TRACK_STATE_BASE_CC    		  = 20  = 0x14;		# recv     send        for 0..3 tracks, value is track state
-
-#----------------------------------------
-# String Constants
-#----------------------------------------
-# Synth String Constants
-
-STRING(0, "BASS1"  );				# PATCH_SHORT_NAME{0}
-STRING(1, "BASS-F" );				# PATCH_SHORT_NAME{1}
-STRING(0, "BASS1-G" );				# PATCH_SHORT_NAME{2}
-# and so on ...
-
-STRING(24, "MM Bass Finger");	# PATCH_LONG_NAME{0}
-STRING(25, "MM Bass Finger");	# PATCH_LONG_NAME{1}
-STRING(26, "MM Bass Finger");	# PATCH_LONG_NAME{2}
-# and so on ...
-
-# Guitar String Constants (unused at this time)
+# CLIP_VOL_BASE_CC       		  = 48  = 0x30;		# send     recv        NOT_USED_YET - for 4 tracks * 3 clips - value is volume 0..127
+# CLIP_MUTE_BASE_CC      		  = 48  = 0x50;		# both     both        NOT_USED_YET - for 4 tracks * 3 clips - value is mute state
+# NOTIFY_LOOP            		  = 48  = 0x64;     # recv     send        NOT_USED_YET - value=number of pending loop notifies
 #
-# STRING(49,	"    ");			# BLANK GUITAR EFFECT NAME
-# STRING(50,	"DIST");			# GUITAR EFFECT[0] NAME
-# STRING(51,	"WAH ");			# GUITAR EFFECT[1] NAME
-# STRING(52,	"CHOR");			# GUITAR EFFECT[2] NAME
-# STRING(53,	"ECHO");			# GUITAR EFFECT[3] NAME
-
+# LOOPER_CONTROL_INPUT_GAIN       = 0
+# LOOPER_CONTROL_THRU_VOLUME      = 1
+# LOOPER_CONTROL_LOOP_VOLUME      = 2
+# LOOPER_CONTROL_MIX_VOLUME       = 3
+# LOOPER_CONTROL_OUTPUT_GAIN      = 4
 
 #----------------------------------------
-# Variables
+# Variable Slot Reservations
 #----------------------------------------
 
 # Synth Variables
@@ -95,53 +102,67 @@ STRING(26, "MM Bass Finger");	# PATCH_LONG_NAME{2}
 # VALUE[33] = TRACK3 STATE
 # VALUE[34] = TRACK4 STATE
 
-#--------------------------------------
-# Screen Areas
-#--------------------------------------
 
-AREA(0,		5, 5,  475, 40)		# patch short name indented 5 from client area, 35 pixels high
-AREA(1,		5, 43, 475, 68)		# patch lobng name 3 pixels below patch short name, 25 pixels high
+#----------------------------------------
+# Rig initialization section
+#----------------------------------------
 
-#-------------------------------------
-# Listen Statements
-#-------------------------------------
+PEDAL(0, "Synth", 	MIDI,	1, 7);			# SYNTH_VOLUME_CHANNEL, SYNTH_VOLUME_CC
+PEDAL(1, "Loop",  	SERIAL,	1, 103);		# default channel, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME
+PEDAL(2, "Wah",   	MIDI,	9, 11);			# GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CONTROL_CC
+PEDAL(3, "Guitar",	MIDI,	7, 7);			# GUITAR_VOLUME_CHANNEL, GUITAR_VOLUME_CC
 
-LISTEN(1, 37, 20)
-	# Listen on the Serial Midi Port (1) for
+AREA(0,	 32,  BOLD, 	5, 	 5,  299, 40);		# patch short name indented 5 from client area, 35 pixels high
+AREA(1,	 18,  BOLD,		5, 	 43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
+AREA(2,  32,  NORMAL,   300, 5,  475, 40);		# General Purpose Ara in upper right
+
+LISTEN(20,	SERIAL, 37);
+	# Listen on the Serial Midi Port for
 	# LOOP_DUB_STATE_CC=37 messages and stick
 	# their values in the DUB_MODE VALUE[20]
 
-LISTEN(1, 38, 21)
-	# Listen on the Serial Midi Port (1) for
+LISTEN(21, SERIAL, 38);
+	# Listen on the Serial Midi Port for
 	# LOOP_STOP_CMD_STATE_CC=38 messages and stick
 	# their values in the STOP_BUTTON_COMMAND VALUE[21]
 
-# Listen on the Serial Midi Port (1) for
-# TRACK_STATE_BASE_CC(20..23) messages
-# and stick their values into the appropriate
-# TRACK_STATE VALUES[31..34] slots
+LISTEN(31, SERIAL, 20);
+LISTEN(32, SERIAL, 21);
+LISTEN(33, SERIAL, 22);
+LISTEN(34, SERIAL, 23);
+	# Listen on the Serial Midi Port for
+	# TRACK_STATE_BASE_CC(20..23) messages
+	# and stick their values into the appropriate
+	# TRACK_STATE VALUES[31..34] slots
 
-LISTEN(1, 20, 31)
-LISTEN(1, 21, 32)
-LISTEN(1, 22, 33)
-LISTEN(1, 23, 34)
+
+# Synth String Constants
+
+STRING_DEF(0, "BASS1"  );			# PATCH_SHORT_NAME{0}
+STRING_DEF(1, "BASS-F" );			# PATCH_SHORT_NAME{1}
+STRING_DEF(0, "BASS1-G" );			# PATCH_SHORT_NAME{2}
+# and so on ...
+
+STRING_DEF(24, "MM Bass Finger");	# PATCH_LONG_NAME{0}
+STRING_DEF(25, "MM Bass Finger");	# PATCH_LONG_NAME{1}
+STRING_DEF(26, "MM Bass Finger");	# PATCH_LONG_NAME{2}
+# and so on ...
 
 
 
 #=======================================================
-# LEDs and Buttons
+# Buttons
 #========================================================
-
-#-----------------------
 # Synth Bank Button
 #-----------------------
 # If the BANK value is set, the LED is BLUE, otherwise its CYAN.
 # A press of the button toggles the BANK value
 
-LED(4):
-	color: VALUE[1] ? LED_BLUE : LED_CYAN;
 BUTTON(4):
-    press: VALUE[1] = NOT VALUE[1];
+	color:
+		VALUE[1] ? LED_BLUE : LED_CYAN;
+    press:
+		setValue(1, NOT VALUE[1]);
 
 
 #--------------------------------
@@ -164,135 +185,135 @@ BUTTON(4):
 #   on the SYNTH_PROGRAM_CHANNEL=7
 
 
-LED(0):
-	color: VALUE[2] == 0 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(0):
+	color:
+		VALUE[2] == 0 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 0;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 0;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);				# show the short Patch Name
-		display(AREA[1], PURPLE, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
+		setValue(2, 0);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 0);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);					# show the short Patch Name
+		display(1, MAGENTA, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
 
-LED(1):
-	color: VALUE[2] == 1 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(1):
+	color:
+		VALUE[2] == 1 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 1;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 1;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);				# show the short Patch Name
-		display(AREA[1], PURPLE, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
+		setValue(2, 1);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 1);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);					# show the short Patch Name
+		display(1, MAGENTA, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
 
-LED(2):
-	color: VALUE[2] == 2 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(2):
+	color:
+		VALUE[2] == 2 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 2;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 2;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);				# show the short Patch Name
-		display(AREA[1], PURPLE, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
+		setValue(2, 2);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 2);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);					# show the short Patch Name
+		display(1, MAGENTA, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
 
-LED(3):
-	color: VALUE[2] == 3 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(3):
+	color:
+		VALUE[2] == 3 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 3;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 3;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);				# show the short Patch Name
-		display(AREA[1], PURPLE, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
+		setValue(2, 3);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 3);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);					# show the short Patch Name
+		display(1, MAGENTA, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
 
 # Second Row
 # Note that henceforth there is a difference between the PATCH_BUTTON value
 # and the ACTUAL_PATCH calculation
 
-LED(5):
-	color: VALUE[2] == 5 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(5):
+	color:
+		VALUE[2] == 5 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 5;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 4;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
-		display(AREA[1], PURPLE, STRING[24 + VALUE[3]]);	# show the short Patch Name
+		setValue(2, 5);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 4);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
-LED(6):
-	color: VALUE[2] == 6 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(6):
+	color:
+		VALUE[2] == 6 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 6;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 5;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
-		display(AREA[1], PURPLE, STRING[24 + VALUE[3]]);	# show the short Patch Name
+		setValue(2, 6);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 5);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
-LED(7):
-	color: VALUE[2] == 7 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(7):
+	color:
+		VALUE[2] == 7 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 7;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 6;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
-		display(AREA[1], PURPLE, STRING[24 + VALUE[3]]);	# show the short Patch Name
+		setValue(2, 7);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 6);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
-LED(8):
-	color: VALUE[2] == 8 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(8):
+	color:
+		VALUE[2] == 8 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 8;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 7;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
-		display(AREA[1], PURPLE, STRING[24 + VALUE[3]]);	# show the short Patch Name
+		setValue(2, 8);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 7);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 # Third Row
 
-LED(10):
-	color: VALUE[2] == 10 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(10):
+	color:
+		VALUE[2] == 10 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 10;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 8;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
-		display(AREA[1], PURPLE, STRING[24 + VALUE[3]]);	# show the short Patch Name
+		setValue(2, 10);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 8);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
-LED(11):
-	color: VALUE[2] == 11 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
-BUTTON(11:
+BUTTON(11):
+	color:
+		VALUE[2] == 11 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 11;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 9;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
-		display(AREA[1], PURPLE, STRING[24 + VALUE[3]]);	# show the short Patch Name
+		setValue(2, 11);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 9);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
-LED(12):
-	color: VALUE[2] == 12 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(12):
+	color:
+		VALUE[2] == 12 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 12;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 10;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
-		display(AREA[1], PURPLE, STRING[24 + VALUE[3]]);	# show the short Patch Name
+		setValue(2, 12);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 10);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
-LED(13):
-	color: VALUE[2] == 13 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 BUTTON(13):
+	color:
+		VALUE[2] == 13 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		VALUE[2] = 13;								# set PATCH_BUTTON value
-		VALUE[3] = VALUE[1] * 12 + 11;				# set ACTUAL_PATCH number
-		SendPgmChg(0, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(AREA[0],  CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
-		display(AREA[1], PURPLE, STRING[24 + VALUE[3]]);	# show the short Patch Name
+		setValue(2, 13);								# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 11);				# set ACTUAL_PATCH number
+		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
+		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 
 #----------------------------------
-# Guitar Effect LEDs and Buttons
+# Guitar Effect Buttons
 #----------------------------------
 # The LEDs are GREEN if the EFFECT VALUE[11..14] are on.
 # A short click of the BUTTONS toggle the EFFECT VALUEs
@@ -301,46 +322,51 @@ BUTTON(13):
 # 	on the Midi Port (0) and the GUITAR_EFFECTS_CHANNEL=9,
 # A long press of the 4th button clears them all.
 
-LED(15):											# DIST effect
-	color: VALUE[11] ? LED_GREEN : LED_BLACK;		# GREEN if EFFECT_ON, BLACK if not
-BUTTON(15):
+BUTTON(15):											# DIST effect
+	color:
+		VALUE[11] ? LED_GREEN : LED_BLACK;			# GREEN if EFFECT_ON, BLACK if not
 	click:
-		VALUE[11] = VALUE[11] ? 0 : 127;			# Toggle EFFECT_ON between 0 and 127
-		sendCC(0, 9, 26, VALUE[11]);				# MidiPort, Channel, CC, value
+		setValue(11, VALUE[11] ? 0 : 127);			# Toggle EFFECT_ON between 0 and 127
+		sendCC(MIDI, 9, 26, VALUE[11]);				# MidiPort, Channel, CC, value
+		display(3, YELLOW, "DIST");					# proof of inline string constants
 
-LED(16):											# WAH effect
-	color: VALUE[12] ? LED_GREEN : LED_BLACK;		# GREEN if EFFECT_ON, BLACK if not
-BUTTON(16):
+BUTTON(16):											# WAH effect
+	color:
+		VALUE[12] ? LED_GREEN : LED_BLACK;			# GREEN if EFFECT_ON, BLACK if not
 	click:
-		VALUE[12] = VALUE[12] ? 0 : 127;			# Toggle EFFECT_ON between 0 and 127
-		sendCC(0, 9, 27, VALUE[12]);				# MidiPort, Channel, CC, value
+		setValue(12, VALUE[12] ? 0 : 127);			# Toggle EFFECT_ON between 0 and 127
+		sendCC(MIDI, 9, 27, VALUE[12]);				# MidiPort, Channel, CC, value
+		display(3, YELLOW, "WAH");
 
-LED(17):											# CHOR effect
-	color: VALUE[13] ? LED_GREEN : LED_BLACK;		# GREEN if EFFECT_ON, BLACK if not
-BUTTON(17):
+BUTTON(17):											# CHOR effect
+	color:
+		VALUE[13] ? LED_GREEN : LED_BLACK;			# GREEN if EFFECT_ON, BLACK if not
 	click:
-		VALUE[13] = VALUE[13] ? 0 : 127;			# Toggle EFFECT_ON between 0 and 127
-		sendCC(0, 9, 29, VALUE[13]);				# MidiPort, Channel, CC, value
+		setValue(13, VALUE[13] ? 0 : 127);			# Toggle EFFECT_ON between 0 and 127
+		sendCC(MIDI, 9, 29, VALUE[13]);				# MidiPort, Channel, CC, value
+		display(3, YELLOW, "CHOR");
 
-LED(18):											# ECHO effect
-	color: VALUE[14] ? LED_GREEN : LED_BLACK;		# GREEN if EFFECT_ON, BLACK if not
-BUTTON(18):
+BUTTON(18):											# ECHO effect
+	color:
+		VALUE[14] ? LED_GREEN : LED_BLACK;			# GREEN if EFFECT_ON, BLACK if not
 	click:
-		VALUE[14] = VALUE[14] ? 0 : 127;			# Toggle EFFECT_ON between 0 and 127
-		sendCC(0, 9, 30, VALUE[14]);				# MidiPort, Channel, CC, value
+		setValue(14, VALUE[14] ? 0 : 127);			# Toggle EFFECT_ON between 0 and 127
+		sendCC(MIDI, 9, 30, VALUE[14]);				# MidiPort, Channel, CC, value
+		display(3, YELLOW, "ECHO");
 	long:
-		VALUE[11] = 0;								# Clear all EFFCT_ON values
-		VALUE[12] = 0;
-		VALUE[13] = 0;
-		VALUE[14] = 0;
-		sendCC(0, 9, 26, 0);						# Send all EFFECT OFF messages
-		sendCC(0, 9, 27, 0);
-		sendCC(0, 9, 29, 0);
-		sendCC(0, 9, 30, 0);
+		setValue(11, 0);								# Clear all EFFCT_ON values
+		setValue(12, 0);
+		setValue(13, 0);
+		setValue(14, 0);
+		sendCC(MIDI, 9, 26, 0);						# Send all EFFECT OFF messages
+		sendCC(MIDI, 9, 27, 0);
+		sendCC(MIDI, 9, 29, 0);
+		sendCC(MIDI, 9, 30, 0);
+		display(3, YELLOW, "EFFECTS OFF");
 
 
 #---------------------------------------
-# Looper Dub and Stop LEDs and Buttons
+# Looper Dub and Stop Buttons
 #----------------------------------------
 # Note that the Looper LEDs are dependent on VALUES
 # that are sent via Serial Midi FROM the rPi Looper,
@@ -359,11 +385,16 @@ BUTTON(18):
 #   message to the Serial Midi Port (1) with the value
 #   of LOOP_COMMAND_CLEAR_ALL=1
 
-LED(24):
-	color: 	VALUE[20] ? LED_ORANGE : LED_WHITE;
 BUTTON(24):
-	click: sendCC(1, 1, 36, 4);
-	long:  sendCC(1, 1, 36, 1);
+	color:
+		VALUE[20] ? LED_ORANGE : LED_WHITE;
+	click:
+		sendCC(SERIAL, 1, 36, 4);
+		display(3, YELLOW, VALUE[20] ? "DUB OFF" : "DUB ON");
+	long:
+		sendCC(SERIAL, 1, 36, 1);
+		display(3, YELLOW, "LOOP CLEAR");
+
 
 # The Stop LED is
 #	RED if the STOP_BUTTON_COMMAND VALUE[21] is LOOP_COMMAND_STOP_IMMEDIATE=2,
@@ -376,14 +407,16 @@ BUTTON(24):
 #   message to the Serial Midi Port (1) ON Channel 1
 #   with the value of LOOP_COMMAND_CLEAR_ALL=1
 
-LED(19):
+BUTTON(19):
 	color:
 		VALUE[21] == 2 ? LED_RED :		#  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP_IMMEDIATE ? LED_RED :
 		VALUE[21] == 3 ? LED_WHITE :	#  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP ? LED_WHITE :
 		LED_BLACK;
-BUTTON(19):
-	click: sendCC(1, 1, 36, VALUE[21]);
-	long:  sendCC(1, 1, 36, 1);
+	click:
+		sendCC(SERIAL, 1, 36, VALUE[21]);
+		display(3, YELLOW, VALUE[21] == 2 ? "STOP!" : VALUE[21] == 3 ? "STOP" : "");
+	long:
+		sendCC(SERIAL, 1, 36, 1);
 
 
 #------------------------------------------
@@ -402,7 +435,7 @@ BUTTON(19):
 #   with the value of the LOOP_COMMAND_TRACK_BASE plus
 #   the track number (0..3)
 
-LED(20):
+BUTTON(20):
 	color:
 		VALUE[30] & 9  ? LED_RED :
 		VALUE[30] & 18 ? LED_YELLOW :
@@ -410,10 +443,11 @@ LED(20):
 		LED_BLACK;
 	blink:
 		VALUE[30] & 56;
-BUTTON(20):
-	press: sendCC(1, 1, 36, 16)
+	press:
+		sendCC(SERIAL, 1, 36, 16);
+		display(3, YELLOW, "TRACK1");
 
-LED(21):
+BUTTON(21):
 	color:
 		VALUE[31] & 9  ? LED_RED :
 		VALUE[31] & 18 ? LED_YELLOW :
@@ -421,11 +455,11 @@ LED(21):
 		LED_BLACK;
 	blink:
 		VALUE[31] & 56;
-		VALUE[30] & 56;
-BUTTON(21):
-	press: sendCC(1, 1, 36, 17)
+	press:
+		sendCC(SERIAL, 1, 36, 17);
+		display(3, YELLOW, "TRACK2");
 
-LED(22):
+BUTTON(22):
 	color:
 		VALUE[32] & 9  ? LED_RED :
 		VALUE[32] & 18 ? LED_YELLOW :
@@ -433,10 +467,11 @@ LED(22):
 		LED_BLACK;
 	blink:
 		VALUE[32] & 56;
-BUTTON(22):
-	press: sendCC(1, 1, 36, 18)
+	press:
+		sendCC(SERIAL, 1, 36, 18);
+		display(3, YELLOW, "TRACK3");
 
-LED(23):
+BUTTON(23):
 	color:
 		VALUE[33] & 9  ? LED_RED :
 		VALUE[33] & 18 ? LED_YELLOW :
@@ -444,7 +479,9 @@ LED(23):
 		LED_BLACK;
 	blink:
 		VALUE[33] & 56;
-BUTTON(22):
-	press: sendCC(1, 1, 36, 19)
+	press:
+		sendCC(SERIAL, 1, 36, 19);
+		display(3, YELLOW, "TRACK4");
+
 
 # end of test.rig
