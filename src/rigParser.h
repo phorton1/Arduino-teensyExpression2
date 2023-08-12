@@ -7,4 +7,4 @@
 #pragma once
 
 
-extern void parseRig();
+extern bool parseRig();

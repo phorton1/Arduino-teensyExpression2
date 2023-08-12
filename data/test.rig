@@ -112,24 +112,25 @@ PEDAL(1, "Loop",  	SERIAL,	1, 103);		# default channel, LOOP_CONTROL_BASE_CC + L
 PEDAL(2, "Wah",   	MIDI,	9, 11);			# GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CONTROL_CC
 PEDAL(3, "Guitar",	MIDI,	7, 7);			# GUITAR_VOLUME_CHANNEL, GUITAR_VOLUME_CC
 
-AREA(0,	 32,  BOLD, 	5, 	 5,  299, 40);		# patch short name indented 5 from client area, 35 pixels high
-AREA(1,	 18,  BOLD,		5, 	 43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
-AREA(2,  32,  NORMAL,   300, 5,  475, 40);		# General Purpose Ara in upper right
+AREA(0,	 32,  BOLD, 	LEFT,	5,  5, 299, 40);		# patch short name indented 5 from client area, 35 pixels high
+AREA(1,	 18,  BOLD,		LEFT,	5, 43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
+AREA(2,  32,  NORMAL,   RIGHT, 	5,  5, 475, 40);		# General Purpose area in upper right
 
-LISTEN(20,	SERIAL, 37);
+
+LISTEN(20, SERIAL, 1, 37);
 	# Listen on the Serial Midi Port for
 	# LOOP_DUB_STATE_CC=37 messages and stick
 	# their values in the DUB_MODE VALUE[20]
 
-LISTEN(21, SERIAL, 38);
+LISTEN(21, SERIAL, 1, 38);
 	# Listen on the Serial Midi Port for
 	# LOOP_STOP_CMD_STATE_CC=38 messages and stick
 	# their values in the STOP_BUTTON_COMMAND VALUE[21]
 
-LISTEN(31, SERIAL, 20);
-LISTEN(32, SERIAL, 21);
-LISTEN(33, SERIAL, 22);
-LISTEN(34, SERIAL, 23);
+LISTEN(31, SERIAL, 1, 20);
+LISTEN(32, SERIAL, 1, 21);
+LISTEN(33, SERIAL, 1, 22);
+LISTEN(34, SERIAL, 1, 23);
 	# Listen on the Serial Midi Port for
 	# TRACK_STATE_BASE_CC(20..23) messages
 	# and stick their values into the appropriate
@@ -162,7 +163,7 @@ BUTTON(4):
 	color:
 		VALUE[1] ? LED_BLUE : LED_CYAN;
     press:
-		setValue(1, NOT VALUE[1]);
+		setValue(1, ! VALUE[1]);
 
 
 #--------------------------------
@@ -328,7 +329,7 @@ BUTTON(15):											# DIST effect
 	click:
 		setValue(11, VALUE[11] ? 0 : 127);			# Toggle EFFECT_ON between 0 and 127
 		sendCC(MIDI, 9, 26, VALUE[11]);				# MidiPort, Channel, CC, value
-		display(3, YELLOW, "DIST");					# proof of inline string constants
+		display(2, YELLOW, "DIST");					# proof of inline string constants
 
 BUTTON(16):											# WAH effect
 	color:
@@ -336,7 +337,7 @@ BUTTON(16):											# WAH effect
 	click:
 		setValue(12, VALUE[12] ? 0 : 127);			# Toggle EFFECT_ON between 0 and 127
 		sendCC(MIDI, 9, 27, VALUE[12]);				# MidiPort, Channel, CC, value
-		display(3, YELLOW, "WAH");
+		display(2, YELLOW, "WAH");
 
 BUTTON(17):											# CHOR effect
 	color:
@@ -344,7 +345,7 @@ BUTTON(17):											# CHOR effect
 	click:
 		setValue(13, VALUE[13] ? 0 : 127);			# Toggle EFFECT_ON between 0 and 127
 		sendCC(MIDI, 9, 29, VALUE[13]);				# MidiPort, Channel, CC, value
-		display(3, YELLOW, "CHOR");
+		display(2, YELLOW, "CHOR");
 
 BUTTON(18):											# ECHO effect
 	color:
@@ -352,7 +353,7 @@ BUTTON(18):											# ECHO effect
 	click:
 		setValue(14, VALUE[14] ? 0 : 127);			# Toggle EFFECT_ON between 0 and 127
 		sendCC(MIDI, 9, 30, VALUE[14]);				# MidiPort, Channel, CC, value
-		display(3, YELLOW, "ECHO");
+		display(2, YELLOW, "ECHO");
 	long:
 		setValue(11, 0);								# Clear all EFFCT_ON values
 		setValue(12, 0);
@@ -362,7 +363,7 @@ BUTTON(18):											# ECHO effect
 		sendCC(MIDI, 9, 27, 0);
 		sendCC(MIDI, 9, 29, 0);
 		sendCC(MIDI, 9, 30, 0);
-		display(3, YELLOW, "EFFECTS OFF");
+		display(2, YELLOW, "EFFECTS OFF");
 
 
 #---------------------------------------
@@ -390,10 +391,10 @@ BUTTON(24):
 		VALUE[20] ? LED_ORANGE : LED_WHITE;
 	click:
 		sendCC(SERIAL, 1, 36, 4);
-		display(3, YELLOW, VALUE[20] ? "DUB OFF" : "DUB ON");
+		display(2, YELLOW, VALUE[20] ? "DUB OFF" : "DUB ON");
 	long:
 		sendCC(SERIAL, 1, 36, 1);
-		display(3, YELLOW, "LOOP CLEAR");
+		display(2, YELLOW, "LOOP CLEAR");
 
 
 # The Stop LED is
@@ -414,7 +415,7 @@ BUTTON(19):
 		LED_BLACK;
 	click:
 		sendCC(SERIAL, 1, 36, VALUE[21]);
-		display(3, YELLOW, VALUE[21] == 2 ? "STOP!" : VALUE[21] == 3 ? "STOP" : "");
+		display(2, YELLOW, VALUE[21] == 2 ? "STOP!" : VALUE[21] == 3 ? "STOP" : "");
 	long:
 		sendCC(SERIAL, 1, 36, 1);
 
@@ -445,7 +446,7 @@ BUTTON(20):
 		VALUE[30] & 56;
 	press:
 		sendCC(SERIAL, 1, 36, 16);
-		display(3, YELLOW, "TRACK1");
+		display(2, YELLOW, "TRACK1");
 
 BUTTON(21):
 	color:
@@ -457,7 +458,7 @@ BUTTON(21):
 		VALUE[31] & 56;
 	press:
 		sendCC(SERIAL, 1, 36, 17);
-		display(3, YELLOW, "TRACK2");
+		display(2, YELLOW, "TRACK2");
 
 BUTTON(22):
 	color:
@@ -469,7 +470,7 @@ BUTTON(22):
 		VALUE[32] & 56;
 	press:
 		sendCC(SERIAL, 1, 36, 18);
-		display(3, YELLOW, "TRACK3");
+		display(2, YELLOW, "TRACK3");
 
 BUTTON(23):
 	color:
@@ -481,7 +482,7 @@ BUTTON(23):
 		VALUE[33] & 56;
 	press:
 		sendCC(SERIAL, 1, 36, 19);
-		display(3, YELLOW, "TRACK4");
+		display(2, YELLOW, "TRACK4");
 
 
 # end of test.rig

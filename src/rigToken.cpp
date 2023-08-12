@@ -8,20 +8,32 @@
 #include "fileSystem.h"
 
 
-#define dbg_token 	1
+#define dbg_low 	1
+
+#define DUMP_PARSE  0
 
 
+// extern
+int parse_section;			// 0=none, 1=program, 2=buttons, 3=end
 
 static File rig_file;
+
 static int rig_text_len;
 static int parse_ptr;
 static int parse_line_num;
 static int parse_char_num;
 
+
+
 // extern
 token_t rig_token;
 
 
+
+#if DUMP_PARSE
+	static void dumpToken();
+		// forward
+#endif
 
 
 //------------------------------
@@ -79,10 +91,6 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_RELEASE				: return "RELEASE";
 		case RIG_TOKEN_REPEAT				: return "REPEAT";
 
-		case RIG_TOKEN_STRING				: return "STRING";
-		case RIG_TOKEN_VALUE				: return "VALUE";
-		case RIG_TOKEN_NOT					: return "NOT";
-
 		case RIG_TOKEN_SETVALUE				: return "SETVALUE";
 		case RIG_TOKEN_DISPLAY 				: return "DISPLAY";
 		case RIG_TOKEN_SEND_CC 				: return "SENDCC";
@@ -129,26 +137,48 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_BOLD					: return "BOLD";
 		case RIG_TOKEN_NORMAL				: return "NORMAL";
 
+		case RIG_TOKEN_LEFT					: return "LEFT";
+		case RIG_TOKEN_CENTER				: return "CENTER";
+		case RIG_TOKEN_RIGHT				: return "RIGHT";
+
+		case RIG_TOKEN_STRING				: return "STRING";
+		case RIG_TOKEN_VALUE				: return "VALUE";
+
 		case RIG_TOKEN_TEXT					: return "TEXT";
 		case RIG_TOKEN_NUMBER				: return "NUMBER";
-		case RIG_TOKEN_IDENTIFIER			: return "IDENTIFIER";
 
-		case RIG_TOKEN_LEFT_PAREN			: return "LEFT_PAREN";
-		case RIG_TOKEN_RIGHT_PAREN			: return "RIGHT_PAREN";
-		case RIG_TOKEN_LEFT_BRACKET			: return "LEFT_BRACKET";
-		case RIG_TOKEN_RIGHT_BRACKET		: return "RIGHT_BRACKET";
-		case RIG_TOKEN_COLON				: return "COLON";
 		case RIG_TOKEN_COMMA				: return "COMMA";
 		case RIG_TOKEN_SEMICOLON			: return "SEMICOLON";
-		case RIG_TOKEN_ASSIGN				: return "ASSIGN";
+		case RIG_TOKEN_LEFT_PAREN			: return "LEFT_PAREN";
+		case RIG_TOKEN_RIGHT_PAREN			: return "RIGHT_PAREN";
+		case RIG_TOKEN_COLON				: return "COLON";
+
+		case RIG_TOKEN_LEFT_BRACKET			: return "LEFT_BRACKET";
+		case RIG_TOKEN_RIGHT_BRACKET		: return "RIGHT_BRACKET";
+
+		case RIG_TOKEN_NOT					: return "NOT";
+
 		case RIG_TOKEN_PLUS					: return "PLUS";
+		case RIG_TOKEN_MINUS				: return "MINUS";
 		case RIG_TOKEN_TIMES				: return "TIMES";
+		case RIG_TOKEN_DIVIDE				: return "DIVIDED_BY";
+
+		case RIG_TOKEN_EQ					: return "EQ";
+		case RIG_TOKEN_NE					: return "NE";
+		case RIG_TOKEN_GT					: return "GT";
+		case RIG_TOKEN_GE					: return "GE";
+		case RIG_TOKEN_LT					: return "LT";
+		case RIG_TOKEN_LE					: return "LE";
+
 		case RIG_TOKEN_BITWISE_OR			: return "OR";
 		case RIG_TOKEN_BITWISE_AND			: return "AND";
 		case RIG_TOKEN_LOGICAL_OR			: return "L_OR";
 		case RIG_TOKEN_LOGICAL_AND			: return "L_AND";
-		case RIG_TOKEN_EQUALS				: return "EQUALS";
-		case RIG_TOKEN_QUESTION_MARK 		: return "QUESTION_MARK";
+
+		case RIG_TOKEN_QUESTION_MARK 		: return "QUESTION";
+
+		case RIG_TOKEN_IDENTIFIER			: return "ID";
+		case RIG_TOKEN_ASSIGN				: return "ASSIGN";
 
 	}
 
@@ -169,12 +199,6 @@ const char *rigTokenToText(int token_id)
 		case RIG_TOKEN_BASERIG				: return "BaseRig";
 		case RIG_TOKEN_OVERLAY				: return "Overlay";
 
-		case RIG_TOKEN_PEDAL				: return "PEDAL";
-		case RIG_TOKEN_AREA					: return "AREA";
-		case RIG_TOKEN_LISTEN				: return "LISTEN";
-		case RIG_TOKEN_STRING_DEF			: return "STRING_DEF";
-
-		case RIG_TOKEN_BUTTON				: return "BUTTON";
 		case RIG_TOKEN_COLOR				: return "color";
 		case RIG_TOKEN_BLINK				: return "blink";
 		case RIG_TOKEN_PRESS				: return "press";
@@ -182,10 +206,6 @@ const char *rigTokenToText(int token_id)
 		case RIG_TOKEN_LONG					: return "long";
 		case RIG_TOKEN_RELEASE				: return "release";
 		case RIG_TOKEN_REPEAT				: return "repeat";
-
-		case RIG_TOKEN_STRING				: return "STRING";
-		case RIG_TOKEN_VALUE				: return "VALUE";
-		case RIG_TOKEN_NOT					: return "NOT";
 
 		case RIG_TOKEN_SETVALUE				: return "setValue";
 		case RIG_TOKEN_DISPLAY 				: return "display";
@@ -197,69 +217,42 @@ const char *rigTokenToText(int token_id)
 		case RIG_TOKEN_FTP_TUNER			: return "ftpTuner";
 		case RIG_TOKEN_FTP_SENSITIVITY		: return "ftpSensitivity";
 
-		case RIG_TOKEN_LED_BLACK       		: return "LED_BLACK";
-		case RIG_TOKEN_LED_RED         		: return "LED_RED";
-		case RIG_TOKEN_LED_GREEN       		: return "LED_GREEN";
-		case RIG_TOKEN_LED_BLUE        		: return "LED_BLUE";
-		case RIG_TOKEN_LED_YELLOW      		: return "LED_YELLOW";
-		case RIG_TOKEN_LED_PURPLE      		: return "LED_PURPLE";
-		case RIG_TOKEN_LED_ORANGE      		: return "LED_ORANGE";
-		case RIG_TOKEN_LED_WHITE       		: return "LED_WHITE";
-		case RIG_TOKEN_LED_CYAN        		: return "LED_CYAN";
-
-		case RIG_TOKEN_DISPLAY_BLACK      	: return "BLACK";
-		case RIG_TOKEN_DISPLAY_BLUE       	: return "BLUE";
-		case RIG_TOKEN_DISPLAY_RED        	: return "RED";
-		case RIG_TOKEN_DISPLAY_GREEN      	: return "GREEN";
-		case RIG_TOKEN_DISPLAY_CYAN       	: return "CYAN";
-		case RIG_TOKEN_DISPLAY_MAGENTA    	: return "MAGENTA";
-		case RIG_TOKEN_DISPLAY_YELLOW     	: return "YELLOW";
-		case RIG_TOKEN_DISPLAY_WHITE      	: return "WHITE";
-		case RIG_TOKEN_DISPLAY_NAVY       	: return "NAVY";
-		case RIG_TOKEN_DISPLAY_DARKGREEN  	: return "DARKGREEN";
-		case RIG_TOKEN_DISPLAY_DARKCYAN   	: return "DARKCYAN";
-		case RIG_TOKEN_DISPLAY_MAROON     	: return "MAROON";
-		case RIG_TOKEN_DISPLAY_PURPLE     	: return "PURPLE";
-		case RIG_TOKEN_DISPLAY_OLIVE      	: return "OLIVE";
-		case RIG_TOKEN_DISPLAY_LIGHTGREY  	: return "LIGHTGREY";
-		case RIG_TOKEN_DISPLAY_DARKGREY   	: return "DARKGREY";
-		case RIG_TOKEN_DISPLAY_ORANGE     	: return "ORANGE";
-		case RIG_TOKEN_DISPLAY_GREENYELLOW	: return "GREENYELLOW";
-		case RIG_TOKEN_DISPLAY_PINK       	: return "PINK";
-
-		case RIG_TOKEN_MIDI					: return "MIDI";
-		case RIG_TOKEN_SERIAL				: return "SERIAL";
-
-		case RIG_TOKEN_BOLD					: return "BOLD";
-		case RIG_TOKEN_NORMAL				: return "NORMAL";
-
-		case RIG_TOKEN_TEXT					: return "TEXT";
-		case RIG_TOKEN_NUMBER				: return "NUMBER";
-		case RIG_TOKEN_IDENTIFIER			: return "IDENTIFIER";
-
-		case RIG_TOKEN_LEFT_PAREN			: return "(";
-		case RIG_TOKEN_RIGHT_PAREN			: return ")";
-		case RIG_TOKEN_LEFT_BRACKET			: return "[";
-		case RIG_TOKEN_RIGHT_BRACKET		: return "]";
-		case RIG_TOKEN_COLON				: return ":";
 		case RIG_TOKEN_COMMA				: return ",";
 		case RIG_TOKEN_SEMICOLON			: return ";";
-		case RIG_TOKEN_ASSIGN				: return "=";
+		case RIG_TOKEN_LEFT_PAREN			: return "(";
+		case RIG_TOKEN_RIGHT_PAREN			: return ")";
+		case RIG_TOKEN_COLON				: return ":";
+
+		case RIG_TOKEN_LEFT_BRACKET			: return "[";
+		case RIG_TOKEN_RIGHT_BRACKET		: return "]";
+
+		case RIG_TOKEN_NOT					: return "!";
+
 		case RIG_TOKEN_PLUS					: return "+";
+		case RIG_TOKEN_MINUS				: return "-";
 		case RIG_TOKEN_TIMES				: return "*";
+		case RIG_TOKEN_DIVIDE				: return "/";
+
+		case RIG_TOKEN_EQ					: return "==";
+		case RIG_TOKEN_NE					: return "!=";
+		case RIG_TOKEN_GT					: return ">";
+		case RIG_TOKEN_GE					: return ">=";
+		case RIG_TOKEN_LT					: return "<";
+		case RIG_TOKEN_LE					: return "<=";
+
 		case RIG_TOKEN_BITWISE_OR			: return "|";
 		case RIG_TOKEN_BITWISE_AND			: return "&";
 		case RIG_TOKEN_LOGICAL_OR			: return "||";
 		case RIG_TOKEN_LOGICAL_AND			: return "&&";
-		case RIG_TOKEN_EQUALS				: return "==";
+
 		case RIG_TOKEN_QUESTION_MARK 		: return "?";
+
+		case RIG_TOKEN_IDENTIFIER			: return "ID";
+		case RIG_TOKEN_ASSIGN				: return "=";
 
 	}
 
-	// statement Tokens
-
-	rig_error("UnknownToken(%d)",token_id);
-	return "UnknownToken";
+	return rigTokenToString(token_id);
 
 }
 
@@ -274,22 +267,26 @@ static int getRigDelim(char c)
 {
 	switch (c)
 	{
-		case '(' : return RIG_TOKEN_LEFT_PAREN;
-		case ')' : return RIG_TOKEN_RIGHT_PAREN;
-		case '[' : return RIG_TOKEN_LEFT_BRACKET;
-		case ']' : return RIG_TOKEN_RIGHT_BRACKET;
-		case ':' : return RIG_TOKEN_COLON;
 		case ',' : return RIG_TOKEN_COMMA;
 		case ';' : return RIG_TOKEN_SEMICOLON;
+		case '(' : return RIG_TOKEN_LEFT_PAREN;
+		case ')' : return RIG_TOKEN_RIGHT_PAREN;
+		case ':' : return RIG_TOKEN_COLON;
+		case '[' : return RIG_TOKEN_LEFT_BRACKET;
+		case ']' : return RIG_TOKEN_RIGHT_BRACKET;
+		case '!' : return RIG_TOKEN_NOT;
 		case '+' : return RIG_TOKEN_PLUS;
+		case '-' : return RIG_TOKEN_MINUS;
 		case '*' : return RIG_TOKEN_TIMES;
-		case '?' : return RIG_TOKEN_QUESTION_MARK;
-
-		case '=' : return RIG_TOKEN_ASSIGN;
+		case '/' : return RIG_TOKEN_DIVIDE;
+		case '>' : return RIG_TOKEN_GT;
+		case '<' : return RIG_TOKEN_LT;
 		case '|' : return RIG_TOKEN_BITWISE_OR;
 		case '&' : return RIG_TOKEN_BITWISE_AND;
+		case '?' : return RIG_TOKEN_QUESTION_MARK;
+		case '=' : return RIG_TOKEN_ASSIGN;
 	}
-	return false;
+	return 0;
 }
 
 
@@ -332,7 +329,7 @@ int getRigToken()
             rig_token.char_num  = parse_char_num;
         }
 
-		if (dbg_token <= 0)
+		if (dbg_low <= 0)
 			dbgSerial->print(c);
 
         if (c == 10)
@@ -342,7 +339,7 @@ int getRigToken()
         }
         else if (c == '#')
         {
-            display(dbg_token+2,"start comment",0);
+            display(dbg_low+1,"start comment",0);
 
             in_comment = true;
             if (rig_token.id == RIG_TOKEN_STRING)
@@ -360,7 +357,7 @@ int getRigToken()
 
         else if (c == 13)
         {
-            display(dbg_token+2,"line_break",0);
+            display(dbg_low+2,"line_break",0);
 
             if (rig_token.id == RIG_TOKEN_STRING)
             {
@@ -370,7 +367,7 @@ int getRigToken()
 
             if (in_comment)
             {
-                display(dbg_token+2,"end_comment",0);
+                display(dbg_low+2,"end_comment",0);
                 in_comment = false;
             }
 
@@ -424,7 +421,7 @@ int getRigToken()
 
         else if (c == 9 || c == 32)
         {
-            display(dbg_token+2,"white_space",0);
+            display(dbg_low+2,"white_space",0);
             if (rig_token.len)
             {
                 done = true;
@@ -436,12 +433,12 @@ int getRigToken()
         else if ((delim = getRigDelim(c)))
         {
             done = true;
-            display(dbg_token+2,"delim",0);
+            display(dbg_low+1,"delim",0);
 
 			if (rig_token.id)		// we're parsing something else, so backup one
 			{
-				display(dbg_token+2,"",0);
-				display(dbg_token+2,"backing up",0);
+				display(dbg_low+1,"",0);
+				display(dbg_low+1,"backing up",0);
 				parse_ptr--;
 				parse_char_num--;
 				rig_file.seek(parse_ptr);
@@ -449,12 +446,30 @@ int getRigToken()
 			else	// it's actual delimiter token
 			{
 				addTokenChar(c);
-				rig_token.is_delim = 1;
 
-				if (delim == RIG_TOKEN_ASSIGN && rig_file.peek() == '=')
+				if (delim == RIG_TOKEN_ASSIGN)
+				{
+					if (rig_file.peek() == '=')
+					{
+						rig_file.read();
+						rig_token.id = RIG_TOKEN_EQ;
+						parse_ptr++;
+						parse_char_num++;
+						addTokenChar(c);
+					}
+					else
+					{
+						rig_error("illegal symbol '%c'");
+						return -1;
+					}
+				}
+				else if (rig_file.peek() == '=' && (
+						delim == RIG_TOKEN_NOT ||
+						delim == RIG_TOKEN_GT ||
+						delim == RIG_TOKEN_LT))
 				{
 					rig_file.read();
-					rig_token.id = RIG_TOKEN_EQUALS;
+					rig_token.id = delim + 1;	// must be in order!
 					parse_ptr++;
 					parse_char_num++;
 					addTokenChar(c);
@@ -559,139 +574,170 @@ int getRigToken()
 		rig_token.id = id;
 	}
 
-	rig_token.is_init_statement =
-		(id >= RIG_TOKEN_PEDAL && id <= RIG_TOKEN_STRING_DEF) ||
-		(id >= RIG_TOKEN_SETVALUE && id <= RIG_TOKEN_ALL_NOTES_OFF);
-	rig_token.is_button_statement =
-		(id >= RIG_TOKEN_SETVALUE && id <= RIG_TOKEN_FTP_SENSITIVITY);
-	rig_token.is_led_color =
-		(id >= RIG_TOKEN_LED_BLACK && id <= RIG_TOKEN_LED_CYAN);
-	rig_token.is_display_color =
-		(id >= RIG_TOKEN_DISPLAY_BLACK && id <= RIG_TOKEN_DISPLAY_PINK);
-	rig_token.is_bin_op =
-		(id >= RIG_TOKEN_PLUS && id <= RIG_TOKEN_EQUALS);
-
-	display(dbg_token,"",0);
+	display(dbg_low,"",0);
 	if (rig_token.id == RIG_TOKEN_NUMBER)
-		display(dbg_token,"getToken(%d:%d) %d=%s -->  %d",
+		display(dbg_low,"getToken(%d:%d) %d=%s -->  %d",
 			rig_token.line_num,
 			rig_token.char_num,
 			rig_token.id,
 			rigTokenToString(rig_token.id),
 			rig_token.int_value);
 	else if (rig_token.id == RIG_TOKEN_IDENTIFIER || rig_token.id == RIG_TOKEN_TEXT)
-		display(dbg_token,"getToken(%d:%d) %d=%s -->  %s",
+		display(dbg_low,"getToken(%d:%d) %d=%s -->  %s",
 			rig_token.line_num,
 			rig_token.char_num,
 			rig_token.id,
 			rigTokenToString(rig_token.id),
 			rig_token.text);
 	else
-		display(dbg_token,"getToken(%d:%d) %d=%s",
+		display(dbg_low,"getToken(%d:%d) %d=%s",
 			rig_token.line_num,
 			rig_token.char_num,
 			rig_token.id,
-			rigTokenToString(rig_token.id),
-			rig_token.is_bin_op);
+			rigTokenToString(rig_token.id));
 
 	// was going too fast for console
 
-	if (dbg_token <= 0)
+	if (dbg_low <= 0)
 		delay(5);
+
+	// basic lexical structure
+
+	if (!parse_section)
+	{
+		if (id != RIG_TOKEN_BASERIG &&
+			id != RIG_TOKEN_OVERLAY)
+		{
+			rig_error("Rig must start with BaseRig or Overlay");
+			return -1;
+		}
+		else
+		{
+			parse_section = 1;
+		}
+	}
+	else if (parse_section && (
+			id == RIG_TOKEN_BASERIG &&
+			id == RIG_TOKEN_OVERLAY))
+	{
+		rig_error("BaseRig or Overlay only allowed as first Token");
+		return -1;
+	}
+	else if (IS_STATEMENT(id))
+	{
+		if (parse_section == 1 && !IS_INIT_STATEMENT(id))
+		{
+			rig_error("%s statement only allowed in init_section",rigTokenToString(id));
+			return -1;
+		}
+		else if (parse_section == 2 && !IS_BUTTON_STATEMENT(id))
+		{
+			rig_error("%s statement only allowed in button_section",rigTokenToString(id));
+			return -1;
+		}
+	}
+	else if (id == RIG_TOKEN_BUTTON)
+	{
+		parse_section = 2;
+	}
+
+	// finished
+
+	#if DUMP_PARSE
+		dumpToken();
+	#endif
+
+	if (!rig_token.id)
+		display(0,"getRigToken() returning EOF!",0);
 
     return rig_token.id;
 }
 
 
-
 //-------------------------------------------------
-// dumpRigCode()
+// dumpToken
 //-------------------------------------------------
 
-// extern
-void dumpRigCode(int code_len, uint8_t *code_buf)
-{
+#if DUMP_PARSE
 
-	dbgSerial->print("# ");
-	dbgSerial->print(rig_name);
-	dbgSerial->println(".rig");
-	dbgSerial->println();
-
-	bool at_newline = 1;	// whether we are at a newline
-	int in_subsection = 0;	// whether we are in a subsection
-	bool colon_line = 0;		// print a new line after the next colon
-	bool started = 0;		// we have encountered the first button
-
-	int rig_code_ptr = 0;
-
-	while (rig_code_ptr < code_len)
+	static void initDump()
 	{
-		int tt = code_buf[rig_code_ptr++];
+		dbgSerial->print("# ");
+		dbgSerial->print(rig_name);
+		dbgSerial->println(".rig");
+		dbgSerial->println();
+	}
 
+	static void dumpToken()
+	{
+		int tt = rig_token.id;
+		static bool write_colon_return = 0;
+
+		if (tt == RIG_TOKEN_EOF)
+		{
+			dbgSerial->println();
+			dbgSerial->println();
+			dbgSerial->print("# end of ");
+			dbgSerial->print(rig_name);
+			dbgSerial->println(".rig");
+			dbgSerial->println();
+			return;
+		}
 		if (tt == RIG_TOKEN_BASERIG ||
 			tt == RIG_TOKEN_OVERLAY)
 		{
 			dbgSerial->print(rigTokenToText(tt));
 			dbgSerial->println();
 			dbgSerial->println();
-			continue;
+			return;
 		}
-		if (!started && (
-			tt == RIG_TOKEN_LISTEN ||
-			tt == RIG_TOKEN_STRING ||
-			tt == RIG_TOKEN_AREA ))
+		if (tt == RIG_TOKEN_SEMICOLON)
 		{
-			colon_line = 0;
+			dbgSerial->println(";");
+			return;
 		}
-		else if (tt == RIG_TOKEN_BUTTON )
+		if (tt == RIG_TOKEN_COLON)
 		{
-			started = 1;
-			colon_line = 1;					// cr after next colon
-			in_subsection = 0;
-			dbgSerial->println();			// extra cr
+			dbgSerial->print(" : ");
+			if (write_colon_return)
+				dbgSerial->println();
+			write_colon_return = 0;
+			return;
 		}
-		else if (
-			tt == RIG_TOKEN_COLOR ||
-			tt == RIG_TOKEN_BLINK ||
-			tt == RIG_TOKEN_PRESS ||
-			tt == RIG_TOKEN_CLICK ||
-			tt == RIG_TOKEN_LONG ||
-			tt == RIG_TOKEN_RELEASE ||
-			tt == RIG_TOKEN_REPEAT )
+
+		if (tt == RIG_TOKEN_BUTTON)
+			write_colon_return = 1;
+		else if (IS_SUBSECTION(tt))
 		{
-			in_subsection = 1;
-			colon_line = 1;				// cr + 8 spaces after next colon
 			dbgSerial->print("    ");
+			if (tt >= RIG_TOKEN_PRESS)
+				write_colon_return = 1;
 		}
-
-
-		if (at_newline)
+		else if (parse_section == 2 && IS_BUTTON_STATEMENT(tt))
 		{
-			at_newline = 0;
-			if (in_subsection == 2)
-				dbgSerial->print("        ");
+			dbgSerial->print("        ");
 		}
-
 
 		if (tt == RIG_TOKEN_TEXT)
 		{
-			int len = strlen((char *) &code_buf[rig_code_ptr]);
 			dbgSerial->print("\"");
-			dbgSerial->print((char *) &code_buf[rig_code_ptr]);
+			dbgSerial->print(rig_token.text);
 			dbgSerial->print("\"");
-			rig_code_ptr += len + 1;
 		}
 		else if (tt == RIG_TOKEN_NUMBER)
 		{
-			int16_t *p = (int16_t *) &code_buf[rig_code_ptr];
-			dbgSerial->print(*p);
-			rig_code_ptr += 2;
+			dbgSerial->print(rig_token.int_value);
 		}
 		else
 		{
-			if ((!colon_line && tt == RIG_TOKEN_COLON) ||
-				tt == RIG_TOKEN_ASSIGN ||
-				tt == RIG_TOKEN_PLUS ||
+			if (tt == RIG_TOKEN_PLUS ||
+				tt == RIG_TOKEN_MINUS ||
+				tt == RIG_TOKEN_EQ ||
+				tt == RIG_TOKEN_NE ||
+				tt == RIG_TOKEN_GT ||
+				tt == RIG_TOKEN_GE ||
+				tt == RIG_TOKEN_LT ||
+				tt == RIG_TOKEN_LE ||
 				tt == RIG_TOKEN_BITWISE_OR ||
 				tt == RIG_TOKEN_BITWISE_AND ||
 				tt == RIG_TOKEN_LOGICAL_OR ||
@@ -700,41 +746,26 @@ void dumpRigCode(int code_len, uint8_t *code_buf)
 				dbgSerial->print(" ");
 			dbgSerial->print(rigTokenToText(tt));
 			if (tt == RIG_TOKEN_COMMA ||
-				tt == RIG_TOKEN_NOT ||
-				tt == RIG_TOKEN_COLON ||
-				tt == RIG_TOKEN_ASSIGN ||
 				tt == RIG_TOKEN_PLUS ||
+				tt == RIG_TOKEN_MINUS ||
+				tt == RIG_TOKEN_EQ ||
+				tt == RIG_TOKEN_NE ||
+				tt == RIG_TOKEN_GT ||
+				tt == RIG_TOKEN_GE ||
+				tt == RIG_TOKEN_LT ||
+				tt == RIG_TOKEN_LE ||
 				tt == RIG_TOKEN_BITWISE_OR ||
 				tt == RIG_TOKEN_BITWISE_AND ||
 				tt == RIG_TOKEN_LOGICAL_OR ||
 				tt == RIG_TOKEN_LOGICAL_AND ||
 				tt == RIG_TOKEN_QUESTION_MARK)
 				dbgSerial->print(" ");
-			if (tt == RIG_TOKEN_SEMICOLON)
-			{
-				at_newline = 1;
-				dbgSerial->println();
-			}
-		}
-
-		if (colon_line && tt == RIG_TOKEN_COLON)
-		{
-			dbgSerial->println();
-			colon_line = 0;
-			at_newline = 1;
-			if (in_subsection)
-				in_subsection = 2;
 		}
 	}
+#endif	// DUMP_PARSE
 
-	dbgSerial->println();
-	dbgSerial->println();
-	dbgSerial->print("# end of ");
-	dbgSerial->print(rig_name);
-	dbgSerial->println(".rig");
-	dbgSerial->println();
 
-}
+
 
 
 //-------------------------------------------------
@@ -754,8 +785,12 @@ bool openRigFile(const char *name)
 	parse_ptr = 0;
 	parse_line_num = 1;
 	parse_char_num = 0;
-
+	parse_section = 0;
 	rig_text_len = 0;
+
+	#if DUMP_PARSE
+		initDump();
+	#endif
 
     char name_buffer[128];
     strcpy(name_buffer,"/");
