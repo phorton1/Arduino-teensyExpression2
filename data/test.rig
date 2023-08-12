@@ -18,8 +18,8 @@ BaseRig		 # required initial rig type
 # SYNTH_VOLUME_CHANNEL 	= 1
 # SYNTH_VOLUME_CC      	= 7
 #
-# FIRST_PATCH_SHORT_NAME_STRING_INDEX = 0
-# FIRST_PATCH_LONG_NAME_STRING_INDEX = 24
+# FIRST_PATCH_SHORT_NAME = 0
+# FIRST_PATCH_LONG_NAME  = 24
 
 #--------------------------
 # Guitar Effect Constants
@@ -112,9 +112,9 @@ PEDAL(1, "Loop",  	SERIAL,	1, 103);		# default channel, LOOP_CONTROL_BASE_CC + L
 PEDAL(2, "Wah",   	MIDI,	9, 11);			# GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CONTROL_CC
 PEDAL(3, "Guitar",	MIDI,	7, 7);			# GUITAR_VOLUME_CHANNEL, GUITAR_VOLUME_CC
 
-AREA(0,	 32,  BOLD, 	LEFT,	5,  5, 299, 40);		# patch short name indented 5 from client area, 35 pixels high
-AREA(1,	 18,  BOLD,		LEFT,	5, 43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
-AREA(2,  32,  NORMAL,   RIGHT, 	5,  5, 475, 40);		# General Purpose area in upper right
+AREA(0,	 32,  BOLD, 	LEFT,	 5,  5, 299, 40);		# patch short name indented 5 from client area, 35 pixels high
+AREA(1,	 18,  BOLD,		LEFT,	 5, 43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
+AREA(2,  32,  NORMAL,   RIGHT, 300,  5, 475, 40);		# General Purpose area in upper right
 
 
 LISTEN(20, SERIAL, 1, 37);

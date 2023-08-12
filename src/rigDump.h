@@ -12,10 +12,50 @@
 int dump_buf_ptr = 0;
 char dump_buf[MAX_DUMP_BUF + 1];
 
-
-static void dumpExpression(int offset)
+const uint8_t* dumpOp(const uint8_t *ptr)
 {
-	sprintf(&dump_buf[strlen(dump_buf)],"%d",expression_pool[offset]);
+	uint8_t value;
+	uint8_t what = *ptr++;
+	switch (what)
+	{
+		case EXP_NUMBER :
+			value = *ptr++;
+			sprintf(&dump_buf[strlen(dump_buf)],"%d",value);
+			break;
+		case EXP_LED_COLOR :
+			value = *ptr++;
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToString(RIG_TOKEN_LED_BLACK + value));
+			break;
+		case EXP_DISPLAY_COLOR :
+			value = *ptr++;
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToString(RIG_TOKEN_DISPLAY_BLACK + value));
+			break;
+		case EXP_VALUE :
+			value = *ptr++;
+			sprintf(&dump_buf[strlen(dump_buf)],"VALUE[%d]",value);
+			break;
+		case EXP_STRING :
+			value = *ptr++;
+			sprintf(&dump_buf[strlen(dump_buf)],"STRING[%d]",value);
+			break;
+	}
+	return ptr;
+}
+
+
+static void dumpExpression(uint16_t offset)
+{
+	if (offset & EXPRESSION_INLINE)
+	{
+		uint8_t byte0 = (offset >> 8) & 0x7f;
+		uint8_t byte1 = offset & 0xff;
+		uint8_t code[2] = {byte0, byte1};
+		dumpOp(code);
+	}
+	else	// dumpExpression for real
+	{
+
+	}
 }
 
 
@@ -32,12 +72,14 @@ static void dumpParam(bool button_section, int arg_type, bool last, uint8_t **co
 		case PARAM_MIDI_PORT    :
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",
 				rigTokenToText(*(*code)++ + RIG_TOKEN_MIDI));
+			break;
 		case PARAM_NUM_EXPRESSION				:
 		case PARAM_STRING_EXPRESSION			:
 		case PARAM_LED_COLOR_EXPRESSION			:
 		case PARAM_DISPLAY_COLOR_EXPRESSION		:
 			uint16_t *ptr16 = (uint16_t *) *code;
 			dumpExpression(*ptr16);
+			*code += 2;
 			break;
 	}
 	sprintf(&dump_buf[strlen(dump_buf)],"%s",last?");":", ");
@@ -95,12 +137,14 @@ static void dumpRig()
 	// display interesting numbers]
 
 	display(dbg_dump,"Dumping Rig",0);
-	display(0,"expression_pool_len=%d",statement_pool_len);
+	display(0,"expression_pool_len=%d",expression_pool_len);
 	display(dbg_dump,"statement_pool_len=%d",statement_pool_len);
 	display(dbg_dump,"num_statements=%d",num_statements);
 	display(dbg_dump,"num_statement_lists=%d",num_statement_lists);
 	for (int i=0; i<=num_statement_lists; i++)
 		display(dbg_dump,"statement_list[%d] = %d",i,statement_lists[i]);
+
+    display_bytes(dbg_dump,"areas",(const uint8_t *) rig_header.areas, 3 * sizeof(rigArea_t));
 
 	// dump the program
 
@@ -125,7 +169,7 @@ static void dumpRig()
 	{
 		if (rig_header.areas[i].font_size)	// definition indicator
 		{
-			display(0,"AREA(%d, %d %s, %s, %d, %d, %d, %d);",
+			display(0,"AREA(%d, %d, %s, %s, %d, %d, %d, %d);",
 				i,
 				rig_header.areas[i].font_size,
 				rigTokenToString(rig_header.areas[i].font_type + RIG_TOKEN_NORMAL),
@@ -193,8 +237,14 @@ static void dumpRig()
 				}
 				else
 				{
+					// on the other hand, we only decrement the exprssion
+					// offset if the high order is NOT set
+
+					uint16_t offset = rig_header.button_refs[i][j];
+					if (!(offset & EXPRESSION_INLINE))
+						offset -= 1;
 					dump_buf[0] = 0;
-					dumpExpression(rig_header.button_refs[i][j] - 1);
+					dumpExpression(offset);
 					proc_level = 2;
 					display(0,"%s;",dump_buf);
 					proc_level = 0;

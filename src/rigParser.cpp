@@ -17,7 +17,9 @@
 	// -1 = show statements and params
 	// -2 = show details
 
-#define MAX_POOL 			4096
+#define MAX_STRING_POOL 			4096
+#define MAX_STATEMENT_POOL 			4096
+#define MAX_EXPRESSION_POOL			4096
 
 
 // memory management
@@ -26,23 +28,25 @@
 
 static rigHeader_t rig_header;
 
-static int string_pool_len;
+
 
 static int num_statements;
 static int num_statement_lists;
 static int statement_pool_len;
+static uint8_t statement_pool[MAX_STATEMENT_POOL];
 static uint16_t statements[MAX_STATEMENTS];
 static uint16_t statement_lists[MAX_STATEMENT_LISTS + 1];
 	// one extra for the last length
 
 static int expression_pool_len;
+static uint8_t expression_pool[MAX_EXPRESSION_POOL];
 static uint16_t expressions[MAX_EXPRESSIONS];
 
-static uint8_t statement_pool[MAX_POOL];
-static uint8_t expression_pool[MAX_POOL];
-static char string_pool[MAX_POOL];
+static int string_pool_len;
+static char string_pool[MAX_STRING_POOL];
 
-const uint8_t null_expression[] = {237};
+static const uint8_t null_expression[] = {237};
+static int test_inline_num = 0;
 
 
 
@@ -53,15 +57,16 @@ static void init_parse()
 	num_statement_lists = 1;	// empty init_section statement list
 	statement_pool_len = 0;
 	expression_pool_len = 0;
+	test_inline_num = 12;
 
 	memset(&rig_header,0,sizeof(rigHeader_t));
 	memset(statements,0,MAX_STATEMENTS * sizeof(uint16_t));
 	memset(statement_lists,0,(MAX_STATEMENT_LISTS + 1) * sizeof(uint16_t));
 	memset(expressions,0,MAX_EXPRESSIONS * sizeof(uint16_t));
 
-	memset(statement_pool, 0, MAX_POOL);
-	memset(expression_pool, 0, MAX_POOL);
-	memset(string_pool, 0, MAX_POOL);
+	memset(statement_pool, 0, MAX_STATEMENT_POOL);
+	memset(expression_pool, 0, MAX_EXPRESSION_POOL);
+	memset(string_pool, 0, MAX_STRING_POOL);
 }
 
 
@@ -262,9 +267,22 @@ const statement_param_t *findParams(int tt)
 // Pool accessors
 //-------------------------------------------
 
+static bool addStringPool(const char *s)
+{
+	int len = strlen(s);
+	if (string_pool_len >= MAX_STRING_POOL - len - 1)
+	{
+		rig_error("STRING POOL OVERLFLOW");
+		return false;
+	}
+	strcpy(&string_pool[string_pool_len],s);
+	string_pool_len += len + 1;
+	return true;
+}
+
 static bool addStatementByte(uint8_t byte)
 {
-	if (statement_pool_len >= MAX_POOL)
+	if (statement_pool_len >= MAX_STATEMENT_POOL)
 	{
 		rig_error("STATMENT(BYTE) POOL OVERLFLOW");
 		return false;
@@ -275,7 +293,7 @@ static bool addStatementByte(uint8_t byte)
 
 static bool addStatementInt(uint16_t i)
 {
-	if (statement_pool_len >= MAX_POOL - 2)
+	if (statement_pool_len >= MAX_STATEMENT_POOL - 2)
 	{
 		rig_error("STATMENT(INT) POOL OVERLFLOW");
 		return false;
@@ -286,17 +304,17 @@ static bool addStatementInt(uint16_t i)
 	return true;
 }
 
-static bool addExpression(int len, const uint8_t *bytes)
-{
-	if (expression_pool_len + len >= MAX_POOL)
-	{
-		rig_error("EXPRESSION POOL OVERLFLOW");
-		return false;
-	}
-	memcpy(&expression_pool[expression_pool_len],bytes,len);
-	expression_pool_len += len;
-	return true;
-}
+// static bool addExpression(int len, const uint8_t *bytes)
+// {
+// 	if (expression_pool_len + len >= MAX_EXPRESSION_POOL)
+// 	{
+// 		rig_error("EXPRESSION POOL OVERLFLOW");
+// 		return false;
+// 	}
+// 	memcpy(&expression_pool[expression_pool_len],bytes,len);
+// 	expression_pool_len += len;
+// 	return true;
+// }
 
 
 //--------------------------------------------------------
@@ -438,8 +456,8 @@ static bool handleArg(int statement_type, int arg_type)
 				}
 				else
 				{
-					display(dbg_parse + 1, "MIDI_PORT = %s",rigTokenToString(rig_token.id));
 					uint8_t use_port = rig_token.id - RIG_TOKEN_MIDI;
+					display(dbg_parse + 1, "MIDI_PORT = %s (%d)",rigTokenToString(rig_token.id),use_port);
 					if (statement_type == RIG_TOKEN_PEDAL)
 						rig_header.pedals[pedal_num].port = use_port;
 					else if (statement_type == RIG_TOKEN_LISTEN)
@@ -496,7 +514,8 @@ static bool handleArg(int statement_type, int arg_type)
 				}
 				else
 				{
-					display(dbg_parse + 1, "FONT_SIZE = %d",value);
+					// already shown in getNumberAny()
+					// display(dbg_parse + 1, "FONT_SIZE = %d",value);
 					rig_header.areas[area_num].font_size = value;
 				}
 				break;
@@ -509,8 +528,9 @@ static bool handleArg(int statement_type, int arg_type)
 				}
 				else
 				{
-					display(dbg_parse + 1, "FONT_TYPE = %s",rigTokenToString(rig_token.id));
-					rig_header.areas[area_num].font_type = rig_token.id - RIG_TOKEN_NORMAL;
+					uint8_t use_type = rig_token.id - RIG_TOKEN_NORMAL;
+					display(dbg_parse + 1, "FONT_TYPE = %s (%d)",rigTokenToString(rig_token.id),use_type);
+					rig_header.areas[area_num].font_type = use_type;
 					if (!getRigToken())
 						ok = 0;
 				}
@@ -524,8 +544,9 @@ static bool handleArg(int statement_type, int arg_type)
 				}
 				else
 				{
-					display(dbg_parse + 1, "FONT_JUST = %s",rigTokenToString(rig_token.id));
-					rig_header.areas[area_num].font_type = rig_token.id - RIG_TOKEN_LEFT;
+					uint8_t use_just = rig_token.id - RIG_TOKEN_LEFT;
+					display(dbg_parse + 1, "FONT_JUST = %s (%d)",rigTokenToString(rig_token.id),use_just);
+					rig_header.areas[area_num].font_just = use_just;
 					if (!getRigToken())
 						ok = 0;
 				}
@@ -570,10 +591,8 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					// the offset is incremented so that we can identify
 					// accesses to string 0 explicitly.
-
 					rig_header.strings[string_num] = string_pool_len + 1;
-					strcpy(&string_pool[string_pool_len],text);
-					string_pool_len += strlen(text) + 1;
+					ok = addStringPool(text);
 				}
 				break;
 			default:
@@ -607,8 +626,8 @@ static bool handleArg(int statement_type, int arg_type)
 				}
 				else
 				{
-					display(dbg_parse + 1, "MIDI_PORT = %s",rigTokenToString(rig_token.id));
 					uint8_t use_port = rig_token.id - RIG_TOKEN_MIDI;
+					display(dbg_parse + 1, "MIDI_PORT = %s (%d)",rigTokenToString(rig_token.id),use_port);
 					addStatementByte(use_port);
 					if (!getRigToken())
 						ok = 0;
@@ -626,15 +645,31 @@ static bool handleArg(int statement_type, int arg_type)
 				else
 					addStatementByte(value);
 				break;
-			case PARAM_DISPLAY_COLOR_EXPRESSION		:
-			case PARAM_LED_COLOR_EXPRESSION			:
-			case PARAM_STRING_EXPRESSION			:
 			case PARAM_NUM_EXPRESSION				:
 				rigNumericExpression(rig_token.id);
 					// have to call to skip bytes
-				ok = addStatementInt(expression_pool_len);
-				ok = ok && addExpression(1,null_expression);
+				ok = addStatementInt(EXPRESSION_INLINE | (EXP_VALUE << 8) | (test_inline_num++ & 0xff));
+				// ok = ok && addExpression(1,null_expression);
 				break;
+			case PARAM_STRING_EXPRESSION			:
+				rigStringExpression(rig_token.id);
+					// have to call to skip bytes
+				ok = addStatementInt(EXPRESSION_INLINE | (EXP_STRING << 8) | (test_inline_num++ & 0xff));
+				// ok = ok && addExpression(1,null_expression);
+				break;
+			case PARAM_LED_COLOR_EXPRESSION			:
+				rigLedColorExpression(rig_token.id);
+					// have to call to skip bytes
+				ok = addStatementInt(EXPRESSION_INLINE | (EXP_LED_COLOR << 8) );
+				// ok = ok && addExpression(1,null_expression);
+				break;
+			case PARAM_DISPLAY_COLOR_EXPRESSION		:
+				rigDisplayColorExpression(rig_token.id);
+					// have to call to skip bytes
+				ok = addStatementInt(EXPRESSION_INLINE | (EXP_DISPLAY_COLOR << 8) );
+				// ok = ok && addExpression(1,null_expression);
+				break;
+
 			default:
 				rig_error("implementation error unknown button statement param %d",arg_type);
 				break;
@@ -794,16 +829,18 @@ static bool handleSubsection(int button_num, int sub_id)
 	{
 		rigLedColorExpression(rig_token.id);
 			// have to call to skip bytes
-		rig_header.button_refs[button_num][sub_num] = expression_pool_len + 1;
-		ok = addExpression(1,null_expression);
+		rig_header.button_refs[button_num][sub_num] = EXPRESSION_INLINE | (EXP_LED_COLOR << 8);
+		// rig_header.button_refs[button_num][sub_num] = expression_pool_len + 1;
+		// ok = addExpression(1,null_expression);
 		ok = ok && skip(RIG_TOKEN_SEMICOLON);
 	}
 	else
 	{
 		rigNumericExpression(rig_token.id);
 			// have to call to skip bytes
-		rig_header.button_refs[button_num][sub_num] = expression_pool_len + 1;
-		ok = addExpression(1,null_expression);
+		rig_header.button_refs[button_num][sub_num] = EXPRESSION_INLINE | (EXP_NUMBER << 8) | (test_inline_num++ & 0xff);
+		// rig_header.button_refs[button_num][sub_num] = expression_pool_len + 1;
+		// ok = addExpression(1,null_expression);
 		ok = ok && skip(RIG_TOKEN_SEMICOLON);
 	}
 

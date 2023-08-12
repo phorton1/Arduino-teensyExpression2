@@ -136,8 +136,12 @@ typedef struct
 //
 //  Expression Pool
 //
-//	    expressions are embedded in code and button color and blink subsections
-//      directly as the offset into the expression pool.
+//      expression references in code and button color/blink sections
+//      are an offset into the expression pool if the high order bit
+//      is set. Otherwise, the high order byte is one of the EXP types
+//		defined in rigExpression.h, and information is stored in
+//      the low order byte.
+//
 //
 //      an expression in the expression pool has
 //
