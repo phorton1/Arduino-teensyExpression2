@@ -54,20 +54,17 @@ extern token_t rig_token;		// the current token
 	(id >= RIG_TOKEN_PEDAL && id <= RIG_TOKEN_STRING_DEF) || \
 	(id >= RIG_TOKEN_SETVALUE && id <= RIG_TOKEN_ALL_NOTES_OFF) )
 
-
-
 #define IS_BUTTON_STATEMENT(id)  \
 	(id >= RIG_TOKEN_SETVALUE && id <= RIG_TOKEN_FTP_SENSITIVITY)
 
-#define IS_LED_COLOR(id) \
-	(id >= RIG_TOKEN_LED_BLACK && id <= RIG_TOKEN_LED_CYAN);
+#define IS_LED_COLOR(id)	(id >= RIG_TOKEN_LED_BLACK && id <= RIG_TOKEN_LED_CYAN)
+#define LED_COLOR(id)		(id - RIG_TOKEN_LED_BLACK)
 
-#define IS_DISPLAY_COLOR(id) \
-	(id >= RIG_TOKEN_DISPLAY_BLACK && id <= RIG_TOKEN_DISPLAY_PINK);
+#define IS_DISPLAY_COLOR(id)	(id >= RIG_TOKEN_DISPLAY_BLACK && id <= RIG_TOKEN_DISPLAY_PINK)
+#define DISPLAY_COLOR(id)		(id - RIG_TOKEN_DISPLAY_BLACK)
 
-#define IS_BIN_OP(id) \
-	(id >= RIG_TOKEN_PLUS && id <= RIG_TOKEN_EQ);
-
+#define IS_BIN_OP(id)		(id >= RIG_TOKEN_PLUS && id <= RIG_TOKEN_LOGICAL_AND)
+#define BIN_OP(id)			(id - RIG_TOKEN_PLUS)
 
 
 #define IS_SUBSECTION(id)  (id >= RIG_TOKEN_COLOR && id <= RIG_TOKEN_REPEAT)
@@ -81,6 +78,7 @@ extern token_t rig_token;		// the current token
 
 #define SUBSECTION_FIRST_CODE (RIG_TOKEN_PRESS - RIG_TOKEN_COLOR)
 #define SUBSECTION_NUM_CODE   ((RIG_TOKEN_REPEAT - RIG_TOKEN_PRESS) + 1)
+
 
 
 //------------------------------------------
@@ -194,25 +192,23 @@ extern token_t rig_token;		// the current token
 #define RIG_TOKEN_LEFT_BRACKET			120 // "["
 #define RIG_TOKEN_RIGHT_BRACKET			121 // "]"
 
-#define RIG_TOKEN_PLUS					130	// "+"
+#define RIG_TOKEN_NOT					122 // "!"		// ='s versions must follow!
+#define RIG_TOKEN_QUESTION 				123	// "?"		// end ranged in expressions
+
+#define RIG_TOKEN_PLUS					130	// "+"		// ranged in expressions
 #define RIG_TOKEN_MINUS					131 // "-"
 #define RIG_TOKEN_TIMES					132 // "*"
 #define RIG_TOKEN_DIVIDE				133	// "/"
 #define RIG_TOKEN_EQ					134	// "=="
-
-#define RIG_TOKEN_NOT					140 // "!"		// ='s versions must follow!
-#define RIG_TOKEN_NE					141	// "!="
-#define RIG_TOKEN_GT					142	// ">"
-#define RIG_TOKEN_GE					143	// ">="
-#define RIG_TOKEN_LT					144	// "<"
-#define RIG_TOKEN_LE					145	// "<="
-
-#define RIG_TOKEN_BITWISE_OR			150	// "|"
-#define RIG_TOKEN_BITWISE_AND			151	// "&"
-#define RIG_TOKEN_LOGICAL_OR			152	// "||"
-#define RIG_TOKEN_LOGICAL_AND			153	// "&&"
-
-#define RIG_TOKEN_QUESTION_MARK 		190	// "?"
+#define RIG_TOKEN_NE					135	// "!="
+#define RIG_TOKEN_GT					136	// ">"
+#define RIG_TOKEN_GE					137	// ">="
+#define RIG_TOKEN_LT					138	// "<"
+#define RIG_TOKEN_LE					139	// "<="
+#define RIG_TOKEN_BITWISE_OR			140	// "|"
+#define RIG_TOKEN_BITWISE_AND			141	// "&"
+#define RIG_TOKEN_LOGICAL_OR			142	// "||"
+#define RIG_TOKEN_LOGICAL_AND			143	// "&&"
 
 #define RIG_TOKEN_IDENTIFIER			200		// "ID"		// transient
 #define RIG_TOKEN_ASSIGN				201 	// "="  	// transient

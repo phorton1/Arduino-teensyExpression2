@@ -8,19 +8,19 @@
 #include "rigExpression.h"
 
 
-#define dbg_parse 	-1
-	// 0 = just show the main header
+#define dbg_parse 	0
+	// 0 = just show the main rig_header
 	// -1 = show statements and params
 	// -2 = show details
 
 #define AREA_CLIENT_HEIGHT    (client_rect.ye - client_rect.ys + 1)
 
 
-rigHeader_t header;
-rigCode_t   code;
+rigHeader_t rig_header;
+rigCode_t   rig_code;
 
-const rigHeader_t	*cur_rig_header = &header;
-const rigCode_t		*cur_rig_code = &code;
+const rigHeader_t	*cur_rig_header = &rig_header;
+const rigCode_t		*cur_rig_code = &rig_code;
 
 static int test_inline_num = 0;
 
@@ -28,8 +28,8 @@ static int test_inline_num = 0;
 static void init_parse()
 {
 	test_inline_num = 12;
-	memset(&header,0,sizeof(rigHeader_t));
-	memset(&code,0,sizeof(rigCode_t));
+	memset(&rig_header,0,sizeof(rigHeader_t));
+	memset(&rig_code,0,sizeof(rigCode_t));
 }
 
 
@@ -192,37 +192,37 @@ const statement_param_t *findParams(int tt)
 static bool addStringPool(const char *s)
 {
 	int len = strlen(s);
-	if (header.string_pool_len >= MAX_STRING_POOL - len - 1)
+	if (rig_header.string_pool_len >= MAX_STRING_POOL - len - 1)
 	{
 		rig_error("STRING POOL OVERLFLOW");
 		return false;
 	}
-	strcpy(&code.string_pool[header.string_pool_len],s);
-	header.string_pool_len += len + 1;
+	strcpy(&rig_code.string_pool[rig_header.string_pool_len],s);
+	rig_header.string_pool_len += len + 1;
 	return true;
 }
 
 static bool addStatementByte(uint8_t byte)
 {
-	if (header.statement_pool_len >= MAX_STATEMENT_POOL)
+	if (rig_header.statement_pool_len >= MAX_STATEMENT_POOL)
 	{
 		rig_error("STATMENT(BYTE) POOL OVERLFLOW");
 		return false;
 	}
-	code.statement_pool[header.statement_pool_len++] = byte;
+	rig_code.statement_pool[rig_header.statement_pool_len++] = byte;
 	return true;
 }
 
 static bool addStatementInt(uint16_t i)
 {
-	if (header.statement_pool_len >= MAX_STATEMENT_POOL - 2)
+	if (rig_header.statement_pool_len >= MAX_STATEMENT_POOL - 2)
 	{
 		rig_error("STATMENT(INT) POOL OVERLFLOW");
 		return false;
 	}
-	uint16_t *ptr = (uint16_t *) &code.statement_pool[header.statement_pool_len];
+	uint16_t *ptr = (uint16_t *) &rig_code.statement_pool[rig_header.statement_pool_len];
 	*ptr = i;
-	header.statement_pool_len += 2;
+	rig_header.statement_pool_len += 2;
 	return true;
 }
 
@@ -351,7 +351,7 @@ static bool handleArg(int statement_type, int arg_type)
 				else
 				{
 					listen_num = value;
-					header.listens[listen_num].active = 1;
+					rig_header.listens[listen_num].active = 1;
 				}
 				break;
 
@@ -366,7 +366,7 @@ static bool handleArg(int statement_type, int arg_type)
 				if (!text)
 					ok = 0;
 				else
-					strcpy(header.pedals[pedal_num].name,text);
+					strcpy(rig_header.pedals[pedal_num].name,text);
 				break;
 			case PARAM_MIDI_PORT    :
 				if (rig_token.id < RIG_TOKEN_MIDI ||
@@ -380,9 +380,9 @@ static bool handleArg(int statement_type, int arg_type)
 					uint8_t use_port = rig_token.id - RIG_TOKEN_MIDI;
 					display(dbg_parse + 1, "MIDI_PORT = %s (%d)",rigTokenToString(rig_token.id),use_port);
 					if (statement_type == RIG_TOKEN_PEDAL)
-						header.pedals[pedal_num].port = use_port;
+						rig_header.pedals[pedal_num].port = use_port;
 					else if (statement_type == RIG_TOKEN_LISTEN)
-						header.listens[listen_num].port = use_port;
+						rig_header.listens[listen_num].port = use_port;
 					if (!getRigToken())
 						ok = 0;
 				}
@@ -393,9 +393,9 @@ static bool handleArg(int statement_type, int arg_type)
 				else
 				{
 					if (statement_type == RIG_TOKEN_PEDAL)
-						header.pedals[pedal_num].channel = value;
+						rig_header.pedals[pedal_num].channel = value;
 					else if (statement_type == RIG_TOKEN_LISTEN)
-						header.listens[listen_num].channel = value;
+						rig_header.listens[listen_num].channel = value;
 				}
 				break;
 			case PARAM_MIDI_CC      :
@@ -404,9 +404,9 @@ static bool handleArg(int statement_type, int arg_type)
 				else
 				{
 					if (statement_type == RIG_TOKEN_PEDAL)
-						header.pedals[pedal_num].cc = value;
+						rig_header.pedals[pedal_num].cc = value;
 					else if (statement_type == RIG_TOKEN_LISTEN)
-						header.listens[listen_num].cc = value;
+						rig_header.listens[listen_num].cc = value;
 				}
 				break;
 
@@ -437,7 +437,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					// already shown in getNumberAny()
 					// display(dbg_parse + 1, "FONT_SIZE = %d",value);
-					header.areas[area_num].font_size = value;
+					rig_header.areas[area_num].font_size = value;
 				}
 				break;
 			case PARAM_FONT_TYPE    :
@@ -451,7 +451,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					uint8_t use_type = rig_token.id - RIG_TOKEN_NORMAL;
 					display(dbg_parse + 1, "FONT_TYPE = %s (%d)",rigTokenToString(rig_token.id),use_type);
-					header.areas[area_num].font_type = use_type;
+					rig_header.areas[area_num].font_type = use_type;
 					if (!getRigToken())
 						ok = 0;
 				}
@@ -467,7 +467,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					uint8_t use_just = rig_token.id - RIG_TOKEN_LEFT;
 					display(dbg_parse + 1, "FONT_JUST = %s (%d)",rigTokenToString(rig_token.id),use_just);
-					header.areas[area_num].font_just = use_just;
+					rig_header.areas[area_num].font_just = use_just;
 					if (!getRigToken())
 						ok = 0;
 				}
@@ -477,25 +477,25 @@ static bool handleArg(int statement_type, int arg_type)
 				if (!getNumber(&value,"START_X",TFT_WIDTH-1))
 					ok = 0;
 				else
-					header.areas[area_num].xs = value;
+					rig_header.areas[area_num].xs = value;
 				break;
 			case PARAM_START_Y      :
 				if (!getNumber(&value,"START_Y",AREA_CLIENT_HEIGHT-1))
 					ok = 0;
 				else
-					header.areas[area_num].ys = value;
+					rig_header.areas[area_num].ys = value;
 				break;
 			case PARAM_END_X        :
 				if (!getNumber(&value,"END_X",TFT_WIDTH-1))
 					ok = 0;
 				else
-					header.areas[area_num].xe = value;
+					rig_header.areas[area_num].xe = value;
 				break;
 			case PARAM_END_Y        :
 				if (!getNumber(&value,"END_Y",AREA_CLIENT_HEIGHT-1))
 					ok = 0;
 				else
-					header.areas[area_num].ye = value;
+					rig_header.areas[area_num].ye = value;
 				break;
 
 			case PARAM_STRING_NUM   :
@@ -512,7 +512,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					// the offset is incremented so that we can identify
 					// accesses to string 0 explicitly.
-					header.strings[string_num] = header.string_pool_len + 1;
+					rig_header.strings[string_num] = rig_header.string_pool_len + 1;
 					ok = addStringPool(text);
 				}
 				break;
@@ -567,28 +567,24 @@ static bool handleArg(int statement_type, int arg_type)
 					ok = addStatementByte(value);
 				break;
 			case PARAM_NUM_EXPRESSION				:
-				rigNumericExpression(rig_token.id);
-					// have to call to skip bytes
-				ok = addStatementInt(EXPRESSION_INLINE | (EXP_VALUE << 8) | (test_inline_num++ & 0xff));
-				// ok = ok && addExpression(1,null_expression);
+				value = rigNumericExpression(rig_token.id);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_STRING_EXPRESSION			:
-				rigStringExpression(rig_token.id);
-					// have to call to skip bytes
-				ok = addStatementInt(EXPRESSION_INLINE | (EXP_STRING << 8) | (test_inline_num++ & 0xff));
-				// ok = ok && addExpression(1,null_expression);
+				value = rigStringExpression(rig_token.id);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_LED_COLOR_EXPRESSION			:
-				rigLedColorExpression(rig_token.id);
-					// have to call to skip bytes
-				ok = addStatementInt(EXPRESSION_INLINE | (EXP_LED_COLOR << 8) );
-				// ok = ok && addExpression(1,null_expression);
+				value = rigLedColorExpression(rig_token.id);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_DISPLAY_COLOR_EXPRESSION		:
-				rigDisplayColorExpression(rig_token.id);
-					// have to call to skip bytes
-				ok = addStatementInt(EXPRESSION_INLINE | (EXP_DISPLAY_COLOR << 8) );
-				// ok = ok && addExpression(1,null_expression);
+				value = rigDisplayColorExpression(rig_token.id);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
 				break;
 
 			default:
@@ -613,8 +609,8 @@ static bool handleStatement(int tt)
 
 	int statement_type = tt;
 
-	// this parses either statements that actually generate statement code,
-	// or init only statements that store things in the header. If it is
+	// this parses either statements that actually generate statement rig_code,
+	// or init only statements that store things in the rig_header. If it is
 	// not an init_only statement, we write the token as the first byte
 	// of the statement
 
@@ -689,19 +685,19 @@ static bool handleStatement(int tt)
 
 static bool handleStatementList(int tt)
 {
-	display(dbg_parse + 2,"handleStatementList(%d) %s",header.num_statements,rigTokenToString(tt));
+	display(dbg_parse + 2,"handleStatementList(%d) %s",rig_header.num_statements,rigTokenToString(tt));
 	proc_entry();
 
 	// set pool offset into statements array
 	// allow one for terminating length
 
-	if (header.num_statements >= MAX_STATEMENTS - 1)
+	if (rig_header.num_statements >= MAX_STATEMENTS - 1)
 	{
 		rig_error("implementation error: too many STATMENTS (lists)");
 		proc_leave();
 		return false;
 	}
-	header.statements[header.num_statements++] = header.statement_pool_len;
+	rig_header.statements[rig_header.num_statements++] = rig_header.statement_pool_len;
 
 	// process statements
 
@@ -746,30 +742,28 @@ static bool handleSubsection(int button_num, int sub_id)
 		// set this button's statement list index for the given subsection
 		// to the next statement list that will be parsed.
 
-		display(dbg_parse + 1,"    uses statement(%d)",header.num_statements);
-		display(dbg_parse + 1,"    button_ref set to ",header.num_statements+1);
+		display(dbg_parse + 1,"    uses statement(%d)",rig_header.num_statements);
+		display(dbg_parse + 1,"    button_ref set to %d",rig_header.num_statements+1);
 
-		header.button_refs[button_num][sub_num] = header.num_statements + 1;
+		rig_header.button_refs[button_num][sub_num] = rig_header.num_statements + 1;
 			// 1 based so that we can identify a used statement list
 
 		ok = handleStatementList(rig_token.id);
 	}
 	else if (sub_id == RIG_TOKEN_COLOR)
 	{
-		rigLedColorExpression(rig_token.id);
-			// have to call to skip bytes
-		header.button_refs[button_num][sub_num] = EXPRESSION_INLINE | (EXP_LED_COLOR << 8);
-		// header.button_refs[button_num][sub_num] = expression_pool_len + 1;
-		// ok = addExpression(1,null_expression);
+		uint16_t offset = rigLedColorExpression(rig_token.id);
+		ok = offset;
+		if (ok)
+			rig_header.button_refs[button_num][sub_num] = offset;
 		ok = ok && skip(RIG_TOKEN_SEMICOLON);
 	}
 	else
 	{
-		rigNumericExpression(rig_token.id);
-			// have to call to skip bytes
-		header.button_refs[button_num][sub_num] = EXPRESSION_INLINE | (EXP_NUMBER << 8) | (test_inline_num++ & 0xff);
-		// header.button_refs[button_num][sub_num] = expression_pool_len + 1;
-		// ok = addExpression(1,null_expression);
+		uint16_t offset = rigNumericExpression(rig_token.id);
+		ok = offset;
+		if (ok)
+			rig_header.button_refs[button_num][sub_num] = offset;
 		ok = ok && skip(RIG_TOKEN_SEMICOLON);
 	}
 
@@ -811,8 +805,6 @@ static bool handleSubsections(int button_num)
 
 static bool handleButton()
 {
-	if (dbg_parse < 0)
-		delay(100);		// hrmph
 	display(dbg_parse + 1,"handleButton()",0);
 	proc_entry();
 
@@ -890,7 +882,7 @@ bool parseRig()
 		}
 		else
 		{
-			header.overlay_type = tt - RIG_TOKEN_BASERIG;
+			rig_header.overlay_type = tt - RIG_TOKEN_BASERIG;
 		}
 
 		tt = getRigToken();
@@ -904,7 +896,7 @@ bool parseRig()
 
 		if (ok && IS_INIT_STATEMENT(tt))
 			ok = ok && handleStatementList(tt);
-		header.num_statements = 1;
+		rig_header.num_statements = 1;
 			// even if empty
 
 		// buttons
@@ -945,7 +937,7 @@ bool parseRig()
 		// so everyone can get the number of statements
 		// by subtracting from the +1 value ..
 
-		header.statements[header.num_statements] = header.statement_pool_len;
+		rig_header.statements[rig_header.num_statements] = rig_header.statement_pool_len;
 
 		if (ok)
 		{

@@ -182,9 +182,15 @@ typedef struct
 extern bool parseRig();
 extern const statement_param_t *findParams(int tt);
 
-extern const rigHeader_t  *cur_rig_header;
-extern const rigCode_t	*cur_rig_code;
+// parse time (for expressions)
+
+extern rigHeader_t rig_header;
+extern rigCode_t rig_code;
+
+
+// runtime (for dumping & execution)
+
+extern const rigHeader_t	*cur_rig_header;
+extern const rigCode_t		*cur_rig_code;
 
 // end of rigParser.h
-
-

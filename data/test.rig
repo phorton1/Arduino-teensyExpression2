@@ -141,7 +141,7 @@ LISTEN(34, SERIAL, 1, 23);
 
 STRING_DEF(0, "BASS1"  );			# PATCH_SHORT_NAME{0}
 STRING_DEF(1, "BASS-F" );			# PATCH_SHORT_NAME{1}
-STRING_DEF(0, "BASS1-G" );			# PATCH_SHORT_NAME{2}
+STRING_DEF(2, "BASS1-G" );			# PATCH_SHORT_NAME{2}
 # and so on ...
 
 STRING_DEF(24, "MM Bass Finger");	# PATCH_LONG_NAME{0}
@@ -193,8 +193,8 @@ BUTTON(0):
 		setValue(2, 0);								# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 0);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);					# show the short Patch Name
-		display(1, MAGENTA, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,   	STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA,	STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 BUTTON(1):
 	color:
@@ -203,8 +203,8 @@ BUTTON(1):
 		setValue(2, 1);								# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 1);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);					# show the short Patch Name
-		display(1, MAGENTA, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,   	STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 BUTTON(2):
 	color:
@@ -213,8 +213,8 @@ BUTTON(2):
 		setValue(2, 2);								# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 2);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);					# show the short Patch Name
-		display(1, MAGENTA, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,    STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 BUTTON(3):
 	color:
@@ -223,8 +223,8 @@ BUTTON(3):
 		setValue(2, 3);								# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 3);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);					# show the short Patch Name
-		display(1, MAGENTA, 24 + STRING[24 + VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,    STRING[VALUE[3]]);		# show the short Patch Name
+		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 # Second Row
 # Note that henceforth there is a difference between the PATCH_BUTTON value
@@ -237,7 +237,7 @@ BUTTON(5):
 		setValue(2, 5);								# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 4);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,    STRING[VALUE[3]]);		# show the short Patch Name
 		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 BUTTON(6):
@@ -247,7 +247,7 @@ BUTTON(6):
 		setValue(2, 6);								# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 5);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,    STRING[VALUE[3]]);		# show the short Patch Name
 		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 BUTTON(7):
@@ -257,7 +257,7 @@ BUTTON(7):
 		setValue(2, 7);								# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 6);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,   	STRING[VALUE[3]]);		# show the short Patch Name
 		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 BUTTON(8):
@@ -267,7 +267,7 @@ BUTTON(8):
 		setValue(2, 8);								# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 7);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,   	STRING[VALUE[3]]);		# show the short Patch Name
 		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 # Third Row
@@ -276,40 +276,40 @@ BUTTON(10):
 	color:
 		VALUE[2] == 10 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		setValue(2, 10);								# set PATCH_BUTTON value
+		setValue(2, 10);							# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 8);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,   	STRING[VALUE[3]]);		# show the short Patch Name
 		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 BUTTON(11):
 	color:
 		VALUE[2] == 11 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		setValue(2, 11);								# set PATCH_BUTTON value
+		setValue(2, 11);							# set PATCH_BUTTON value
 		setValue(3, VALUE[1] * 12 + 9);				# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,   	STRING[VALUE[3]]);		# show the short Patch Name
 		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 BUTTON(12):
 	color:
 		VALUE[2] == 12 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		setValue(2, 12);								# set PATCH_BUTTON value
-		setValue(3, VALUE[1] * 12 + 10);				# set ACTUAL_PATCH number
+		setValue(2, 12);							# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 10);			# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,   	STRING[VALUE[3]]);		# show the short Patch Name
 		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 BUTTON(13):
 	color:
 		VALUE[2] == 13 ? VALUE[1] ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
-		setValue(2, 13);								# set PATCH_BUTTON value
-		setValue(3, VALUE[1] * 12 + 11);				# set ACTUAL_PATCH number
+		setValue(2, 13);							# set PATCH_BUTTON value
+		setValue(3, VALUE[1] * 12 + 11);			# set ACTUAL_PATCH number
 		SendPgmChg(MIDI, 7, 16 + VALUE[3]);			# send MULTI_OFFSET + ACTUAL_PATCH number
-		display(0, CYAN,   STRING[VALUE[3]]);		# show the short Patch Name
+		display(0, CYAN,   	STRING[VALUE[3]]);		# show the short Patch Name
 		display(1, MAGENTA, STRING[24 + VALUE[3]]);	# show the short Patch Name
 
 

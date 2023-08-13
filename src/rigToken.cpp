@@ -175,7 +175,7 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_LOGICAL_OR			: return "L_OR";
 		case RIG_TOKEN_LOGICAL_AND			: return "L_AND";
 
-		case RIG_TOKEN_QUESTION_MARK 		: return "QUESTION";
+		case RIG_TOKEN_QUESTION 		: return "QUESTION";
 
 		case RIG_TOKEN_IDENTIFIER			: return "ID";
 		case RIG_TOKEN_ASSIGN				: return "ASSIGN";
@@ -245,7 +245,7 @@ const char *rigTokenToText(int token_id)
 		case RIG_TOKEN_LOGICAL_OR			: return "||";
 		case RIG_TOKEN_LOGICAL_AND			: return "&&";
 
-		case RIG_TOKEN_QUESTION_MARK 		: return "?";
+		case RIG_TOKEN_QUESTION 		: return "?";
 
 		case RIG_TOKEN_IDENTIFIER			: return "ID";
 		case RIG_TOKEN_ASSIGN				: return "=";
@@ -283,7 +283,7 @@ static int getRigDelim(char c)
 		case '<' : return RIG_TOKEN_LT;
 		case '|' : return RIG_TOKEN_BITWISE_OR;
 		case '&' : return RIG_TOKEN_BITWISE_AND;
-		case '?' : return RIG_TOKEN_QUESTION_MARK;
+		case '?' : return RIG_TOKEN_QUESTION;
 		case '=' : return RIG_TOKEN_ASSIGN;
 	}
 	return 0;
@@ -319,7 +319,7 @@ int getRigToken()
 		if (c == -1)
 		{
 			rig_error("File Read Error");
-			return -1;
+			return 0;
 		}
 
         parse_char_num++;
@@ -345,7 +345,7 @@ int getRigToken()
             if (rig_token.id == RIG_TOKEN_STRING)
             {
                 rig_error("unclosed quote");
-                return -1;
+                return 0;
             }
             else if (rig_token.len)
             {
@@ -362,7 +362,7 @@ int getRigToken()
             if (rig_token.id == RIG_TOKEN_STRING)
             {
                 rig_error("unclosed quote");
-                return -1;
+                return 0;
             }
 
             if (in_comment)
@@ -397,7 +397,7 @@ int getRigToken()
             else if (rig_token.len)
             {
                 rig_error("unexpected quote");
-                return -1;
+                return 0;
             }
             else
             {
@@ -414,7 +414,7 @@ int getRigToken()
 				c = 13;
 			}
 			if (!addTokenChar(c))
-				return -1;
+				return 0;
 		}
 
         // white space
@@ -460,7 +460,7 @@ int getRigToken()
 					else
 					{
 						rig_error("illegal symbol '%c'");
-						return -1;
+						return 0;
 					}
 				}
 				else if (rig_file.peek() == '=' && (
@@ -469,7 +469,11 @@ int getRigToken()
 						delim == RIG_TOKEN_LT))
 				{
 					rig_file.read();
-					rig_token.id = delim + 1;	// must be in order!
+					rig_token.id =
+						delim == RIG_TOKEN_NOT ? RIG_TOKEN_NE :
+						delim == RIG_TOKEN_GT  ? RIG_TOKEN_GE :
+						RIG_TOKEN_LE;
+					;	// must be in order!
 					parse_ptr++;
 					parse_char_num++;
 					addTokenChar(c);
@@ -504,7 +508,7 @@ int getRigToken()
             rig_token.id = RIG_TOKEN_NUMBER;
             rig_token.int_value = c - '0';
             if (!addTokenChar(c))
-                return -1;
+                return 0;
         }
         else if (rig_token.id == RIG_TOKEN_NUMBER)
         {
@@ -512,18 +516,18 @@ int getRigToken()
             {
                 if (rig_token.len >= 3)
                 {
-                    rig_error("number too long");
-                    return -1;
+                    rig_error("NUMBER too long");
+                    return 0;
                 }
                 rig_token.int_value *= 10;
                 rig_token.int_value += c - '0';
                 if (!addTokenChar(c))
-                    return -1;
+                    return 0;
             }
             else
             {
                 rig_error("bad number");
-                return -1;
+                return 0;
             }
         }
 
@@ -538,12 +542,12 @@ int getRigToken()
 				c = c - 'a' + 'A';
 
             if (!addTokenChar(c))
-                return -1;
+                return 0;
         }
         else
         {
             rig_error("illegal character %d='%c'",c,c>=32?c:'.');
-            return -1;
+            return 0;
         }
 
     }   // while !(done)
@@ -569,7 +573,7 @@ int getRigToken()
 		if (!id)
 		{
 			rig_error("illegal identifier: %s",rig_token.text);
-			return -1;
+			return 0;
 		}
 		rig_token.id = id;
 	}
@@ -596,11 +600,6 @@ int getRigToken()
 			rig_token.id,
 			rigTokenToString(rig_token.id));
 
-	// was going too fast for console
-
-	if (dbg_low <= 0)
-		delay(5);
-
 	// basic lexical structure
 
 	if (!parse_section)
@@ -609,7 +608,7 @@ int getRigToken()
 			id != RIG_TOKEN_OVERLAY)
 		{
 			rig_error("Rig must start with BaseRig or Overlay");
-			return -1;
+			return 0;
 		}
 		else
 		{
@@ -621,19 +620,19 @@ int getRigToken()
 			id == RIG_TOKEN_OVERLAY))
 	{
 		rig_error("BaseRig or Overlay only allowed as first Token");
-		return -1;
+		return 0;
 	}
 	else if (IS_STATEMENT(id))
 	{
 		if (parse_section == 1 && !IS_INIT_STATEMENT(id))
 		{
 			rig_error("%s statement only allowed in init_section",rigTokenToString(id));
-			return -1;
+			return 0;
 		}
 		else if (parse_section == 2 && !IS_BUTTON_STATEMENT(id))
 		{
 			rig_error("%s statement only allowed in button_section",rigTokenToString(id));
-			return -1;
+			return 0;
 		}
 	}
 	else if (id == RIG_TOKEN_BUTTON)
@@ -742,7 +741,7 @@ int getRigToken()
 				tt == RIG_TOKEN_BITWISE_AND ||
 				tt == RIG_TOKEN_LOGICAL_OR ||
 				tt == RIG_TOKEN_LOGICAL_AND ||
-				tt == RIG_TOKEN_QUESTION_MARK)
+				tt == RIG_TOKEN_QUESTION)
 				dbgSerial->print(" ");
 			dbgSerial->print(rigTokenToText(tt));
 			if (tt == RIG_TOKEN_COMMA ||
@@ -758,7 +757,7 @@ int getRigToken()
 				tt == RIG_TOKEN_BITWISE_AND ||
 				tt == RIG_TOKEN_LOGICAL_OR ||
 				tt == RIG_TOKEN_LOGICAL_AND ||
-				tt == RIG_TOKEN_QUESTION_MARK)
+				tt == RIG_TOKEN_QUESTION)
 				dbgSerial->print(" ");
 		}
 	}
