@@ -6,8 +6,6 @@
 
 #include <myDebug.h>
 #include "rigExpression.h"
-#include "rigCode.h"
-#include "rigToken.h"
 #include "rigParser.h"
 
 #define MAX_EXPRESSION  1024

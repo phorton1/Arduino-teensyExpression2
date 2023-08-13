@@ -1,12 +1,8 @@
 //-------------------------------------------------------
 // rigParser.cpp
 //-------------------------------------------------------
-// Implements the class that parses Rig Text files
-// and creates Rig memory images
-
 #include <myDebug.h>
-#include "rigToken.h"
-#include "rigCode.h"
+#include "rigParser.h"
 #include "myTFT.h"		// for TFT sizes
 #include "theSystem.h"	// for client rect
 #include "rigExpression.h"
@@ -17,96 +13,29 @@
 	// -1 = show statements and params
 	// -2 = show details
 
-#define MAX_STRING_POOL 			4096
-#define MAX_STATEMENT_POOL 			4096
-#define MAX_EXPRESSION_POOL			4096
+#define AREA_CLIENT_HEIGHT    (client_rect.ye - client_rect.ys + 1)
 
 
-// memory management
-// pools initially implemented as static buffers for a single rig
-// we will inevitably have to use the heap ...
+rigHeader_t header;
+rigCode_t   code;
 
-static rigHeader_t rig_header;
+const rigHeader_t	*cur_rig_header = &header;
+const rigCode_t		*cur_rig_code = &code;
 
-
-
-static int num_statements;
-static int num_statement_lists;
-static int statement_pool_len;
-static uint8_t statement_pool[MAX_STATEMENT_POOL];
-static uint16_t statements[MAX_STATEMENTS];
-static uint16_t statement_lists[MAX_STATEMENT_LISTS + 1];
-	// one extra for the last length
-
-static int expression_pool_len;
-static uint8_t expression_pool[MAX_EXPRESSION_POOL];
-static uint16_t expressions[MAX_EXPRESSIONS];
-
-static int string_pool_len;
-static char string_pool[MAX_STRING_POOL];
-
-static const uint8_t null_expression[] = {237};
 static int test_inline_num = 0;
-
 
 
 static void init_parse()
 {
-	string_pool_len = 0;
-	num_statements = 0;
-	num_statement_lists = 1;	// empty init_section statement list
-	statement_pool_len = 0;
-	expression_pool_len = 0;
 	test_inline_num = 12;
-
-	memset(&rig_header,0,sizeof(rigHeader_t));
-	memset(statements,0,MAX_STATEMENTS * sizeof(uint16_t));
-	memset(statement_lists,0,(MAX_STATEMENT_LISTS + 1) * sizeof(uint16_t));
-	memset(expressions,0,MAX_EXPRESSIONS * sizeof(uint16_t));
-
-	memset(statement_pool, 0, MAX_STATEMENT_POOL);
-	memset(expression_pool, 0, MAX_EXPRESSION_POOL);
-	memset(string_pool, 0, MAX_STRING_POOL);
+	memset(&header,0,sizeof(rigHeader_t));
+	memset(&code,0,sizeof(rigCode_t));
 }
 
 
 //-----------------------------------------------------
-// defines
+// Arguments
 //-----------------------------------------------------
-
-#define AREA_CLIENT_HEIGHT    (client_rect.ye - client_rect.ys + 1)
-
-// init_only params
-
-#define PARAM_VALUE_NUM      1
-
-#define PARAM_PEDAL_NUM      10
-#define PARAM_PEDAL_NAME     11
-
-#define PARAM_AREA_NUM       20
-#define PARAM_FONT_SIZE      21
-#define PARAM_FONT_TYPE      22
-#define PARAM_FONT_JUST		 23
-#define PARAM_START_X        24
-#define PARAM_START_Y        25
-#define PARAM_END_X          26
-#define PARAM_END_Y          27
-
-#define PARAM_STRING_NUM     30
-#define PARAM_TEXT    		 31
-
-// monadic params in either
-
-#define PARAM_MIDI_PORT      40
-#define PARAM_MIDI_CHANNEL   41
-#define PARAM_MIDI_CC        42
-
-// expression params
-
-#define PARAM_NUM_EXPRESSION			100
-#define PARAM_STRING_EXPRESSION			101
-#define PARAM_LED_COLOR_EXPRESSION		102
-#define PARAM_DISPLAY_COLOR_EXPRESSION	103
 
 static const char *argTypeToString(int i)
 {
@@ -225,13 +154,6 @@ static const int NO_ARGS[] = {	// AllNotesOff(midi_port, midi_channel);
 };
 
 
-typedef struct
-{
-	const int id;
-	const int *args;
-} statement_param_t;
-
-
 
 static const statement_param_t statement_params[] = {
 	{ RIG_TOKEN_PEDAL, 			PEDAL_ARGS },
@@ -270,37 +192,37 @@ const statement_param_t *findParams(int tt)
 static bool addStringPool(const char *s)
 {
 	int len = strlen(s);
-	if (string_pool_len >= MAX_STRING_POOL - len - 1)
+	if (header.string_pool_len >= MAX_STRING_POOL - len - 1)
 	{
 		rig_error("STRING POOL OVERLFLOW");
 		return false;
 	}
-	strcpy(&string_pool[string_pool_len],s);
-	string_pool_len += len + 1;
+	strcpy(&code.string_pool[header.string_pool_len],s);
+	header.string_pool_len += len + 1;
 	return true;
 }
 
 static bool addStatementByte(uint8_t byte)
 {
-	if (statement_pool_len >= MAX_STATEMENT_POOL)
+	if (header.statement_pool_len >= MAX_STATEMENT_POOL)
 	{
 		rig_error("STATMENT(BYTE) POOL OVERLFLOW");
 		return false;
 	}
-	statement_pool[statement_pool_len++] = byte;
+	code.statement_pool[header.statement_pool_len++] = byte;
 	return true;
 }
 
 static bool addStatementInt(uint16_t i)
 {
-	if (statement_pool_len >= MAX_STATEMENT_POOL - 2)
+	if (header.statement_pool_len >= MAX_STATEMENT_POOL - 2)
 	{
 		rig_error("STATMENT(INT) POOL OVERLFLOW");
 		return false;
 	}
-	uint16_t *ptr = (uint16_t *) &statement_pool[statement_pool_len];
+	uint16_t *ptr = (uint16_t *) &code.statement_pool[header.statement_pool_len];
 	*ptr = i;
-	statement_pool_len += 2;
+	header.statement_pool_len += 2;
 	return true;
 }
 
@@ -350,17 +272,16 @@ static bool getNumberAny(int *retval, const char *what)
 	return true;
 }
 
-static bool getNumber(int *retval, const char *what, int min, int max)
+static bool getNumber(int *retval, const char *what, int max)
 {
 	if (rig_token.id != RIG_TOKEN_NUMBER)
 	{
 		rig_error("%s Expected",what);
 		return false;
 	}
-	if (rig_token.int_value < min ||
-		rig_token.int_value > max)
+	if (rig_token.int_value > max)
 	{
-		rig_error("%s must be between %d and %d",what,min,max);
+		rig_error("%s must be less than %d",what,max);
 		return false;
 	}
 	*retval = rig_token.int_value;
@@ -425,17 +346,17 @@ static bool handleArg(int statement_type, int arg_type)
 		switch (arg_type)
 		{
 			case PARAM_VALUE_NUM :	// only in LISTENS
-				if (!getNumber(&value,"VALUE_NUM",0,RIG_NUM_VALUES-1))
+				if (!getNumber(&value,"VALUE_NUM",RIG_NUM_VALUES-1))
 					ok = 0;
 				else
 				{
 					listen_num = value;
-					rig_header.listens[listen_num].active = 1;
+					header.listens[listen_num].active = 1;
 				}
 				break;
 
 			case PARAM_PEDAL_NUM :
-				if (!getNumber(&value,"PEDAL_NUM",0,NUM_PEDALS-1))
+				if (!getNumber(&value,"PEDAL_NUM",NUM_PEDALS-1))
 					ok = 0;
 				else
 					pedal_num = value;
@@ -445,7 +366,7 @@ static bool handleArg(int statement_type, int arg_type)
 				if (!text)
 					ok = 0;
 				else
-					strcpy(rig_header.pedals[pedal_num].name,text);
+					strcpy(header.pedals[pedal_num].name,text);
 				break;
 			case PARAM_MIDI_PORT    :
 				if (rig_token.id < RIG_TOKEN_MIDI ||
@@ -459,38 +380,38 @@ static bool handleArg(int statement_type, int arg_type)
 					uint8_t use_port = rig_token.id - RIG_TOKEN_MIDI;
 					display(dbg_parse + 1, "MIDI_PORT = %s (%d)",rigTokenToString(rig_token.id),use_port);
 					if (statement_type == RIG_TOKEN_PEDAL)
-						rig_header.pedals[pedal_num].port = use_port;
+						header.pedals[pedal_num].port = use_port;
 					else if (statement_type == RIG_TOKEN_LISTEN)
-						rig_header.listens[listen_num].port = use_port;
+						header.listens[listen_num].port = use_port;
 					if (!getRigToken())
 						ok = 0;
 				}
 				break;
 			case PARAM_MIDI_CHANNEL :
-				if (!getNumber(&value,"MIDI_CHANNEL",1,15))
+				if (!getNumber(&value,"MIDI_CHANNEL",MIDI_MAX_CHANNEL))
 					ok = 0;
 				else
 				{
 					if (statement_type == RIG_TOKEN_PEDAL)
-						rig_header.pedals[pedal_num].channel = value;
+						header.pedals[pedal_num].channel = value;
 					else if (statement_type == RIG_TOKEN_LISTEN)
-						rig_header.listens[listen_num].channel = value;
+						header.listens[listen_num].channel = value;
 				}
 				break;
 			case PARAM_MIDI_CC      :
-				if (!getNumber(&value,"MIDI_CC",0,127))
+				if (!getNumber(&value,"MIDI_CC",MIDI_MAX_VALUE))
 					ok = 0;
 				else
 				{
 					if (statement_type == RIG_TOKEN_PEDAL)
-						rig_header.pedals[pedal_num].cc = value;
+						header.pedals[pedal_num].cc = value;
 					else if (statement_type == RIG_TOKEN_LISTEN)
-						rig_header.listens[listen_num].cc = value;
+						header.listens[listen_num].cc = value;
 				}
 				break;
 
 			case PARAM_AREA_NUM     :
-				if (!getNumber(&value,"AREA_NUM",0,RIG_NUM_AREAS-1))
+				if (!getNumber(&value,"AREA_NUM",RIG_NUM_AREAS-1))
 					ok = 0;
 				else
 					area_num = value;
@@ -516,7 +437,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					// already shown in getNumberAny()
 					// display(dbg_parse + 1, "FONT_SIZE = %d",value);
-					rig_header.areas[area_num].font_size = value;
+					header.areas[area_num].font_size = value;
 				}
 				break;
 			case PARAM_FONT_TYPE    :
@@ -530,7 +451,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					uint8_t use_type = rig_token.id - RIG_TOKEN_NORMAL;
 					display(dbg_parse + 1, "FONT_TYPE = %s (%d)",rigTokenToString(rig_token.id),use_type);
-					rig_header.areas[area_num].font_type = use_type;
+					header.areas[area_num].font_type = use_type;
 					if (!getRigToken())
 						ok = 0;
 				}
@@ -546,39 +467,39 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					uint8_t use_just = rig_token.id - RIG_TOKEN_LEFT;
 					display(dbg_parse + 1, "FONT_JUST = %s (%d)",rigTokenToString(rig_token.id),use_just);
-					rig_header.areas[area_num].font_just = use_just;
+					header.areas[area_num].font_just = use_just;
 					if (!getRigToken())
 						ok = 0;
 				}
 				break;
 
 			case PARAM_START_X      :
-				if (!getNumber(&value,"START_X",0,TFT_WIDTH-1))
+				if (!getNumber(&value,"START_X",TFT_WIDTH-1))
 					ok = 0;
 				else
-					rig_header.areas[area_num].xs = value;
+					header.areas[area_num].xs = value;
 				break;
 			case PARAM_START_Y      :
-				if (!getNumber(&value,"START_Y",0,AREA_CLIENT_HEIGHT-1))
+				if (!getNumber(&value,"START_Y",AREA_CLIENT_HEIGHT-1))
 					ok = 0;
 				else
-					rig_header.areas[area_num].ys = value;
+					header.areas[area_num].ys = value;
 				break;
 			case PARAM_END_X        :
-				if (!getNumber(&value,"END_X",0,TFT_WIDTH-1))
+				if (!getNumber(&value,"END_X",TFT_WIDTH-1))
 					ok = 0;
 				else
-					rig_header.areas[area_num].xe = value;
+					header.areas[area_num].xe = value;
 				break;
 			case PARAM_END_Y        :
-				if (!getNumber(&value,"END_Y",0,AREA_CLIENT_HEIGHT-1))
+				if (!getNumber(&value,"END_Y",AREA_CLIENT_HEIGHT-1))
 					ok = 0;
 				else
-					rig_header.areas[area_num].ye = value;
+					header.areas[area_num].ye = value;
 				break;
 
 			case PARAM_STRING_NUM   :
-				if (!getNumber(&value,"STRING_NUM",0,RIG_NUM_STRINGS-1))
+				if (!getNumber(&value,"STRING_NUM",RIG_NUM_STRINGS-1))
 					ok = 0;
 				else
 					string_num = value;
@@ -591,7 +512,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					// the offset is incremented so that we can identify
 					// accesses to string 0 explicitly.
-					rig_header.strings[string_num] = string_pool_len + 1;
+					header.strings[string_num] = header.string_pool_len + 1;
 					ok = addStringPool(text);
 				}
 				break;
@@ -606,16 +527,16 @@ static bool handleArg(int statement_type, int arg_type)
 		switch (arg_type)
 		{
 			case PARAM_VALUE_NUM :	// in setValue
-				if (!getNumber(&value,"VALUE_NUM",0,RIG_NUM_VALUES-1))
+				if (!getNumber(&value,"VALUE_NUM",RIG_NUM_VALUES-1))
 					ok = 0;
 				else
-					addStatementByte(value);
+					ok = addStatementByte(value);
 				break;
 			case PARAM_AREA_NUM     :
-				if (!getNumber(&value,"AREA_NUM",0,RIG_NUM_AREAS-1))
+				if (!getNumber(&value,"AREA_NUM",RIG_NUM_AREAS-1))
 					ok = 0;
 				else
-					addStatementByte(value);
+					ok = addStatementByte(value);
 				break;
 			case PARAM_MIDI_PORT    :
 				if (rig_token.id < RIG_TOKEN_MIDI ||
@@ -628,22 +549,22 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					uint8_t use_port = rig_token.id - RIG_TOKEN_MIDI;
 					display(dbg_parse + 1, "MIDI_PORT = %s (%d)",rigTokenToString(rig_token.id),use_port);
-					addStatementByte(use_port);
-					if (!getRigToken())
+					ok = addStatementByte(use_port);
+					if (ok && !getRigToken())
 						ok = 0;
 				}
 				break;
 			case PARAM_MIDI_CHANNEL :
-				if (!getNumber(&value,"MIDI_CHANNEL",1,15))
+				if (!getNumber(&value,"MIDI_CHANNEL",MIDI_MAX_CHANNEL))
 					ok = 0;
 				else
-					addStatementByte(value);
+					ok = addStatementByte(value);
 				break;
 			case PARAM_MIDI_CC      :
-				if (!getNumber(&value,"MIDI_CC",0,127))
+				if (!getNumber(&value,"MIDI_CC",MIDI_MAX_VALUE))
 					ok = 0;
 				else
-					addStatementByte(value);
+					ok = addStatementByte(value);
 				break;
 			case PARAM_NUM_EXPRESSION				:
 				rigNumericExpression(rig_token.id);
@@ -685,22 +606,24 @@ static bool handleArg(int statement_type, int arg_type)
 
 
 
-static bool handleStatement(uint16_t statement_list_num, int tt)
+static bool handleStatement(int tt)
 {
-	display(dbg_parse + 1,"handleStatement(%d) %s",num_statements,rigTokenToString(tt));
+	display(dbg_parse + 1,"handleStatement(%s)",rigTokenToString(tt));
 	proc_entry();
 
-	if (num_statements >= MAX_STATEMENTS)
+	int statement_type = tt;
+
+	// this parses either statements that actually generate statement code,
+	// or init only statements that store things in the header. If it is
+	// not an init_only statement, we write the token as the first byte
+	// of the statement
+
+
+	if (!IS_INIT_ONLY_STATEMENT(statement_type) && !addStatementByte(tt))
 	{
-		rig_error("implementation error: too many statements");
 		proc_leave();
 		return false;
 	}
-
-	statements[num_statements++] = statement_pool_len;
-	statement_pool[statement_pool_len++] = tt;
-
-	int statement_type = tt;
 
 	// get the next token
 
@@ -757,7 +680,7 @@ static bool handleStatement(uint16_t statement_list_num, int tt)
 		return false;
 	}
 
-	display(dbg_parse + 2,"handleStatement(%d) finished",num_statements-1);
+	display(dbg_parse + 2,"handleStatement() finished",0);
 	proc_leave();
 	return true;
 }
@@ -766,22 +689,25 @@ static bool handleStatement(uint16_t statement_list_num, int tt)
 
 static bool handleStatementList(int tt)
 {
-	display(dbg_parse + 2,"handleStatementList(%d) %s",num_statement_lists,rigTokenToString(tt));
+	display(dbg_parse + 2,"handleStatementList(%d) %s",header.num_statements,rigTokenToString(tt));
 	proc_entry();
 
-	if (num_statement_lists >= MAX_STATEMENT_LISTS)
+	// set pool offset into statements array
+	// allow one for terminating length
+
+	if (header.num_statements >= MAX_STATEMENTS - 1)
 	{
-		rig_error("implementation error: too many statement lists");
+		rig_error("implementation error: too many STATMENTS (lists)");
 		proc_leave();
 		return false;
 	}
+	header.statements[header.num_statements++] = header.statement_pool_len;
 
-	uint16_t statement_list_num = num_statement_lists++;
-	statement_lists[statement_list_num] = num_statements;
+	// process statements
 
 	while (IS_STATEMENT(tt))
 	{
-		if (!handleStatement(statement_list_num,tt))
+		if (!handleStatement(tt))
 		{
 			rig_error("handleStatement() failed!");
 			proc_leave();
@@ -792,7 +718,7 @@ static bool handleStatementList(int tt)
 	}
 
 	proc_leave();
-	display(dbg_parse + 2,"handleStatementList(%d) finished",num_statement_lists-1);
+	display(dbg_parse + 2,"handleStatementList() finished on %s",rigTokenToString(tt));
 	return true;
 }
 
@@ -820,7 +746,10 @@ static bool handleSubsection(int button_num, int sub_id)
 		// set this button's statement list index for the given subsection
 		// to the next statement list that will be parsed.
 
-		rig_header.button_refs[button_num][sub_num] = num_statement_lists + 1;
+		display(dbg_parse + 1,"    uses statement(%d)",header.num_statements);
+		display(dbg_parse + 1,"    button_ref set to ",header.num_statements+1);
+
+		header.button_refs[button_num][sub_num] = header.num_statements + 1;
 			// 1 based so that we can identify a used statement list
 
 		ok = handleStatementList(rig_token.id);
@@ -829,8 +758,8 @@ static bool handleSubsection(int button_num, int sub_id)
 	{
 		rigLedColorExpression(rig_token.id);
 			// have to call to skip bytes
-		rig_header.button_refs[button_num][sub_num] = EXPRESSION_INLINE | (EXP_LED_COLOR << 8);
-		// rig_header.button_refs[button_num][sub_num] = expression_pool_len + 1;
+		header.button_refs[button_num][sub_num] = EXPRESSION_INLINE | (EXP_LED_COLOR << 8);
+		// header.button_refs[button_num][sub_num] = expression_pool_len + 1;
 		// ok = addExpression(1,null_expression);
 		ok = ok && skip(RIG_TOKEN_SEMICOLON);
 	}
@@ -838,8 +767,8 @@ static bool handleSubsection(int button_num, int sub_id)
 	{
 		rigNumericExpression(rig_token.id);
 			// have to call to skip bytes
-		rig_header.button_refs[button_num][sub_num] = EXPRESSION_INLINE | (EXP_NUMBER << 8) | (test_inline_num++ & 0xff);
-		// rig_header.button_refs[button_num][sub_num] = expression_pool_len + 1;
+		header.button_refs[button_num][sub_num] = EXPRESSION_INLINE | (EXP_NUMBER << 8) | (test_inline_num++ & 0xff);
+		// header.button_refs[button_num][sub_num] = expression_pool_len + 1;
 		// ok = addExpression(1,null_expression);
 		ok = ok && skip(RIG_TOKEN_SEMICOLON);
 	}
@@ -953,8 +882,17 @@ bool parseRig()
 
 		// rig type
 
-		if (tt == RIG_TOKEN_OVERLAY)
-			rig_header.overlay_type = OVERLAY_TYPE_OVERLAY;
+		if (tt < RIG_TOKEN_BASERIG ||
+			tt > RIG_TOKEN_OVERLAY)
+		{
+			rig_error("must start with BaseRig or Overlay");
+			ok = 0;
+		}
+		else
+		{
+			header.overlay_type = tt - RIG_TOKEN_BASERIG;
+		}
+
 		tt = getRigToken();
 		if (!tt)
 		{
@@ -966,6 +904,8 @@ bool parseRig()
 
 		if (ok && IS_INIT_STATEMENT(tt))
 			ok = ok && handleStatementList(tt);
+		header.num_statements = 1;
+			// even if empty
 
 		// buttons
 
@@ -1005,7 +945,7 @@ bool parseRig()
 		// so everyone can get the number of statements
 		// by subtracting from the +1 value ..
 
-		statement_lists[num_statement_lists] = num_statements;
+		header.statements[header.num_statements] = header.statement_pool_len;
 
 		if (ok)
 		{
