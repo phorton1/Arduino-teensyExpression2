@@ -490,13 +490,37 @@ uint16_t rigNumericExpression(int tt)
 {
 	return genericExpression("NUMERIC", EXP_TYPE_NUMBER,tt);
 }
+
+
+uint16_t rigPedalNumExpression(int tt)
+{
+	return genericExpression("PEDAL_NUM", EXP_TYPE_NUMBER,tt,NUM_PEDALS - 1);
+}
+uint16_t rigRotaryNumExpression(int tt)
+{
+	return genericExpression("PEDAL_NUM", EXP_TYPE_NUMBER,tt,NUM_ROTARY - 1);
+}
+uint16_t rigAreaNumExpression(int tt)
+{
+	return genericExpression("AREA_NUM", EXP_TYPE_NUMBER,tt,RIG_NUM_AREAS - 1);
+}
+uint16_t rigListenNumExpression(int tt)
+{
+	return genericExpression("LISTEN_NUM", EXP_TYPE_NUMBER,tt,RIG_NUM_LISTENS - 1);
+}
 uint16_t rigValueNumExpression(int tt)
 {
 	return genericExpression("VALUE_NUM",EXP_TYPE_NUMBER,tt,RIG_NUM_VALUES-1);
 }
-uint16_t rigAreaNumExpression(int tt)
+
+
+uint16_t rigValueExpression(int tt)
 {
-	return genericExpression("AREA_NUM",EXP_TYPE_NUMBER,tt,RIG_NUM_AREAS-1);
+	return genericExpression("VALUE_NUM",EXP_TYPE_NUMBER,tt,MAX_RIG_VALUE);
+}
+uint16_t rigMidiPortExpression(int tt)
+{
+	return genericExpression("MIDI_PORT",EXP_TYPE_NUMBER,tt,MIDI_MAX_CHANNEL);
 }
 uint16_t rigMidiChannelExpression(int tt)
 {

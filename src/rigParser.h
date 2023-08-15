@@ -20,94 +20,60 @@
 #include "defines.h"
 #include "rigToken.h"	// for NUM_SUBSECTIONS
 
+#define MIDI_MAX_PORT			(RIG_TOKEN_SERIAL - RIG_TOKEN_MIDI0)
 #define MIDI_MAX_CHANNEL		15
 #define MIDI_MAX_VALUE			127
 
-// This is fixed by architecture
+// These are fixed by architecture
 
-#define MAX_DEFINE_VALUE		255
+#define MAX_RIG_VALUE			255		// stored in uint8's
+#define MAX_DEFINE_VALUE		255		// stored in uint8's
 #define MAX_STATEMENTS 			(1 + NUM_BUTTONS * NUM_SUBSECTIONS)
 
 // These can be increased upto 255 (uint18_t)
+// as needed to accomodate larger programs
+
+#define RIG_NUM_DEFINES			128
+#define RIG_NUM_VALUES			128
+#define RIG_NUM_STRINGS			128
 
 #define RIG_NUM_AREAS			16
 #define RIG_NUM_LISTENS			128
-#define RIG_NUM_VALUES			128
-
-// can only be increased to 254 due to one based indexing
-
-#define RIG_NUM_STRINGS			128
-#define RIG_NUM_DEFINES			128
 
 
-#define MAX_EXPRESSIONS     	1024
-// Can only be increased to 0x7fff (32K) - 1 as it is both one based
-// and the high order bit of offsets are used for inline expressions
+// Pool Sizes
 
-// These can be increased to upto 64K (uint16_t)
-
+#define MAX_DEFINE_POOL			4096
 #define MAX_STRING_POOL 		4096
 #define MAX_STATEMENT_POOL 		4096
+	// These can be increased to upto 64K
+
 #define MAX_EXPRESSION_POOL		4096
-#define MAX_DEFINE_POOL			4096
+	// Can only be increased to 32K - 1 as it is both one based
+	// and the high order bit of offsets are used for inline expressions
 
-
-typedef struct
-{
-	uint8_t		font_size;
-	uint8_t     font_type;		// NORMAL, BOLD
-	uint8_t		font_just;		// LEFT, CENTER, RIGHT
-	int16_t		xs;
-	int16_t		ys;
-	int16_t		xe;
-	int16_t		ye;
-} rigArea_t;	// 10 bytes
-
-typedef struct
-{
-	char name[8];
-	uint8_t port;			// 0..NUM_MIDI_PORTS
-	uint8_t channel;		// 0..MIDI_MAX_CHANNEL
-	uint8_t cc;				// 0..MIDI_MAX_VALUE
-} rigPedal_t;
-
-
-typedef struct
-{
-	uint8_t     active;		// 1 if this is an active listen
-	uint8_t 	port;		// MIDI, SERIAL, etc
-	uint8_t		channel;	// 0..MIDI_MAX_CHANNEL
-	uint8_t		cc;			// 0..MIDI_MAX_VALUE
-} rigListen_t;
 
 
 typedef struct
 {
 	uint16_t overlay_type;			// BASERIG,OVERLAY
 	uint16_t num_statements;
+
+	uint16_t define_pool_len;
+	uint16_t string_pool_len;
 	uint16_t statement_pool_len;
 	uint16_t expression_pool_len;
-	uint16_t string_pool_len;
-	uint16_t define_pool_len;
 
 	uint16_t define_ids[RIG_NUM_DEFINES+1];
 	uint8_t  define_values[RIG_NUM_DEFINES+1];
 	uint16_t statements[MAX_STATEMENTS + 1];
 
-	// following can be inherited by overlays
-
-	rigArea_t	areas[RIG_NUM_AREAS];
 	uint16_t	button_refs[NUM_BUTTONS][NUM_SUBSECTIONS];
 		// button_refs are 1 based indexes into statement lists
 		// and 1 based offsets into the expression pool, so that
 		// we can identify used buttons.
 	uint16_t    strings[RIG_NUM_STRINGS];
 
-	// Following only exist in BASE_RIGS
-
-	rigPedal_t  pedals[NUM_PEDALS];
-	uint8_t		values[RIG_NUM_VALUES];
-	rigListen_t	listens[RIG_NUM_LISTENS];
 
 } rigHeader_t;
 
@@ -132,38 +98,40 @@ typedef struct
 } statement_param_t;
 
 
-// init_only params (except where noted)
+// init_header only params
 
-#define PARAM_VALUE_NUM      1
-#define PARAM_DEFINE_NUM	 2
-#define PARAM_USER_IDENT	 3
-#define PARAM_DEFINE_VALUE	 4
+#define PARAM_DEFINE_NUM	 1
+#define PARAM_USER_IDENT	 2
+#define PARAM_DEFINE_VALUE	 3
 
-#define PARAM_PEDAL_NUM      10
-#define PARAM_PEDAL_NAME     11
+#define PARAM_STRING_NUM     5
+#define PARAM_TEXT    		 6		// also used for pedal name
 
-#define PARAM_AREA_NUM       20		// either
-#define PARAM_FONT_SIZE      21
-#define PARAM_FONT_TYPE      22
-#define PARAM_FONT_JUST		 23
-#define PARAM_START_X        24
-#define PARAM_START_Y        25
-#define PARAM_END_X          26
-#define PARAM_END_Y          27
+// area statement
 
-#define PARAM_STRING_NUM     30
-#define PARAM_TEXT    		 31
+#define PARAM_AREA_NUM       10		// also used for display area
+#define PARAM_FONT_SIZE      11
+#define PARAM_FONT_TYPE      12
+#define PARAM_FONT_JUST		 13
+#define PARAM_START_X        14
+#define PARAM_START_Y        15
+#define PARAM_END_X          16
+#define PARAM_END_Y          17
 
-// monadic params in either
+// general statements
+
+#define PARAM_PEDAL_NUM      20
+#define PARAM_PEDAL_NAME     21
+#define PARAM_ROTARY_NUM	 22
+
+#define PARAM_VALUE_NUM      30		// LISTEN and setValue
+#define PARAM_VALUE			 31		// setValue value
 
 #define PARAM_MIDI_PORT      40
 #define PARAM_MIDI_CHANNEL   41
 #define PARAM_MIDI_CC        42
 #define PARAM_MIDI_VALUE	 43
 
-// expression params
-
-#define PARAM_NUM_EXPRESSION			100
 #define PARAM_STRING_EXPRESSION			101
 #define PARAM_LED_COLOR_EXPRESSION		102
 #define PARAM_DISPLAY_COLOR_EXPRESSION	103

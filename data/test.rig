@@ -84,11 +84,11 @@ define(29,	TRACK_STATE_BASE_CC,	20 );		# TRACK_STATE_BASE_CC    		  = 20  = 0x14
 												# CLIP_MUTE_BASE_CC      		  = 48  = 0x50;		# both    	  both        		 NOT_USED_YET - for 4 tracks * 3 clips - value is mute state
 												# NOTIFY_LOOP            		  = 48  = 0x64;     # te_recv     looper_send        NOT_USED_YET - value=number of pending loop notifies
 
-# LOOPER_CONTROL_INPUT_GAIN       = 0
-# LOOPER_CONTROL_THRU_VOLUME      = 1
-# LOOPER_CONTROL_LOOP_VOLUME      = 2
-# LOOPER_CONTROL_MIX_VOLUME       = 3
-# LOOPER_CONTROL_OUTPUT_GAIN      = 4
+define(30, LOOPER_CONTROL_INPUT_GAIN,	0);		# LOOPER_CONTROL_INPUT_GAIN       = 0
+define(31, LOOPER_CONTROL_THRU_VOLUME,	1);		# LOOPER_CONTROL_THRU_VOLUME      = 1
+define(32, LOOPER_CONTROL_LOOP_VOLUME,	2);		# LOOPER_CONTROL_LOOP_VOLUME      = 2
+define(33, LOOPER_CONTROL_MIX_VOLUME,	3);		# LOOPER_CONTROL_MIX_VOLUME       = 3
+define(34, LOOPER_CONTROL_OUTPUT_GAIN,	4);		# LOOPER_CONTROL_OUTPUT_GAIN      = 4
 
 
 
@@ -117,51 +117,60 @@ define(112, _track2_state,	10);	# VALUE[10] = TRACK2 STATE
 define(113, _track3_state,	11);	# VALUE[11] = TRACK3 STATE
 define(114, _track4_state,	12);	# VALUE[12] = TRACK4 STATE
 
+#----------------------------
+# String Definition
+#----------------------------
+
+define_string(0, "BASS1"  );			# PATCH_SHORT_NAME{0}
+define_string(1, "BASS-F" );			# PATCH_SHORT_NAME{1}
+define_string(2, "BASS1-G" );			# PATCH_SHORT_NAME{2}
+# and so on ...
+
+define_string(24, "MM Bass Finger");	# PATCH_LONG_NAME{0}
+define_string(25, "MM Bass Finger");	# PATCH_LONG_NAME{1}
+define_string(26, "MM Bass Finger");	# PATCH_LONG_NAME{2}
+# and so on ...
+
 
 #----------------------------------------
 # Rig initialization section
 #----------------------------------------
 
-PEDAL(0, "Synth", 	MIDI,	1, 7);			# SYNTH_VOLUME_CHANNEL, SYNTH_VOLUME_CC
-PEDAL(1, "Loop",  	SERIAL,	1, 103);		# default channel, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME
-PEDAL(2, "Wah",   	MIDI,	9, 11);			# GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CONTROL_CC
-PEDAL(3, "Guitar",	MIDI,	7, 7);			# GUITAR_VOLUME_CHANNEL, GUITAR_VOLUME_CC
+PEDAL(0, "Synth", 	MIDI0,	SYNTH_VOLUME_CHANNEL, 	SYNTH_VOLUME_CC);
+PEDAL(1, "Loop",  	SERIAL,	0, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME);
+PEDAL(2, "Wah",   	MIDI0,	GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CONTROL_CC);
+PEDAL(3, "Guitar",	MIDI0,	GUITAR_VOLUME_CHANNEL, 	GUITAR_VOLUME_CC);
 
-AREA(0,	 32,  BOLD, 	LEFT,	 5,  5, 299, 40);		# patch short name indented 5 from client area, 35 pixels high
-AREA(1,	 18,  BOLD,		LEFT,	 5, 43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
-AREA(2,  32,  NORMAL,   RIGHT, 300,  5, 475, 40);		# General Purpose area in upper right
+ROTARY(1, SERIAL,	0, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_INPUT_GAIN);
+ROTARY(1, SERIAL,	0, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN);
+ROTARY(1, SERIAL,	0, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_THRU_VOLUME);
+ROTARY(1, SERIAL,	0, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME);
 
-LISTEN(20, SERIAL, 1, 37);
+
+AREA(AREA_SHORT_NAME,	32,  BOLD, 	LEFT,	 5,   5, 299, 40);		# patch short name indented 5 from client area, 35 pixels high
+AREA(AREA_LONG_NAME,	18,  BOLD,	LEFT,	 5,  43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
+AREA(AREA_MSG,  		32,  NORMAL,  RIGHT, 300, 5, 475, 40);		# General Purpose area in upper right
+
+LISTEN(_dub_mode, SERIAL, 0, LOOP_DUB_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_DUB_STATE_CC=37 messages and stick
-	# their values in the DUB_MODE VALUE[20]
+	# their values in the _dub_mode value
 
-LISTEN(21, SERIAL, 1, 38);
+LISTEN(_stop_cmd, SERIAL, 0, LOOP_STOP_CMD_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_STOP_CMD_STATE_CC=38 messages and stick
-	# their values in the STOP_BUTTON_COMMAND VALUE[21]
+	# their values in the _stop_cmd value
 
-LISTEN(31, SERIAL, 1, 20);
-LISTEN(32, SERIAL, 1, 21);
-LISTEN(33, SERIAL, 1, 22);
-LISTEN(34, SERIAL, 1, 23);
+LISTEN(_track1_state, SERIAL, 0, TRACK_STATE_BASE_CC + 0);
+LISTEN(_track2_state, SERIAL, 0, TRACK_STATE_BASE_CC + 1);
+LISTEN(_track3_state, SERIAL, 0, TRACK_STATE_BASE_CC + 2);
+LISTEN(_track4_state, SERIAL, 0, TRACK_STATE_BASE_CC + 3);
 	# Listen on the Serial Midi Port for
 	# TRACK_STATE_BASE_CC(20..23) messages
 	# and stick their values into the appropriate
-	# TRACK_STATE VALUES[31..34] slots
+	# _track_state values
 
 
-# Synth String Constants
-
-STRING_DEF(0, "BASS1"  );			# PATCH_SHORT_NAME{0}
-STRING_DEF(1, "BASS-F" );			# PATCH_SHORT_NAME{1}
-STRING_DEF(2, "BASS1-G" );			# PATCH_SHORT_NAME{2}
-# and so on ...
-
-STRING_DEF(24, "MM Bass Finger");	# PATCH_LONG_NAME{0}
-STRING_DEF(25, "MM Bass Finger");	# PATCH_LONG_NAME{1}
-STRING_DEF(26, "MM Bass Finger");	# PATCH_LONG_NAME{2}
-# and so on ...
 
 
 
@@ -206,7 +215,7 @@ BUTTON(0):
 	press:
 		setValue(_patch_button, 0);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 0);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -216,7 +225,7 @@ BUTTON(1):
 	press:
 		setValue(_patch_button, 1);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 1);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -226,7 +235,7 @@ BUTTON(2):
 	press:
 		setValue(_patch_button, 2);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 2);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -236,7 +245,7 @@ BUTTON(3):
 	press:
 		setValue(_patch_button, 3);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 3);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -250,7 +259,7 @@ BUTTON(5):
 	press:
 		setValue(_patch_button, 5);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 4);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -260,7 +269,7 @@ BUTTON(6):
 	press:
 		setValue(_patch_button, 6);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 5);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -270,7 +279,7 @@ BUTTON(7):
 	press:
 		setValue(_patch_button, 7);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 6);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -280,7 +289,7 @@ BUTTON(8):
 	press:
 		setValue(_patch_button, 8);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 7);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -292,7 +301,7 @@ BUTTON(10):
 	press:
 		setValue(_patch_button, 10);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 8);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -302,7 +311,7 @@ BUTTON(11):
 	press:
 		setValue(_patch_button, 11);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 9);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -312,7 +321,7 @@ BUTTON(12):
 	press:
 		setValue(_patch_button, 12);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 10);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -322,7 +331,7 @@ BUTTON(13):
 	press:
 		setValue(_patch_button, 13);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 11);
-		SendPgmChg(MIDI, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
@@ -343,7 +352,7 @@ BUTTON(15):											# DIST effect
 		VALUE[_dist_effect_on] ? LED_GREEN : LED_BLACK;
 	click:
 		setValue(_dist_effect_on, VALUE[_dist_effect_on] ? 0 : 127);
-		sendCC(MIDI, GUITAR_EFFECTS_CHANNEL, GUITAR_DISTORTION_CC, VALUE[_dist_effect_on]);
+		sendCC(MIDI0, GUITAR_EFFECTS_CHANNEL, GUITAR_DISTORTION_CC, VALUE[_dist_effect_on]);
 		display(AREA_MSG, YELLOW, "DIST");
 
 BUTTON(16):											# WAH effect
@@ -351,7 +360,7 @@ BUTTON(16):											# WAH effect
 		VALUE[_wah_effect_on] ? LED_GREEN : LED_BLACK;
 	click:
 		setValue(_wah_effect_on, VALUE[_wah_effect_on] ? 0 : 127);
-		sendCC(MIDI, GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CC, VALUE[_wah_effect_on]);
+		sendCC(MIDI0, GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CC, VALUE[_wah_effect_on]);
 		display(AREA_MSG, YELLOW, "WAH");
 
 BUTTON(17):											# CHOR effect
@@ -359,7 +368,7 @@ BUTTON(17):											# CHOR effect
 		VALUE[_chor_effect_on] ? LED_GREEN : LED_BLACK;
 	click:
 		setValue(_chor_effect_on, VALUE[_chor_effect_on] ? 0 : 127);
-		sendCC(MIDI, GUITAR_EFFECTS_CHANNEL, GUITAR_CHOR_CC, VALUE[_chor_effect_on]);
+		sendCC(MIDI0, GUITAR_EFFECTS_CHANNEL, GUITAR_CHOR_CC, VALUE[_chor_effect_on]);
 		display(AREA_MSG, YELLOW, "CHOR");
 
 BUTTON(18):											# ECHO effect
@@ -367,17 +376,17 @@ BUTTON(18):											# ECHO effect
 		VALUE[_echo_effect_on] ? LED_GREEN : LED_BLACK;
 	click:
 		setValue(_echo_effect_on, VALUE[_echo_effect_on] ? 0 : 127);
-		sendCC(MIDI, GUITAR_EFFECTS_CHANNEL, GUITAR_ECHO_CC, VALUE[_echo_effect_on]);
+		sendCC(MIDI0, GUITAR_EFFECTS_CHANNEL, GUITAR_ECHO_CC, VALUE[_echo_effect_on]);
 		display(AREA_MSG, YELLOW, "ECHO");
 	long:
 		setValue(_dist_effect_on, 0);
 		setValue(_wah_effect_on,  0);
 		setValue(_chor_effect_on, 0);
 		setValue(_echo_effect_on, 0);
-		sendCC(MIDI, GUITAR_EFFECTS_CHANNEL, GUITAR_DISTORTION_CC,	0);						# Send all EFFECT OFF messages
-		sendCC(MIDI, GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CC,			0);
-		sendCC(MIDI, GUITAR_EFFECTS_CHANNEL, GUITAR_CHOR_CC,		0);
-		sendCC(MIDI, GUITAR_EFFECTS_CHANNEL, GUITAR_ECHO_CC,		0);
+		sendCC(MIDI0, GUITAR_EFFECTS_CHANNEL, GUITAR_DISTORTION_CC,	0);						# Send all EFFECT OFF messages
+		sendCC(MIDI0, GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CC,			0);
+		sendCC(MIDI0, GUITAR_EFFECTS_CHANNEL, GUITAR_CHOR_CC,		0);
+		sendCC(MIDI0, GUITAR_EFFECTS_CHANNEL, GUITAR_ECHO_CC,		0);
 		display(AREA_MSG, YELLOW, "EFFECTS OFF");
 
 
@@ -439,7 +448,7 @@ BUTTON(20):				# track1 button
 	blink:
 		VALUE[_track1_state] & 56;
 	press:
-		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 0);
+		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 0);
 		display(AREA_MSG, YELLOW, "TRACK1");
 
 BUTTON(21):
@@ -451,7 +460,7 @@ BUTTON(21):
 	blink:
 		VALUE[_track2_state] & 56;
 	press:
-		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 1);
+		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 1);
 		display(AREA_MSG, YELLOW, "TRACK2");
 
 BUTTON(22):
@@ -463,7 +472,7 @@ BUTTON(22):
 	blink:
 		VALUE[_track3_state] & 56;
 	press:
-		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 2);
+		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 2);
 		display(AREA_MSG, YELLOW, "TRACK3");
 
 BUTTON(23):
@@ -475,7 +484,7 @@ BUTTON(23):
 	blink:
 		VALUE[_track4_state] & 56;
 	press:
-		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 3);
+		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 3);
 		display(AREA_MSG, YELLOW, "TRACK4");
 
 
@@ -496,7 +505,7 @@ BUTTON(24):
 		VALUE[_dub_mode] ? LED_ORANGE : LED_WHITE;
 	click:
 		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_DUB);
-		display(AREA_MSG, YELLOW, VALUE[20] ? "DUB OFF" : "DUB ON");
+		display(AREA_MSG, YELLOW, VALUE[_dub_mode] ? "DUB OFF" : "DUB ON");
 	long:
 		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_CLEAR_ALL);
 		display(AREA_MSG, YELLOW, "LOOP CLEAR");

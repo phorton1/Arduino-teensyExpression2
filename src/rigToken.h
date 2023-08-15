@@ -44,19 +44,34 @@ extern bool rig_error_found;	// true if any rig_errors occured; cleared in parse
 // Macros
 //------------------------------
 
-#define IS_STATEMENT(id) ( \
-	(id >= RIG_TOKEN_DEFINE_DEF && id <= RIG_TOKEN_STRING_DEF) || \
-	(id >= RIG_TOKEN_SETVALUE && id <= RIG_TOKEN_FTP_SENSITIVITY) )
-
-#define IS_INIT_ONLY_STATEMENT(id) \
+#define IS_INIT_HEADER_STATEMENT(id) \
 	(id >= RIG_TOKEN_DEFINE_DEF && id <= RIG_TOKEN_STRING_DEF)
+	// differentiates 'real' statements from those that are parsed into the rig
+
+#define IS_STATEMENT(id) ( \
+	IS_INIT_HEADER_STATEMENT(id) || \
+	(id >= RIG_TOKEN_AREA && id <= RIG_TOKEN_FTP_SENSITIVITY))
+	// used in the parseStatementList loop
 
 #define IS_INIT_STATEMENT(id) ( \
-	(id >= RIG_TOKEN_DEFINE_DEF && id <= RIG_TOKEN_STRING_DEF) || \
-	(id >= RIG_TOKEN_SETVALUE && id <= RIG_TOKEN_ALL_NOTES_OFF) )
+	IS_INIT_HEADER_STATEMENT(id) || \
+	(id >= RIG_TOKEN_AREA && id <= RIG_TOKEN_ALL_NOTES_OFF))
+	// used to determine if an init statement list shold be parsed
+
+#define IS_INIT_ONLY_STATEMENT(id) \
+	(id >= RIG_TOKEN_AREA && id <= RIG_TOKEN_LISTEN)
+	// used to limit statements by section in rigToken
 
 #define IS_BUTTON_STATEMENT(id)  \
-	(id >= RIG_TOKEN_SETVALUE && id <= RIG_TOKEN_FTP_SENSITIVITY)
+	(id >= RIG_TOKEN_PEDAL && id <= RIG_TOKEN_FTP_SENSITIVITY)
+	// used to limit statements by section in rigToken
+	// and to make sure that there is at least one statement in a button section
+
+#define IS_BUTTON_ONLY_STATEMENT(id)  \
+	(id >= RIG_TOKEN_FTP_TUNER && id <= RIG_TOKEN_FTP_SENSITIVITY)
+	// used to limit statements by section in rigToken
+
+#define IS_MIDI_PORT(id)	(id >= RIG_TOKEN_MIDI0 && id <= RIG_TOKEN_SERIAL)
 
 #define IS_LED_COLOR(id)	(id >= RIG_TOKEN_LED_BLACK && id <= RIG_TOKEN_LED_CYAN)
 #define LED_COLOR(id)		(id - RIG_TOKEN_LED_BLACK)
@@ -92,91 +107,91 @@ extern bool rig_error_found;	// true if any rig_errors occured; cleared in parse
 #define RIG_TOKEN_BASERIG				1	// "BaseRig"	// identifier range start
 #define RIG_TOKEN_OVERLAY				2	// "Overlay"
 
-#define RIG_TOKEN_DEFINE_DEF			3	// "define"
-#define RIG_TOKEN_PEDAL					4	// "PEDAL"
-#define RIG_TOKEN_AREA					5	// "AREA"
-#define RIG_TOKEN_LISTEN				6	// "LISTEN"
-#define RIG_TOKEN_STRING_DEF			7	// "STRING_DEF"	// init_only statements end range
+#define RIG_TOKEN_DEFINE_DEF			3	// "define"			// start init_header range
+#define RIG_TOKEN_STRING_DEF			4	// "define_string"	// end init_header range
 
-#define RIG_TOKEN_BUTTON				8	// "BUTTON"
-#define RIG_TOKEN_COLOR					9	// "color"		// subsection start range
-#define RIG_TOKEN_BLINK					10	// "blink"		// subsection_with_expression end_range
-#define RIG_TOKEN_PRESS					11	// "press"		// subsections with statements tart range
-#define RIG_TOKEN_CLICK					12	// "click"
-#define RIG_TOKEN_LONG					13	// "long"
-#define RIG_TOKEN_RELEASE				14	// "release"
-#define RIG_TOKEN_REPEAT				15	// "repeat"		// subsections end
+#define RIG_TOKEN_BUTTON				5	// "BUTTON"
+#define RIG_TOKEN_COLOR					6	// "color"		// start subsections range
+#define RIG_TOKEN_BLINK					7	// "blink"		// end subsection_with_expression range
+#define RIG_TOKEN_PRESS					8	// "press"		// start subsections with statements range
+#define RIG_TOKEN_CLICK					9	// "click"
+#define RIG_TOKEN_LONG					10	// "long"
+#define RIG_TOKEN_RELEASE				11	// "release"
+#define RIG_TOKEN_REPEAT				12	// "repeat"		// end subsections range
 
 // Statements
 
-#define RIG_TOKEN_SETVALUE				16	// "setValue"			// statement range start
-#define RIG_TOKEN_DISPLAY 				17	// "display"
-#define RIG_TOKEN_SEND_CC 				18	// "sendCC"
-#define RIG_TOKEN_SEND_PGM_CHG			19	// "sendPgmChg"
-#define RIG_TOKEN_NOTE_ON				20	// "noteOn"
-#define RIG_TOKEN_NOTE_OFF				21	// "noteOff"
-#define RIG_TOKEN_ALL_NOTES_OFF			22	// "allNotesOff"		// init available statement range end
-
-#define RIG_TOKEN_FTP_TUNER				23	// "ftpTuner"
-#define RIG_TOKEN_FTP_SENSITIVITY		24	// "ftpSensitivity"		// statement range end
+#define RIG_TOKEN_AREA					13	// "AREA"			// start init_only statement range
+#define RIG_TOKEN_LISTEN				14	// "LISTEN"			// end init_only statement range
+#define RIG_TOKEN_PEDAL					15	// "PEDAL"
+#define RIG_TOKEN_ROTARY				16	// "ROTARY"
+#define RIG_TOKEN_SETVALUE				17	// "setValue"
+#define RIG_TOKEN_DISPLAY 				18	// "display"
+#define RIG_TOKEN_SEND_CC 				19	// "sendCC"
+#define RIG_TOKEN_SEND_PGM_CHG			20	// "sendPgmChg"
+#define RIG_TOKEN_NOTE_ON				21	// "noteOn"
+#define RIG_TOKEN_NOTE_OFF				22	// "noteOff"
+#define RIG_TOKEN_ALL_NOTES_OFF			23	// "allNotesOff"	// end init statement range
+#define RIG_TOKEN_FTP_TUNER				24	// "ftpTuner"
+#define RIG_TOKEN_FTP_SENSITIVITY		25	// "ftpSensitivity"	// end statement range
 
 // LED COLORS
 
-#define RIG_TOKEN_LED_BLACK  			25	// led_color range start
-#define RIG_TOKEN_LED_RED    			26
-#define RIG_TOKEN_LED_GREEN  			27
-#define RIG_TOKEN_LED_BLUE   			28
-#define RIG_TOKEN_LED_YELLOW 			29
-#define RIG_TOKEN_LED_PURPLE 			30
-#define RIG_TOKEN_LED_ORANGE 			31
-#define RIG_TOKEN_LED_WHITE  			32
-#define RIG_TOKEN_LED_CYAN   			33	// led_color range end
+#define RIG_TOKEN_LED_BLACK  			26	// start led_color range
+#define RIG_TOKEN_LED_RED    			27
+#define RIG_TOKEN_LED_GREEN  			28
+#define RIG_TOKEN_LED_BLUE   			29
+#define RIG_TOKEN_LED_YELLOW 			30
+#define RIG_TOKEN_LED_PURPLE 			31
+#define RIG_TOKEN_LED_ORANGE 			32
+#define RIG_TOKEN_LED_WHITE  			33
+#define RIG_TOKEN_LED_CYAN   			34	// end led_color range
 
 // DISPLAY COLORS
 
-#define RIG_TOKEN_DISPLAY_BLACK     	34	// display_color range start
-#define RIG_TOKEN_DISPLAY_BLUE      	35
-#define RIG_TOKEN_DISPLAY_RED       	36
-#define RIG_TOKEN_DISPLAY_GREEN     	37
-#define RIG_TOKEN_DISPLAY_CYAN      	38
-#define RIG_TOKEN_DISPLAY_MAGENTA   	39
-#define RIG_TOKEN_DISPLAY_YELLOW    	40
-#define RIG_TOKEN_DISPLAY_WHITE     	41
-#define RIG_TOKEN_DISPLAY_NAVY      	42
-#define RIG_TOKEN_DISPLAY_DARKGREEN 	43
-#define RIG_TOKEN_DISPLAY_DARKCYAN  	44
-#define RIG_TOKEN_DISPLAY_MAROON    	45
-#define RIG_TOKEN_DISPLAY_PURPLE    	46
-#define RIG_TOKEN_DISPLAY_OLIVE     	47
-#define RIG_TOKEN_DISPLAY_LIGHTGREY 	48
-#define RIG_TOKEN_DISPLAY_DARKGREY  	49
-#define RIG_TOKEN_DISPLAY_ORANGE    	50
-#define RIG_TOKEN_DISPLAY_GREENYELLOW 	51
-#define RIG_TOKEN_DISPLAY_PINK			52	// display_color range end
+#define RIG_TOKEN_DISPLAY_BLACK     	35	// start display_color range
+#define RIG_TOKEN_DISPLAY_BLUE      	36
+#define RIG_TOKEN_DISPLAY_RED       	37
+#define RIG_TOKEN_DISPLAY_GREEN     	38
+#define RIG_TOKEN_DISPLAY_CYAN      	39
+#define RIG_TOKEN_DISPLAY_MAGENTA   	40
+#define RIG_TOKEN_DISPLAY_YELLOW    	41
+#define RIG_TOKEN_DISPLAY_WHITE     	42
+#define RIG_TOKEN_DISPLAY_NAVY      	43
+#define RIG_TOKEN_DISPLAY_DARKGREEN 	44
+#define RIG_TOKEN_DISPLAY_DARKCYAN  	45
+#define RIG_TOKEN_DISPLAY_MAROON    	46
+#define RIG_TOKEN_DISPLAY_PURPLE    	47
+#define RIG_TOKEN_DISPLAY_OLIVE     	48
+#define RIG_TOKEN_DISPLAY_LIGHTGREY 	49
+#define RIG_TOKEN_DISPLAY_DARKGREY  	50
+#define RIG_TOKEN_DISPLAY_ORANGE    	51
+#define RIG_TOKEN_DISPLAY_GREENYELLOW 	52
+#define RIG_TOKEN_DISPLAY_PINK			53	// end display_color range
 
 // midi ports
 
-#define RIG_TOKEN_MIDI					53	// in code gen order
-#define RIG_TOKEN_SERIAL				54
+#define RIG_TOKEN_MIDI0					54	// in code gen order
+#define RIG_TOKEN_MIDI1					55
+#define RIG_TOKEN_SERIAL				56
 
 // font decoration
 
-#define RIG_TOKEN_NORMAL         		55	// in code gen order
-#define RIG_TOKEN_BOLD         			56
-
+#define RIG_TOKEN_NORMAL         		57	// in code gen order
+#define RIG_TOKEN_BOLD         			58
 
 // font justification
 
-#define RIG_TOKEN_LEFT					57	// in code gen order
-#define RIG_TOKEN_CENTER				58
-#define RIG_TOKEN_RIGHT					59
+#define RIG_TOKEN_LEFT					59	// in code gen order
+#define RIG_TOKEN_CENTER				60
+#define RIG_TOKEN_RIGHT					61
 
 // Expression Tokens
 
-#define RIG_TOKEN_STRING				60	// "STRING"
-#define RIG_TOKEN_VALUE					61	// "VALUE"
+#define RIG_TOKEN_STRING				62	// "STRING"
+#define RIG_TOKEN_VALUE					63	// "VALUE"
 
-#define LAST_RIG_IDENTIFIER				61	// end of identifier range
+#define LAST_RIG_IDENTIFIER				63	// end of identifier range
 
 // Literal Types
 

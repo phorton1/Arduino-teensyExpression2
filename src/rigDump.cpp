@@ -204,28 +204,61 @@ static bool dumpExpressionAny(const char *what, uint16_t offset)
 
 static bool dumpParam(bool button_section, int arg_type, bool last, const uint8_t *code, uint16_t *offset)
 {
+	uint8_t byte;
+	uint16_t *ptr16;
+	display(dbg_dump + 2, "# dumpParam(%s) at offset %d",argTypeToString(arg_type),*offset);
+
 	switch (arg_type)
 	{
-		case PARAM_MIDI_PORT :
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",
-				rigTokenToText(code[(*offset)++] + RIG_TOKEN_MIDI));
-			break;
-		case PARAM_VALUE_NUM :
 		case PARAM_AREA_NUM :
+		case PARAM_VALUE_NUM :
+		case PARAM_VALUE :
+		case PARAM_PEDAL_NUM :
+		case PARAM_ROTARY_NUM :
 		case PARAM_MIDI_CHANNEL :
 		case PARAM_MIDI_CC :
 		case PARAM_MIDI_VALUE :
-		case PARAM_NUM_EXPRESSION :
 		case PARAM_STRING_EXPRESSION :
 		case PARAM_LED_COLOR_EXPRESSION :
 		case PARAM_DISPLAY_COLOR_EXPRESSION :
-		{
-			uint16_t *ptr16 = (uint16_t *) &code[*offset];
+			ptr16 = (uint16_t *) &code[*offset];
 			if (!dumpExpressionAny(argTypeToString(arg_type),*ptr16))
 				return false;
 			*offset += 2;
 			break;
-		}
+
+		case PARAM_FONT_TYPE :
+			byte = code[(*offset)++];
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_NORMAL));
+			break;
+		case PARAM_FONT_JUST :
+			byte = code[(*offset)++];
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_LEFT));
+			break;
+		case PARAM_MIDI_PORT :
+			byte = code[(*offset)++];
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_MIDI0));
+			break;
+
+		case PARAM_FONT_SIZE :
+			byte = code[(*offset)++];
+			sprintf(&dump_buf[strlen(dump_buf)],"%d",byte);
+			break;
+		case PARAM_END_X :
+		case PARAM_END_Y :
+		case PARAM_START_X :
+		case PARAM_START_Y :
+			ptr16 = (uint16_t *) &code[*offset];
+			sprintf(&dump_buf[strlen(dump_buf)],"%d",*ptr16);
+			*offset += 2;
+			break;
+
+		case PARAM_PEDAL_NAME :
+			ptr16 = (uint16_t *) &code[*offset];
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",&rig_code.string_pool[*ptr16]);
+			*offset += 2;
+			break;
+
 		default:
 			rig_error("unknown parameter arg type(%d)",arg_type);
 			return false;
@@ -313,8 +346,9 @@ void dumpRig()
 	for (int i=0; i<=cur_rig_header->num_statements; i++)
 		display(dbg_dump + 1,"statement[%d] = %d",i,cur_rig_header->statements[i]);
 
-    display_bytes(dbg_dump+4,"areas",(const uint8_t *) cur_rig_header->areas, 3 * sizeof(rigArea_t));
-	display_bytes(dbg_dump+4,"statements",cur_rig_code->statement_pool,cur_rig_header->statement_pool_len);
+	display(dbg_dump+2,"statements",0);
+	display_bytes_long(dbg_dump+2,0,cur_rig_code->statement_pool,cur_rig_header->statement_pool_len);
+	display(dbg_dump+2,"expressions",0);
 	display_bytes_long(dbg_dump+2,0,cur_rig_code->expression_pool,cur_rig_header->expression_pool_len);
 	// dump the program
 
@@ -348,56 +382,6 @@ void dumpRig()
 
 	if (any)
 		display(0,"",0);
-	for (int i=0; i<NUM_PEDALS; i++)
-	{
-		if (cur_rig_header->pedals[i].name[0])	// definition indicator - they must name em'
-		{
-			any = 1;
-			display(0,"PEDAL(%d, \"%s\", %s, %d, %d);",
-				i,
-				cur_rig_header->pedals[i].name,
-				rigTokenToText(cur_rig_header->pedals[i].port + RIG_TOKEN_MIDI),
-				cur_rig_header->pedals[i].channel,
-				cur_rig_header->pedals[i].cc);
-		}
-	}
-
-	if (any)
-		display(0,"",0);
-	for (int i=0; i<RIG_NUM_AREAS; i++)
-	{
-		if (cur_rig_header->areas[i].font_size)	// definition indicator
-		{
-			any = 1;
-			display(0,"AREA(%d, %d, %s, %s, %d, %d, %d, %d);",
-				i,
-				cur_rig_header->areas[i].font_size,
-				rigTokenToText(cur_rig_header->areas[i].font_type + RIG_TOKEN_NORMAL),
-				rigTokenToText(cur_rig_header->areas[i].font_just + RIG_TOKEN_LEFT),
-				cur_rig_header->areas[i].xs,
-				cur_rig_header->areas[i].ys,
-				cur_rig_header->areas[i].xe,
-				cur_rig_header->areas[i].ye);
-		}
-	}
-
-	if (any)
-		display(0,"",0);
-	for (int i=0; i<RIG_NUM_LISTENS; i++)
-	{
-		if (cur_rig_header->listens[i].active)	// definition indicator
-		{
-			any = 1;
-			display(0,"LISTEN(%d, %s, %d, %d);",
-				i,
-				rigTokenToText(cur_rig_header->listens[i].port ? RIG_TOKEN_SERIAL : RIG_TOKEN_MIDI),
-				cur_rig_header->listens[i].channel,
-				cur_rig_header->listens[i].cc);
-		}
-	}
-
-	if (any)
-		display(0,"",0);
 	for (int i=0; i<RIG_NUM_STRINGS; i++)
 	{
 		// the offset is incremented so that we can identify
@@ -413,7 +397,7 @@ void dumpRig()
 		}
 	}
 
-	// dump init_section statement list
+	// dump init_statements
 
 	if (any)
 		display(0,"",0);

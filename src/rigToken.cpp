@@ -81,10 +81,7 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_OVERLAY				: return "OVERLAY";
 
 		case RIG_TOKEN_DEFINE_DEF			: return "DEFINE";
-		case RIG_TOKEN_PEDAL				: return "PEDAL";
-		case RIG_TOKEN_AREA					: return "AREA";
-		case RIG_TOKEN_LISTEN				: return "LISTEN";
-		case RIG_TOKEN_STRING_DEF			: return "STRING_DEF";
+		case RIG_TOKEN_STRING_DEF			: return "DEFINE_STRING";
 
 		case RIG_TOKEN_BUTTON				: return "BUTTON";
 		case RIG_TOKEN_COLOR				: return "COLOR";
@@ -95,6 +92,10 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_RELEASE				: return "RELEASE";
 		case RIG_TOKEN_REPEAT				: return "REPEAT";
 
+		case RIG_TOKEN_PEDAL				: return "PEDAL";
+		case RIG_TOKEN_ROTARY				: return "ROTARY";
+		case RIG_TOKEN_AREA					: return "AREA";
+		case RIG_TOKEN_LISTEN				: return "LISTEN";
 		case RIG_TOKEN_SETVALUE				: return "SETVALUE";
 		case RIG_TOKEN_DISPLAY 				: return "DISPLAY";
 		case RIG_TOKEN_SEND_CC 				: return "SENDCC";
@@ -135,7 +136,8 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_DISPLAY_GREENYELLOW	: return "GREENYELLOW";
 		case RIG_TOKEN_DISPLAY_PINK       	: return "PINK";
 
-		case RIG_TOKEN_MIDI					: return "MIDI";
+		case RIG_TOKEN_MIDI0				: return "MIDI0";
+		case RIG_TOKEN_MIDI1				: return "MIDI1";
 		case RIG_TOKEN_SERIAL				: return "SERIAL";
 
 		case RIG_TOKEN_BOLD					: return "BOLD";
@@ -204,6 +206,7 @@ const char *rigTokenToText(int token_id)
 		case RIG_TOKEN_OVERLAY				: return "Overlay";
 
 		case RIG_TOKEN_DEFINE_DEF			: return "define";
+		case RIG_TOKEN_STRING_DEF			: return "define_string";
 
 		case RIG_TOKEN_COLOR				: return "color";
 		case RIG_TOKEN_BLINK				: return "blink";
@@ -666,18 +669,20 @@ int getRigToken()
 		rig_error("BaseRig or Overlay only allowed as first Token");
 		return 0;
 	}
-	else if (IS_STATEMENT(id))
+	else if (parse_section != 1 && IS_INIT_HEADER_STATEMENT(id))
 	{
-		if (parse_section == 1 && !IS_INIT_STATEMENT(id))
-		{
-			rig_error("%s statement only allowed in init_section",rigTokenToString(id));
-			return 0;
-		}
-		else if (parse_section == 2 && !IS_BUTTON_STATEMENT(id))
-		{
-			rig_error("%s statement only allowed in button_section",rigTokenToString(id));
-			return 0;
-		}
+		rig_error("%s statement only allowed in init_header_section",rigTokenToString(id));
+		return 0;
+	}
+	else if (parse_section != 1 && IS_INIT_ONLY_STATEMENT(id))
+	{
+		rig_error("%s statement only allowed in init_section",rigTokenToString(id));
+		return 0;
+	}
+	else if (parse_section != 2 && IS_BUTTON_ONLY_STATEMENT(id))
+	{
+		rig_error("%s statement only allowed in button_section",rigTokenToString(id));
+		return 0;
 	}
 	else if (id == RIG_TOKEN_BUTTON)
 	{

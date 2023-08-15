@@ -83,8 +83,15 @@
 //-----------------------------------
 
 extern uint16_t rigNumericExpression(int tt);
-extern uint16_t rigValueNumExpression(int tt);
+
+extern uint16_t rigPedalNumExpression(int tt);
+extern uint16_t rigRotaryNumExpression(int tt);
+extern uint16_t rigListenNumExpression(int tt);
 extern uint16_t rigAreaNumExpression(int tt);
+extern uint16_t rigValueNumExpression(int tt);
+
+extern uint16_t rigValueExpression(int tt);
+extern uint16_t rigMidiPortExpression(int tt);
 extern uint16_t rigMidiChannelExpression(int tt);
 extern uint16_t rigMidiValueExpression(int tt);
 
