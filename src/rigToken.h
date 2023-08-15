@@ -36,6 +36,7 @@ extern void rig_error(const char *format, ...);					// parse error reporting wit
 
 extern int parse_section;		// 0=none, 1=program, 2=buttons, 3=end
 extern token_t rig_token;		// the current token
+extern bool rig_error_found;	// true if any rig_errors occured; cleared in parseRig::init_parse()
 
 
 
@@ -44,14 +45,14 @@ extern token_t rig_token;		// the current token
 //------------------------------
 
 #define IS_STATEMENT(id) ( \
-	(id >= RIG_TOKEN_PEDAL && id <= RIG_TOKEN_STRING_DEF) || \
+	(id >= RIG_TOKEN_DEFINE_DEF && id <= RIG_TOKEN_STRING_DEF) || \
 	(id >= RIG_TOKEN_SETVALUE && id <= RIG_TOKEN_FTP_SENSITIVITY) )
 
 #define IS_INIT_ONLY_STATEMENT(id) \
-	(id >= RIG_TOKEN_PEDAL && id <= RIG_TOKEN_STRING_DEF)
+	(id >= RIG_TOKEN_DEFINE_DEF && id <= RIG_TOKEN_STRING_DEF)
 
 #define IS_INIT_STATEMENT(id) ( \
-	(id >= RIG_TOKEN_PEDAL && id <= RIG_TOKEN_STRING_DEF) || \
+	(id >= RIG_TOKEN_DEFINE_DEF && id <= RIG_TOKEN_STRING_DEF) || \
 	(id >= RIG_TOKEN_SETVALUE && id <= RIG_TOKEN_ALL_NOTES_OFF) )
 
 #define IS_BUTTON_STATEMENT(id)  \
@@ -91,95 +92,97 @@ extern token_t rig_token;		// the current token
 #define RIG_TOKEN_BASERIG				1	// "BaseRig"	// identifier range start
 #define RIG_TOKEN_OVERLAY				2	// "Overlay"
 
-#define RIG_TOKEN_PEDAL					3	// "PEDAL"		// init_only statements range start
-#define RIG_TOKEN_AREA					4	// "AREA"
-#define RIG_TOKEN_LISTEN				5	// "LISTEN"
-#define RIG_TOKEN_STRING_DEF			6	// "STRING_DEF"	// init_only statements end range
+#define RIG_TOKEN_DEFINE_DEF			3	// "define"
+#define RIG_TOKEN_PEDAL					4	// "PEDAL"
+#define RIG_TOKEN_AREA					5	// "AREA"
+#define RIG_TOKEN_LISTEN				6	// "LISTEN"
+#define RIG_TOKEN_STRING_DEF			7	// "STRING_DEF"	// init_only statements end range
 
-#define RIG_TOKEN_BUTTON				7	// "BUTTON"
-#define RIG_TOKEN_COLOR					8	// "color"		// subsection start range
-#define RIG_TOKEN_BLINK					9	// "blink"		// subsection_with_expression end_range
-#define RIG_TOKEN_PRESS					10	// "press"		// subsections with statements tart range
-#define RIG_TOKEN_CLICK					11	// "click"
-#define RIG_TOKEN_LONG					12	// "long"
-#define RIG_TOKEN_RELEASE				13	// "release"
-#define RIG_TOKEN_REPEAT				14	// "repeat"		// subsections end
+#define RIG_TOKEN_BUTTON				8	// "BUTTON"
+#define RIG_TOKEN_COLOR					9	// "color"		// subsection start range
+#define RIG_TOKEN_BLINK					10	// "blink"		// subsection_with_expression end_range
+#define RIG_TOKEN_PRESS					11	// "press"		// subsections with statements tart range
+#define RIG_TOKEN_CLICK					12	// "click"
+#define RIG_TOKEN_LONG					13	// "long"
+#define RIG_TOKEN_RELEASE				14	// "release"
+#define RIG_TOKEN_REPEAT				15	// "repeat"		// subsections end
 
 // Statements
 
-#define RIG_TOKEN_SETVALUE				15	// "setValue"			// statement range start
-#define RIG_TOKEN_DISPLAY 				16	// "display"
-#define RIG_TOKEN_SEND_CC 				17	// "sendCC"
-#define RIG_TOKEN_SEND_PGM_CHG			18	// "sendPgmChg"
-#define RIG_TOKEN_NOTE_ON				19	// "noteOn"
-#define RIG_TOKEN_NOTE_OFF				20	// "noteOff"
-#define RIG_TOKEN_ALL_NOTES_OFF			21	// "allNotesOff"		// init available statement range end
+#define RIG_TOKEN_SETVALUE				16	// "setValue"			// statement range start
+#define RIG_TOKEN_DISPLAY 				17	// "display"
+#define RIG_TOKEN_SEND_CC 				18	// "sendCC"
+#define RIG_TOKEN_SEND_PGM_CHG			19	// "sendPgmChg"
+#define RIG_TOKEN_NOTE_ON				20	// "noteOn"
+#define RIG_TOKEN_NOTE_OFF				21	// "noteOff"
+#define RIG_TOKEN_ALL_NOTES_OFF			22	// "allNotesOff"		// init available statement range end
 
-#define RIG_TOKEN_FTP_TUNER				22	// "ftpTuner"
-#define RIG_TOKEN_FTP_SENSITIVITY		23	// "ftpSensitivity"		// statement range end
+#define RIG_TOKEN_FTP_TUNER				23	// "ftpTuner"
+#define RIG_TOKEN_FTP_SENSITIVITY		24	// "ftpSensitivity"		// statement range end
 
 // LED COLORS
 
-#define RIG_TOKEN_LED_BLACK  			24	// led_color range start
-#define RIG_TOKEN_LED_RED    			25
-#define RIG_TOKEN_LED_GREEN  			26
-#define RIG_TOKEN_LED_BLUE   			27
-#define RIG_TOKEN_LED_YELLOW 			28
-#define RIG_TOKEN_LED_PURPLE 			29
-#define RIG_TOKEN_LED_ORANGE 			30
-#define RIG_TOKEN_LED_WHITE  			31
-#define RIG_TOKEN_LED_CYAN   			32	// led_color range end
+#define RIG_TOKEN_LED_BLACK  			25	// led_color range start
+#define RIG_TOKEN_LED_RED    			26
+#define RIG_TOKEN_LED_GREEN  			27
+#define RIG_TOKEN_LED_BLUE   			28
+#define RIG_TOKEN_LED_YELLOW 			29
+#define RIG_TOKEN_LED_PURPLE 			30
+#define RIG_TOKEN_LED_ORANGE 			31
+#define RIG_TOKEN_LED_WHITE  			32
+#define RIG_TOKEN_LED_CYAN   			33	// led_color range end
 
 // DISPLAY COLORS
 
-#define RIG_TOKEN_DISPLAY_BLACK     	33	// display_color range start
-#define RIG_TOKEN_DISPLAY_BLUE      	34
-#define RIG_TOKEN_DISPLAY_RED       	35
-#define RIG_TOKEN_DISPLAY_GREEN     	36
-#define RIG_TOKEN_DISPLAY_CYAN      	37
-#define RIG_TOKEN_DISPLAY_MAGENTA   	38
-#define RIG_TOKEN_DISPLAY_YELLOW    	39
-#define RIG_TOKEN_DISPLAY_WHITE     	40
-#define RIG_TOKEN_DISPLAY_NAVY      	41
-#define RIG_TOKEN_DISPLAY_DARKGREEN 	42
-#define RIG_TOKEN_DISPLAY_DARKCYAN  	43
-#define RIG_TOKEN_DISPLAY_MAROON    	44
-#define RIG_TOKEN_DISPLAY_PURPLE    	45
-#define RIG_TOKEN_DISPLAY_OLIVE     	46
-#define RIG_TOKEN_DISPLAY_LIGHTGREY 	47
-#define RIG_TOKEN_DISPLAY_DARKGREY  	48
-#define RIG_TOKEN_DISPLAY_ORANGE    	49
-#define RIG_TOKEN_DISPLAY_GREENYELLOW 	50
-#define RIG_TOKEN_DISPLAY_PINK			51	// display_color range end
+#define RIG_TOKEN_DISPLAY_BLACK     	34	// display_color range start
+#define RIG_TOKEN_DISPLAY_BLUE      	35
+#define RIG_TOKEN_DISPLAY_RED       	36
+#define RIG_TOKEN_DISPLAY_GREEN     	37
+#define RIG_TOKEN_DISPLAY_CYAN      	38
+#define RIG_TOKEN_DISPLAY_MAGENTA   	39
+#define RIG_TOKEN_DISPLAY_YELLOW    	40
+#define RIG_TOKEN_DISPLAY_WHITE     	41
+#define RIG_TOKEN_DISPLAY_NAVY      	42
+#define RIG_TOKEN_DISPLAY_DARKGREEN 	43
+#define RIG_TOKEN_DISPLAY_DARKCYAN  	44
+#define RIG_TOKEN_DISPLAY_MAROON    	45
+#define RIG_TOKEN_DISPLAY_PURPLE    	46
+#define RIG_TOKEN_DISPLAY_OLIVE     	47
+#define RIG_TOKEN_DISPLAY_LIGHTGREY 	48
+#define RIG_TOKEN_DISPLAY_DARKGREY  	49
+#define RIG_TOKEN_DISPLAY_ORANGE    	50
+#define RIG_TOKEN_DISPLAY_GREENYELLOW 	51
+#define RIG_TOKEN_DISPLAY_PINK			52	// display_color range end
 
 // midi ports
 
-#define RIG_TOKEN_MIDI					52	// in code gen order
-#define RIG_TOKEN_SERIAL				53
+#define RIG_TOKEN_MIDI					53	// in code gen order
+#define RIG_TOKEN_SERIAL				54
 
 // font decoration
 
-#define RIG_TOKEN_NORMAL         		54	// in code gen order
-#define RIG_TOKEN_BOLD         			55
+#define RIG_TOKEN_NORMAL         		55	// in code gen order
+#define RIG_TOKEN_BOLD         			56
 
 
 // font justification
 
-#define RIG_TOKEN_LEFT					56	// in code gen order
-#define RIG_TOKEN_CENTER				57
-#define RIG_TOKEN_RIGHT					58
+#define RIG_TOKEN_LEFT					57	// in code gen order
+#define RIG_TOKEN_CENTER				58
+#define RIG_TOKEN_RIGHT					59
 
 // Expression Tokens
 
-#define RIG_TOKEN_STRING				59	// "STRING"
-#define RIG_TOKEN_VALUE					60	// "VALUE"
+#define RIG_TOKEN_STRING				60	// "STRING"
+#define RIG_TOKEN_VALUE					61	// "VALUE"
 
-#define LAST_RIG_IDENTIFIER				60	// end of identifier range
+#define LAST_RIG_IDENTIFIER				61	// end of identifier range
 
 // Literal Types
 
 #define RIG_TOKEN_TEXT					101	// a quoted string
 #define RIG_TOKEN_NUMBER				102	// a literal number
+#define RIG_TOKEN_IDENTIFIER			103	// user defined identifier
 
 // Symbols
 
@@ -210,7 +213,6 @@ extern token_t rig_token;		// the current token
 #define RIG_TOKEN_LOGICAL_OR			142	// "||"
 #define RIG_TOKEN_LOGICAL_AND			143	// "&&"
 
-#define RIG_TOKEN_IDENTIFIER			200		// "ID"		// transient
 #define RIG_TOKEN_ASSIGN				201 	// "="  	// transient
 
 

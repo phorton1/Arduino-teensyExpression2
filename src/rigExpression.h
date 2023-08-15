@@ -34,15 +34,16 @@
 // order bye contains the info
 
 #define EXP_INLINE			0x80
-
+#define EXP_INLINE_ID		0x40
 
 // opcodes
 
-#define EXP_NUMBER			0x01		// expression is a Number (8 bit constant) 0..127 result
-#define EXP_LED_COLOR		0x02		// expression is a LED color (8 bit color number 0..10 or whatever)
-#define EXP_DISPLAY_COLOR	0x03		// expression is a DISPLAY color (8 bit display color number 0..30 or whatever)
-#define EXP_VALUE			0x04		// expression VALUE[value]
-#define EXP_STRING			0x05		// expression STRING[value]
+#define EXP_NUMBER			0x01		// expression is a Number - inline only - (8 bit constant) 0..255 result
+#define EXP_DEFINE			0x02		// expression is an Identifier - inline_only - 0..MAX_DEFINES
+#define EXP_LED_COLOR		0x03		// expression is a LED color (8 bit color number 0..NUM_LED_COLORS-1
+#define EXP_DISPLAY_COLOR	0x04		// expression is a DISPLAY color (8 bit display color 0..NUM_DISPLAY_COLORS
+#define EXP_VALUE			0x05		// expression VALUE[value]
+#define EXP_STRING			0x06		// expression STRING[value]
 
 #define EXP_TEXT			0x08		// expression is an inline null terminated string
 
@@ -51,6 +52,7 @@
 #define EXP_RIGHT_BRACKET   0x12
 #define EXP_QUESTION 		0x13
 #define EXP_COLON			0x14
+#define EXP_NOT				0x15
 
 // these are in the same order as their token numbers
 
@@ -59,11 +61,10 @@
 #define EXP_TIMES			0x23
 #define EXP_DIVIDE			0x24
 #define EXP_EQ				0x25
-#define EXP_NOT				0x26
-#define EXP_NE				0x27
-#define EXP_GT				0x28
-#define EXP_GE				0x29
-#define EXP_LT				0x20
+#define EXP_NE				0x26
+#define EXP_GT				0x27
+#define EXP_GE				0x28
+#define EXP_LT				0x29
 #define EXP_LE				0x2A
 #define EXP_BITWISE_OR		0x2B
 #define EXP_BITWISE_AND		0x2C
@@ -82,6 +83,11 @@
 //-----------------------------------
 
 extern uint16_t rigNumericExpression(int tt);
+extern uint16_t rigValueNumExpression(int tt);
+extern uint16_t rigAreaNumExpression(int tt);
+extern uint16_t rigMidiChannelExpression(int tt);
+extern uint16_t rigMidiValueExpression(int tt);
+
 extern uint16_t rigStringExpression(int tt);
 extern uint16_t rigLedColorExpression(int tt);
 extern uint16_t rigDisplayColorExpression(int tt);

@@ -26,32 +26,61 @@ char 	dump_buf[MAX_DUMP_BUF + 1];
 // methods
 //------------------------------------
 
+
+static bool dumpNumber(uint8_t value, bool is_id)
+	// dumps a number or an identifier if is_id
+{
+	if (!is_id)
+	{
+		sprintf(&dump_buf[strlen(dump_buf)],"%d",value);
+	}
+	// if it's an identifier, value is it's index in the defines
+	// which is, in turn, a 1 based offset into the define_pool
+	else
+	{
+		uint16_t def_offset = rig_header.define_ids[value] - 1;
+		sprintf(&dump_buf[strlen(dump_buf)],"%s",&rig_code.define_pool[def_offset]);
+	}
+	return true;
+}
+
+
 static bool dumpInline(const uint8_t *code, uint16_t *offset)
 {
-	uint8_t value;
+
+	int dbg_offset = *offset;
 	uint8_t op = code[(*offset)++];
-	op &= ~EXP_INLINE;
-	switch (op)
+	uint8_t value = code[(*offset)++];
+	bool is_id = op & EXP_INLINE_ID;
+	uint8_t opcode = op & ~(EXP_INLINE | EXP_INLINE_ID);
+
+	display(dbg_dump + 3,"# op at %d=INLINE(0x%02x) value=%d  %s",
+		dbg_offset,
+		op,
+		value,
+		is_id ? "IS_ID" : "");
+
+	switch (opcode)
 	{
+		case EXP_DEFINE :
 		case EXP_NUMBER :
-			value = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"%d",value);
+			dumpNumber(value,is_id);
 			break;
 		case EXP_LED_COLOR :
-			value = code[(*offset)++];
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(RIG_TOKEN_LED_BLACK + value));
 			break;
 		case EXP_DISPLAY_COLOR :
-			value = code[(*offset)++];
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(RIG_TOKEN_DISPLAY_BLACK + value));
 			break;
 		case EXP_VALUE :
-			value = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"VALUE[%d]",value);
+			sprintf(&dump_buf[strlen(dump_buf)],"VALUE[");
+			dumpNumber(value,is_id);
+			sprintf(&dump_buf[strlen(dump_buf)],"]");
 			break;
 		case EXP_STRING :
-			value = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"STRING[%d]",value);
+			sprintf(&dump_buf[strlen(dump_buf)],"STRING[");
+			dumpNumber(value,is_id);
+			sprintf(&dump_buf[strlen(dump_buf)],"]");
 			break;
 		default :
 			rig_error("unknown inline op(%d)",op);
@@ -65,8 +94,11 @@ static bool dumpInline(const uint8_t *code, uint16_t *offset)
 
 static bool dumpOp(const uint8_t *code, uint16_t *offset)
 {
-	uint8_t op = code[(*offset)++];
+	display(dbg_dump + 3,"# op at %d=0x%02x",
+		*offset,
+		code[*offset]);
 
+	uint8_t op = code[(*offset)++];
 	switch(op)
 	{
 		case EXP_VALUE :
@@ -95,12 +127,15 @@ static bool dumpOp(const uint8_t *code, uint16_t *offset)
 			sprintf(&dump_buf[strlen(dump_buf)]," : ");
 			break;
 
+		case EXP_NOT :
+			sprintf(&dump_buf[strlen(dump_buf)]," %s ",rigTokenToText(RIG_TOKEN_NOT));
+			break;
+
 		case EXP_PLUS :
 		case EXP_MINUS :
 		case EXP_TIMES :
 		case EXP_DIVIDE :
 		case EXP_EQ :
-		case EXP_NOT :
 		case EXP_NE :
 		case EXP_GT :
 		case EXP_GE :
@@ -123,50 +158,44 @@ static bool dumpOp(const uint8_t *code, uint16_t *offset)
 
 
 
-static bool dumpExpression(const uint8_t *code, uint16_t *offset)
+static bool dumpExpression(const char *what, const uint8_t *code, uint16_t *offset)
 {
-	// exp_level++;
-
-	display(dbg_dump + 1,"# dumpExpression at offset(%d)",*offset);
+	display(dbg_dump + 1,"# dumpExpression(%s) at offset(%d)",what,*offset);
 
 	bool ok = 1;
-	while (ok && code[*offset] != EXP_END)
+	while (ok &&  code[*offset] != EXP_END)
 	{
-		display(dbg_dump + 3," op at %d = 0x%02x",*offset,code[*offset]);
-
 		if (code[*offset] & EXP_INLINE)
 			ok = dumpInline(code,offset);
 		else
 			ok = dumpOp(code,offset);
+
 	}
 
 	return ok;
-
-	// exp_level--;
-    //
-	// if (/*!exp_level && */ code[*offset] != EXP_END)
-	// 	rig_error("Expression did not end on EXP_END");
 }
 
 
 
-static bool dumpExpressionAny(uint16_t offset)
+static bool dumpExpressionAny(const char *what, uint16_t offset)
 {
 	if (offset & (EXP_INLINE << 8))
 	{
-		uint8_t byte0 = (offset >> 8) & 0x7f;
+		uint8_t byte0 = offset >> 8;
 		uint8_t byte1 = offset & 0xff;
 		uint8_t code[] = {byte0, byte1, EXP_END};
 
+		display(dbg_dump + 1,"# dumpInlineExpression(%s) == 0x%02x%02x",what,byte0,byte1);
+
 		offset = 0;
-		if (!dumpOp(code,&offset))
+		if (!dumpExpression(what,code,&offset))
 			return false;
 	}
 	else	// dumpExpression for real
 	{
 		offset -= 1;		// real expression offset are one based
 		const uint8_t *code = cur_rig_code->expression_pool;
-		if (!dumpExpression(code,&offset))
+		if (!dumpExpression(what,code,&offset))
 			return false;
 	}
 	return true;
@@ -177,24 +206,29 @@ static bool dumpParam(bool button_section, int arg_type, bool last, const uint8_
 {
 	switch (arg_type)
 	{
-		case PARAM_VALUE_NUM 	:
-		case PARAM_AREA_NUM     :
-		case PARAM_MIDI_CHANNEL :
-		case PARAM_MIDI_CC      :
-			sprintf(&dump_buf[strlen(dump_buf)],"%d",code[(*offset)++]);
-			break;
-		case PARAM_MIDI_PORT    :
+		case PARAM_MIDI_PORT :
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",
 				rigTokenToText(code[(*offset)++] + RIG_TOKEN_MIDI));
 			break;
-		case PARAM_NUM_EXPRESSION				:
-		case PARAM_STRING_EXPRESSION			:
-		case PARAM_LED_COLOR_EXPRESSION			:
-		case PARAM_DISPLAY_COLOR_EXPRESSION		:
+		case PARAM_VALUE_NUM :
+		case PARAM_AREA_NUM :
+		case PARAM_MIDI_CHANNEL :
+		case PARAM_MIDI_CC :
+		case PARAM_MIDI_VALUE :
+		case PARAM_NUM_EXPRESSION :
+		case PARAM_STRING_EXPRESSION :
+		case PARAM_LED_COLOR_EXPRESSION :
+		case PARAM_DISPLAY_COLOR_EXPRESSION :
+		{
 			uint16_t *ptr16 = (uint16_t *) &code[*offset];
-			if (!dumpExpressionAny(*ptr16))
+			if (!dumpExpressionAny(argTypeToString(arg_type),*ptr16))
 				return false;
 			*offset += 2;
+			break;
+		}
+		default:
+			rig_error("unknown parameter arg type(%d)",arg_type);
+			return false;
 			break;
 	}
 	sprintf(&dump_buf[strlen(dump_buf)],"%s",last?");":", ");
@@ -207,11 +241,10 @@ static bool dumpStatement(bool button_section, uint16_t *offset, uint16_t last_o
 	dump_buf[0] = 0;
 
 	const uint8_t *code = cur_rig_code->statement_pool;
+	uint8_t tt = code[(*offset)++];
 
 	proc_level = button_section ? 2 : 0;
-	display(dbg_dump+2,"# dumping statement offset %d",*offset);
-
-	uint8_t tt = code[(*offset)++];
+	display(dbg_dump+2,"# dumping statement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
 
 	sprintf(dump_buf,"%s(",rigTokenToText(tt));
 	const statement_param_t *params = findParams(tt);
@@ -243,7 +276,7 @@ static bool dumpStatementList(bool button_section, int statement_num)
 
 	proc_level = button_section ? 2 : 0;
 	display(dbg_dump+1,"# dumping statments(%d) from %d to %d (%d bytes)",
-		statement_num,
+		statement_num - 1,
 		offset,
 		last_offset,
 		last_offset-offset);
@@ -272,6 +305,7 @@ void dumpRig()
 	// display interesting numbers]
 
 	display(dbg_dump,"Dumping Rig",0);
+	display(dbg_dump,"define_pool_len=%d",cur_rig_header->define_pool_len);
 	display(dbg_dump,"string_pool_len=%d",cur_rig_header->string_pool_len);
 	display(dbg_dump,"statement_pool_len=%d",cur_rig_header->statement_pool_len);
 	display(dbg_dump,"expression_pool_len=%d",cur_rig_header->expression_pool_len);
@@ -279,8 +313,8 @@ void dumpRig()
 	for (int i=0; i<=cur_rig_header->num_statements; i++)
 		display(dbg_dump + 1,"statement[%d] = %d",i,cur_rig_header->statements[i]);
 
-    display_bytes(dbg_dump+2,"areas",(const uint8_t *) cur_rig_header->areas, 3 * sizeof(rigArea_t));
-	display_bytes(dbg_dump+2,"statements",cur_rig_code->statement_pool,cur_rig_header->statement_pool_len);
+    display_bytes(dbg_dump+4,"areas",(const uint8_t *) cur_rig_header->areas, 3 * sizeof(rigArea_t));
+	display_bytes(dbg_dump+4,"statements",cur_rig_code->statement_pool,cur_rig_header->statement_pool_len);
 	display_bytes_long(dbg_dump+2,0,cur_rig_code->expression_pool,cur_rig_header->expression_pool_len);
 	// dump the program
 
@@ -290,11 +324,35 @@ void dumpRig()
 	display(0,"",0);
 
 	bool ok = 1;
+	bool any = 0;
+	int prev_define = 0;
 
+	for (int i=0; i<RIG_NUM_DEFINES; i++)
+	{
+		uint16_t idxP1 = rig_header.define_ids[i];
+		if (idxP1)	// definition indicator - they must name em'
+		{
+			any = 1;
+
+			// blank line between non-subsequent definitions
+			if (prev_define && i != prev_define + 1)
+				display(0,"",0);
+
+			display(0,"define(%d, %s, %d);",
+				i,
+				&rig_code.define_pool[idxP1-1],
+				rig_header.define_values[i]);
+			prev_define = i;
+		}
+	}
+
+	if (any)
+		display(0,"",0);
 	for (int i=0; i<NUM_PEDALS; i++)
 	{
 		if (cur_rig_header->pedals[i].name[0])	// definition indicator - they must name em'
 		{
+			any = 1;
 			display(0,"PEDAL(%d, \"%s\", %s, %d, %d);",
 				i,
 				cur_rig_header->pedals[i].name,
@@ -303,10 +361,14 @@ void dumpRig()
 				cur_rig_header->pedals[i].cc);
 		}
 	}
+
+	if (any)
+		display(0,"",0);
 	for (int i=0; i<RIG_NUM_AREAS; i++)
 	{
 		if (cur_rig_header->areas[i].font_size)	// definition indicator
 		{
+			any = 1;
 			display(0,"AREA(%d, %d, %s, %s, %d, %d, %d, %d);",
 				i,
 				cur_rig_header->areas[i].font_size,
@@ -318,10 +380,14 @@ void dumpRig()
 				cur_rig_header->areas[i].ye);
 		}
 	}
+
+	if (any)
+		display(0,"",0);
 	for (int i=0; i<RIG_NUM_LISTENS; i++)
 	{
 		if (cur_rig_header->listens[i].active)	// definition indicator
 		{
+			any = 1;
 			display(0,"LISTEN(%d, %s, %d, %d);",
 				i,
 				rigTokenToText(cur_rig_header->listens[i].port ? RIG_TOKEN_SERIAL : RIG_TOKEN_MIDI),
@@ -330,6 +396,8 @@ void dumpRig()
 		}
 	}
 
+	if (any)
+		display(0,"",0);
 	for (int i=0; i<RIG_NUM_STRINGS; i++)
 	{
 		// the offset is incremented so that we can identify
@@ -338,6 +406,7 @@ void dumpRig()
 
 		if (string_offset--)	// test and adjust offset
 		{
+			any = 1;
 			display(0,"STRING(%d, \"%s\");",
 				i,
 				&cur_rig_code->string_pool[string_offset]);
@@ -346,6 +415,8 @@ void dumpRig()
 
 	// dump init_section statement list
 
+	if (any)
+		display(0,"",0);
 	ok = ok && dumpStatementList(0,0);
 	if (ok)
 		display(0,"",0);
@@ -381,7 +452,7 @@ void dumpRig()
 
 					uint16_t offset = cur_rig_header->button_refs[i][j];
 					dump_buf[0] = 0;
-					ok = dumpExpressionAny(offset);
+					ok = dumpExpressionAny(rigTokenToText(j + RIG_TOKEN_COLOR),offset);
 					proc_level = 2;
 					display(0,"%s;",dump_buf);
 					proc_level = 0;

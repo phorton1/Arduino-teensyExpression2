@@ -25,6 +25,7 @@
 
 // This is fixed by architecture
 
+#define MAX_DEFINE_VALUE		255
 #define MAX_STATEMENTS 			(1 + NUM_BUTTONS * NUM_SUBSECTIONS)
 
 // These can be increased upto 255 (uint18_t)
@@ -32,14 +33,23 @@
 #define RIG_NUM_AREAS			16
 #define RIG_NUM_LISTENS			128
 #define RIG_NUM_VALUES			128
+
+// can only be increased to 254 due to one based indexing
+
 #define RIG_NUM_STRINGS			128
+#define RIG_NUM_DEFINES			128
+
+
+#define MAX_EXPRESSIONS     	1024
+// Can only be increased to 0x7fff (32K) - 1 as it is both one based
+// and the high order bit of offsets are used for inline expressions
 
 // These can be increased to upto 64K (uint16_t)
 
-#define MAX_EXPRESSIONS     	1024
 #define MAX_STRING_POOL 		4096
 #define MAX_STATEMENT_POOL 		4096
 #define MAX_EXPRESSION_POOL		4096
+#define MAX_DEFINE_POOL			4096
 
 
 typedef struct
@@ -78,7 +88,10 @@ typedef struct
 	uint16_t statement_pool_len;
 	uint16_t expression_pool_len;
 	uint16_t string_pool_len;
+	uint16_t define_pool_len;
 
+	uint16_t define_ids[RIG_NUM_DEFINES+1];
+	uint8_t  define_values[RIG_NUM_DEFINES+1];
 	uint16_t statements[MAX_STATEMENTS + 1];
 
 	// following can be inherited by overlays
@@ -101,6 +114,7 @@ typedef struct
 
 typedef struct
 {
+	char 	define_pool[MAX_DEFINE_POOL];
 	char 	string_pool[MAX_STRING_POOL];
 	uint8_t statement_pool[MAX_STATEMENT_POOL];
 	uint8_t expression_pool[MAX_EXPRESSION_POOL];
@@ -118,14 +132,17 @@ typedef struct
 } statement_param_t;
 
 
-// init_only params
+// init_only params (except where noted)
 
 #define PARAM_VALUE_NUM      1
+#define PARAM_DEFINE_NUM	 2
+#define PARAM_USER_IDENT	 3
+#define PARAM_DEFINE_VALUE	 4
 
 #define PARAM_PEDAL_NUM      10
 #define PARAM_PEDAL_NAME     11
 
-#define PARAM_AREA_NUM       20
+#define PARAM_AREA_NUM       20		// either
 #define PARAM_FONT_SIZE      21
 #define PARAM_FONT_TYPE      22
 #define PARAM_FONT_JUST		 23
@@ -142,6 +159,7 @@ typedef struct
 #define PARAM_MIDI_PORT      40
 #define PARAM_MIDI_CHANNEL   41
 #define PARAM_MIDI_CC        42
+#define PARAM_MIDI_VALUE	 43
 
 // expression params
 
@@ -181,6 +199,7 @@ typedef struct
 
 extern bool parseRig();
 extern const statement_param_t *findParams(int tt);
+extern const char *argTypeToString(int i);
 
 // parse time (for expressions)
 

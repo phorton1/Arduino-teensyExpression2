@@ -27,6 +27,7 @@ static int parse_char_num;
 
 // extern
 token_t rig_token;
+bool rig_error_found;
 
 
 
@@ -45,6 +46,8 @@ token_t rig_token;
 // extern
 void rig_error(const char *format, ...)
 {
+	rig_error_found = 1;
+
 	if (!dbgSerial)
 		return;
 
@@ -77,6 +80,7 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_BASERIG				: return "BASERIG";
 		case RIG_TOKEN_OVERLAY				: return "OVERLAY";
 
+		case RIG_TOKEN_DEFINE_DEF			: return "DEFINE";
 		case RIG_TOKEN_PEDAL				: return "PEDAL";
 		case RIG_TOKEN_AREA					: return "AREA";
 		case RIG_TOKEN_LISTEN				: return "LISTEN";
@@ -146,6 +150,7 @@ const char *rigTokenToString(int token_id)
 
 		case RIG_TOKEN_TEXT					: return "TEXT";
 		case RIG_TOKEN_NUMBER				: return "NUMBER";
+		case RIG_TOKEN_IDENTIFIER			: return "IDENTIFIER";
 
 		case RIG_TOKEN_COMMA				: return "COMMA";
 		case RIG_TOKEN_SEMICOLON			: return "SEMICOLON";
@@ -175,9 +180,8 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_LOGICAL_OR			: return "L_OR";
 		case RIG_TOKEN_LOGICAL_AND			: return "L_AND";
 
-		case RIG_TOKEN_QUESTION 		: return "QUESTION";
+		case RIG_TOKEN_QUESTION 			: return "QUESTION";
 
-		case RIG_TOKEN_IDENTIFIER			: return "ID";
 		case RIG_TOKEN_ASSIGN				: return "ASSIGN";
 
 	}
@@ -198,6 +202,8 @@ const char *rigTokenToText(int token_id)
 	{
 		case RIG_TOKEN_BASERIG				: return "BaseRig";
 		case RIG_TOKEN_OVERLAY				: return "Overlay";
+
+		case RIG_TOKEN_DEFINE_DEF			: return "define";
 
 		case RIG_TOKEN_COLOR				: return "color";
 		case RIG_TOKEN_BLINK				: return "blink";
@@ -301,6 +307,21 @@ static bool addTokenChar(char c)
     return true;
 }
 
+
+static bool myStrcmpI(const char *id, const char *TOKEN)
+{
+	while (*id && *TOKEN)
+	{
+		char c = *id++;
+		if (c >= 'a' && c <= 'z')
+			c -= 'a' - 'A';
+		if (c != *TOKEN++)
+			return false;
+	}
+	if (*id || *TOKEN)
+		return false;
+	return true;
+}
 
 
 // extern
@@ -459,7 +480,7 @@ int getRigToken()
 					}
 					else
 					{
-						rig_error("illegal symbol '%c'");
+						rig_error("illegal symbol '%c'",c);
 						return 0;
 					}
 				}
@@ -535,12 +556,10 @@ int getRigToken()
 
         else if ((c == '_') ||
 				 (c >= 'A' && c <='Z') ||
-                 (c >= 'a' && c <='z'))
+                 (c >= 'a' && c <='z') ||
+				 (c >= '0' && c <='9'))
         {
 			rig_token.id = RIG_TOKEN_IDENTIFIER;
-			if (c >= 'a' && c <= 'z')
-				c = c - 'a' + 'A';
-
             if (!addTokenChar(c))
                 return 0;
         }
@@ -564,18 +583,43 @@ int getRigToken()
 		{
 			// display(0,"cmp %s <> %s",rig_token.text, rigTokenToString(i));
 
-			if (!strcmp(rig_token.text, rigTokenToString(i)))
+			if (myStrcmpI(rig_token.text, rigTokenToString(i)))
 			{
 				id = i;
 				break;
 			}
 		}
-		if (!id)
+		if (id)
 		{
-			rig_error("illegal identifier: %s",rig_token.text);
-			return 0;
+			rig_token.id = id;		// found reserved word
+
 		}
-		rig_token.id = id;
+		else // user defined identifier
+		{
+			bool id_ok = 1;
+			for (uint16_t i=0; i<=strlen(rig_token.text); i++)
+			{
+				char c = rig_token.text[i];
+				if (c == '_' ||
+					(c >= 'A' && c <= 'Z') ||
+					(c >= 'a' && c <= 'z') ||
+					(c >= '0' && c <= '9'))
+				{
+					// ok empty case
+				}
+				else
+				{
+					id_ok = 0;
+					break;
+				}
+			}
+
+			if (!id_ok)
+			{
+				rig_error("illegal identifier: %s",rig_token.text);
+				return 0;
+			}
+		}
 	}
 
 	display(dbg_low,"",0);
@@ -717,15 +761,19 @@ int getRigToken()
 			dbgSerial->print("        ");
 		}
 
-		if (tt == RIG_TOKEN_TEXT)
+		if (tt == RIG_TOKEN_NUMBER)
+		{
+			dbgSerial->print(rig_token.int_value);
+		}
+		else if (tt == RIG_TOKEN_IDENTIFIER)
+		{
+			dbgSerial->print(rig_token.text);
+		}
+		else if (tt == RIG_TOKEN_TEXT)
 		{
 			dbgSerial->print("\"");
 			dbgSerial->print(rig_token.text);
 			dbgSerial->print("\"");
-		}
-		else if (tt == RIG_TOKEN_NUMBER)
-		{
-			dbgSerial->print(rig_token.int_value);
 		}
 		else
 		{

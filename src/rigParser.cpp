@@ -22,12 +22,10 @@ rigCode_t   rig_code;
 const rigHeader_t	*cur_rig_header = &rig_header;
 const rigCode_t		*cur_rig_code = &rig_code;
 
-static int test_inline_num = 0;
-
 
 static void init_parse()
 {
-	test_inline_num = 12;
+	rig_error_found = 0;	 // in rigToken.cpp
 	memset(&rig_header,0,sizeof(rigHeader_t));
 	memset(&rig_code,0,sizeof(rigCode_t));
 }
@@ -37,11 +35,14 @@ static void init_parse()
 // Arguments
 //-----------------------------------------------------
 
-static const char *argTypeToString(int i)
+const char *argTypeToString(int i)
 {
 	switch (i)
 	{
 		case PARAM_VALUE_NUM    : return "VALUE_NUM";
+		case PARAM_DEFINE_NUM	: return "DEFINE_NUM";
+		case PARAM_DEFINE_VALUE : return "DEFINE_VALUE";
+
 		case PARAM_PEDAL_NUM 	: return "PEDAL_NUM";
 		case PARAM_PEDAL_NAME   : return "PEDAL_NAME";
 		case PARAM_AREA_NUM     : return "AREA_NUM";
@@ -59,6 +60,8 @@ static const char *argTypeToString(int i)
 		case PARAM_MIDI_PORT    : return "MIDI_PORT";
 		case PARAM_MIDI_CHANNEL : return "MIDI_CHANNEL";
 		case PARAM_MIDI_CC      : return "MIDI_CC";
+		case PARAM_MIDI_VALUE	: return "MIDI_VALUE";
+
 
 		case PARAM_NUM_EXPRESSION				: return "NUM_EXPRESSION";
 		case PARAM_STRING_EXPRESSION			: return "STRING_EXPRESSION";
@@ -69,6 +72,14 @@ static const char *argTypeToString(int i)
 }
 
 
+// init only statements
+
+static const int DEFINE_ARGS[] = {		// DEFINE(0, _bank,  1);
+	PARAM_DEFINE_NUM,
+	PARAM_USER_IDENT,
+	PARAM_DEFINE_VALUE,
+	0
+};
 
 static const int PEDAL_ARGS[] = {		// PEDAL(0, "Synth", MIDI, 1, 7);
 	PARAM_PEDAL_NUM,
@@ -102,12 +113,15 @@ static const int STRING_DEF_ARGS[] = {		// STRING_DEF(0, "BASS1");
 	0
 };
 
+
+// regular statements
+
 static const int SETVALUE_ARGS[] = {		// setValue(20, VALUE[0] + 2);
 	PARAM_VALUE_NUM,
-	PARAM_NUM_EXPRESSION,
+	PARAM_NUM_EXPRESSION,					// new value
 	0 };
 
-static const int DISPLAY_ARGS[] = {			// display(dbg_parse, VALUE[0] ? BLUE : BLACK, "test");
+static const int DISPLAY_ARGS[] = {			// display(AREA, VALUE[0] ? BLUE : BLACK, "test");
 	PARAM_AREA_NUM,
 	PARAM_DISPLAY_COLOR_EXPRESSION,
 	PARAM_STRING_EXPRESSION,
@@ -117,35 +131,35 @@ static const int SEND_CC_ARGS[] = {			// sendCC(SERIAL, 1, 192, VALUE[3]);
 	PARAM_MIDI_PORT,
 	PARAM_MIDI_CHANNEL,
 	PARAM_MIDI_CC,
-	PARAM_NUM_EXPRESSION,
+	PARAM_MIDI_VALUE,						// control value
 	0
 };
 
 static const int SEND_PGM_CHG_ARGS[] = {	// sendPgmChg(SERIAL, 1, VALUE[3]);
 	PARAM_MIDI_PORT,
 	PARAM_MIDI_CHANNEL,
-	PARAM_NUM_EXPRESSION,
+	PARAM_MIDI_VALUE,						// patch number value
 	0
 };
 
 static const int NOTE_ON_ARGS[] = {			// noteOn(MIDI, 9, VALUE[3], VALUE[4]);
 	PARAM_MIDI_PORT,
 	PARAM_MIDI_CHANNEL,
-	PARAM_NUM_EXPRESSION,
-	PARAM_NUM_EXPRESSION,
+	PARAM_MIDI_VALUE,						// note number value
+	PARAM_MIDI_VALUE,						// velocity value
 	0
 };
 
 static const int NOTE_OFF_ARGS[] = {		// noteOff(MIDI, 9, VALUE[4]);
 	PARAM_MIDI_PORT,
 	PARAM_MIDI_CHANNEL,
-	PARAM_NUM_EXPRESSION,
+	PARAM_MIDI_VALUE,						// note number value
 	0
 };
 
 static const int ALL_NOTE_OFF_ARGS[] = {	// AllNotesOff(MIDI, 9,);
 	PARAM_MIDI_PORT,
-	PARAM_NUM_EXPRESSION,
+	PARAM_MIDI_CHANNEL,
 	0
 };
 
@@ -156,6 +170,7 @@ static const int NO_ARGS[] = {	// AllNotesOff(midi_port, midi_channel);
 
 
 static const statement_param_t statement_params[] = {
+	{ RIG_TOKEN_DEFINE_DEF,		DEFINE_ARGS },
 	{ RIG_TOKEN_PEDAL, 			PEDAL_ARGS },
 	{ RIG_TOKEN_AREA, 			AREA_ARGS },
 	{ RIG_TOKEN_LISTEN, 		LISTEN_ARGS },
@@ -188,6 +203,19 @@ const statement_param_t *findParams(int tt)
 //-------------------------------------------
 // Pool accessors
 //-------------------------------------------
+
+static bool addDefinePool(const char *s)
+{
+	int len = strlen(s);
+	if (rig_header.define_pool_len >= MAX_DEFINE_POOL - len - 1)
+	{
+		rig_error("DEFINE POOL OVERLFLOW");
+		return false;
+	}
+	strcpy(&rig_code.define_pool[rig_header.define_pool_len],s);
+	rig_header.define_pool_len += len + 1;
+	return true;
+}
 
 static bool addStringPool(const char *s)
 {
@@ -226,17 +254,6 @@ static bool addStatementInt(uint16_t i)
 	return true;
 }
 
-// static bool addExpression(int len, const uint8_t *bytes)
-// {
-// 	if (expression_pool_len + len >= MAX_EXPRESSION_POOL)
-// 	{
-// 		rig_error("EXPRESSION POOL OVERLFLOW");
-// 		return false;
-// 	}
-// 	memcpy(&expression_pool[expression_pool_len],bytes,len);
-// 	expression_pool_len += len;
-// 	return true;
-// }
 
 
 //--------------------------------------------------------
@@ -313,7 +330,26 @@ static const char *getText(const char *what, int max_len)
 	}
 
 	strcpy(buf,rig_token.text);
-	display(dbg_parse + 1,"%s = %s",what,buf);
+	display(dbg_parse + 1,"%s = \"%s\"",what,buf);
+
+	if (!getRigToken())
+		return 0;
+	return buf;
+}
+
+
+static const char *getUserIdent()
+{
+	static char buf[MAX_RIG_TOKEN+1];
+
+	if (rig_token.id != RIG_TOKEN_IDENTIFIER)
+	{
+		rig_error("IDENTIFIER Expected",0);
+		return 0;
+	}
+
+	strcpy(buf,rig_token.text);
+	display(dbg_parse + 1,"IDENTIFER = %s",buf);
 
 	if (!getRigToken())
 		return 0;
@@ -335,6 +371,7 @@ static bool handleArg(int statement_type, int arg_type)
 	const char *text;
 	bool ok = 1;
 
+	static int define_num;
 	static int pedal_num;
 	static int area_num;
 	static int listen_num;
@@ -345,7 +382,7 @@ static bool handleArg(int statement_type, int arg_type)
 	{
 		switch (arg_type)
 		{
-			case PARAM_VALUE_NUM :	// only in LISTENS
+			case PARAM_VALUE_NUM :
 				if (!getNumber(&value,"VALUE_NUM",RIG_NUM_VALUES-1))
 					ok = 0;
 				else
@@ -354,7 +391,37 @@ static bool handleArg(int statement_type, int arg_type)
 					rig_header.listens[listen_num].active = 1;
 				}
 				break;
-
+			case PARAM_DEFINE_NUM :
+				if (!getNumber(&value,"VALUE_NUM",RIG_NUM_DEFINES-1))
+					ok = 0;
+				else if (rig_header.define_ids[value])
+				{
+					rig_error("define(%d) used more than once");
+					ok = 0;
+				}
+				else
+				{
+					define_num = value;
+				}
+				break;
+			case PARAM_USER_IDENT :
+				text = getUserIdent();
+				if (!text)
+					ok = 0;
+				else
+				{
+					// the offset is incremented so that we can identify
+					// accesses to string 0 explicitly.
+					rig_header.define_ids[define_num] = rig_header.define_pool_len + 1;
+					ok = addDefinePool(text);
+				}
+				break;
+			case PARAM_DEFINE_VALUE :
+				if (!getNumber(&value,"DEFINE_VALUE",MAX_DEFINE_VALUE))
+					ok = 0;
+				else
+					rig_header.define_values[define_num] = value;
+				break;
 			case PARAM_PEDAL_NUM :
 				if (!getNumber(&value,"PEDAL_NUM",NUM_PEDALS-1))
 					ok = 0;
@@ -527,16 +594,14 @@ static bool handleArg(int statement_type, int arg_type)
 		switch (arg_type)
 		{
 			case PARAM_VALUE_NUM :	// in setValue
-				if (!getNumber(&value,"VALUE_NUM",RIG_NUM_VALUES-1))
-					ok = 0;
-				else
-					ok = addStatementByte(value);
+				value = rigValueNumExpression(rig_token.id);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_AREA_NUM     :
-				if (!getNumber(&value,"AREA_NUM",RIG_NUM_AREAS-1))
-					ok = 0;
-				else
-					ok = addStatementByte(value);
+				value = rigAreaNumExpression(rig_token.id);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_MIDI_PORT    :
 				if (rig_token.id < RIG_TOKEN_MIDI ||
@@ -555,33 +620,32 @@ static bool handleArg(int statement_type, int arg_type)
 				}
 				break;
 			case PARAM_MIDI_CHANNEL :
-				if (!getNumber(&value,"MIDI_CHANNEL",MIDI_MAX_CHANNEL))
-					ok = 0;
-				else
-					ok = addStatementByte(value);
+				value = rigMidiChannelExpression(rig_token.id);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
 				break;
-			case PARAM_MIDI_CC      :
-				if (!getNumber(&value,"MIDI_CC",MIDI_MAX_VALUE))
-					ok = 0;
-				else
-					ok = addStatementByte(value);
+			case PARAM_MIDI_CC :
+			case PARAM_MIDI_VALUE :
+				value = rigMidiValueExpression(rig_token.id);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
 				break;
-			case PARAM_NUM_EXPRESSION				:
+			case PARAM_NUM_EXPRESSION :
 				value = rigNumericExpression(rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
-			case PARAM_STRING_EXPRESSION			:
+			case PARAM_STRING_EXPRESSION :
 				value = rigStringExpression(rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
-			case PARAM_LED_COLOR_EXPRESSION			:
+			case PARAM_LED_COLOR_EXPRESSION :
 				value = rigLedColorExpression(rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
-			case PARAM_DISPLAY_COLOR_EXPRESSION		:
+			case PARAM_DISPLAY_COLOR_EXPRESSION	:
 				value = rigDisplayColorExpression(rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
@@ -939,11 +1003,16 @@ bool parseRig()
 
 		rig_header.statements[rig_header.num_statements] = rig_header.statement_pool_len;
 
+		ok = ok && !rig_error_found;
 		if (ok)
 		{
 			display(dbg_parse,"",0);
 			warning(dbg_parse,"parseRig(%s.rig) finished OK",0);
 			dumpRig();
+		}
+		else
+		{
+			rig_error("There was an error parsing the rig!");
 		}
 
 	}	// file opened
