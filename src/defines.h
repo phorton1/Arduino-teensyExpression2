@@ -16,14 +16,19 @@
 
 #define NUM_MIDI_PORTS      8       // ports defined in midiQueue.h
 
+#define THE_SYSTEM_BUTTON   4
 
 extern void mem_check(const char *where = 0);
+
+
+
+
 
 #if 0
     #define NEW_DESIGN          0
         // 2023-07-29 Redesigned Everything
 
-    #define THE_SYSTEM_BUTTON   4
+
 
     #define BUTTON_NUM(r,c)    ((r) * NUM_BUTTON_COLS + (c))
     #define BUTTON_ROW(i)      ((i) / NUM_BUTTON_COLS)

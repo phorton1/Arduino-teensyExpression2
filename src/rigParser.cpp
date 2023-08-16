@@ -8,8 +8,8 @@
 #include "rigExpression.h"
 
 
-#define dbg_parse 	1
-	// 0 = just show the main rig_header
+#define dbg_parse 	0
+	// 0 = just show ParsingRig() and finished messages
 	// -1 = show statements and params
 	// -2 = show details
 
@@ -879,13 +879,13 @@ static bool handleButton()
 
 
 // extern
-bool parseRig()
+bool parseRig(const char *rig_name)
 	// generates the intermediate structure of a
 	// syntactically valid set of bytes that are
 	// RIG_ID's, and with inline TEXT and int_values;
 
 {
-	display(dbg_parse,"ParseRig(%s.rig)",rig_name);
+	warning(dbg_parse,"ParseRig(%s.rig)",rig_name);
 	bool ok = 0;
 	if (openRigFile(rig_name))
 	{
@@ -964,7 +964,6 @@ bool parseRig()
 		ok = ok && !rig_error_found;
 		if (ok)
 		{
-			display(dbg_parse,"",0);
 			warning(dbg_parse,"parseRig(%s.rig) finished OK",0);
 			dumpRig();
 		}

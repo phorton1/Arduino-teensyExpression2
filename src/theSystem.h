@@ -104,7 +104,7 @@ class aSystem
         void loop();
 
         void setTitle(const char *title);
-        void buttonEvent(int row, int col, int event);
+        void onButton(int row, int col, int event);
 
         #if MIDI_ACTIVITY_INLINE
             inline void midiActivity(int port_num) { m_midi_activity[port_num]=millis(); }

@@ -247,7 +247,7 @@ void buttonArray::task()
                     if (mask & BUTTON_EVENT_PRESS)
                     {
                         display(dbg_btn,"BUTTON_EVENT_PRESS(%d,%d)",row,col);
-                        theSystem.buttonEvent(row, col, BUTTON_EVENT_PRESS);
+                        theSystem.onButton(row, col, BUTTON_EVENT_PRESS);
                     }
                     pButton->m_press_time = time;
                 }
@@ -267,12 +267,12 @@ void buttonArray::task()
                         if (mask & BUTTON_EVENT_RELEASE)
                         {
                             display(dbg_btn,"BUTTON_EVENT_RELEASE(%d,%d)",row,col);
-                            theSystem.buttonEvent(row, col, BUTTON_EVENT_RELEASE);
+                            theSystem.onButton(row, col, BUTTON_EVENT_RELEASE);
                         }
                         if (mask & BUTTON_EVENT_CLICK)
                         {
                             display(dbg_btn,"BUTTON_EVENT_CLICK(%d,%d)",row,col);
-                            theSystem.buttonEvent(row, col, BUTTON_EVENT_CLICK);
+                            theSystem.onButton(row, col, BUTTON_EVENT_CLICK);
                         }
                     }
                 }
@@ -301,7 +301,7 @@ void buttonArray::task()
                     if (pButton->m_repeat_time > interval)
                     {
                         display(dbg_btn,"repeat BUTTON_EVENT_PRESS(%d,%d)",row,col);
-                        theSystem.buttonEvent(row, col, BUTTON_EVENT_PRESS);
+                        theSystem.onButton(row, col, BUTTON_EVENT_PRESS);
                         pButton->m_repeat_time = 0;
                     }
                 }
@@ -312,7 +312,7 @@ void buttonArray::task()
                 {
                     display(dbg_btn,"BUTTON_EVENT_LONG_CLICK(%d,%d)",row,col);
 					select(num,-1);
-                    theSystem.buttonEvent(row, col, BUTTON_EVENT_LONG_CLICK);
+                    theSystem.onButton(row, col, BUTTON_EVENT_LONG_CLICK);
                 }
 
             }   // pressed and not handled yet

@@ -8,6 +8,7 @@
 #include "fileSystem.h"
 
 
+#define dbg_open	1
 #define dbg_low 	1
 
 #define DUMP_PARSE  0
@@ -156,33 +157,29 @@ const char *rigTokenToString(int token_id)
 
 		case RIG_TOKEN_COMMA				: return "COMMA";
 		case RIG_TOKEN_SEMICOLON			: return "SEMICOLON";
-		case RIG_TOKEN_LEFT_PAREN			: return "LEFT_PAREN";
-		case RIG_TOKEN_RIGHT_PAREN			: return "RIGHT_PAREN";
-		case RIG_TOKEN_COLON				: return "COLON";
-
 		case RIG_TOKEN_LEFT_BRACKET			: return "LEFT_BRACKET";
 		case RIG_TOKEN_RIGHT_BRACKET		: return "RIGHT_BRACKET";
 
-		case RIG_TOKEN_NOT					: return "NOT";
+		case RIG_TOKEN_LEFT_PAREN			: return "LEFT_PAREN";
+		case RIG_TOKEN_RIGHT_PAREN			: return "RIGHT_PAREN";
+		case RIG_TOKEN_QUESTION 			: return "QUESTION";
 
+		case RIG_TOKEN_COLON				: return "COLON";
+		case RIG_TOKEN_NOT					: return "NOT";
 		case RIG_TOKEN_PLUS					: return "PLUS";
 		case RIG_TOKEN_MINUS				: return "MINUS";
 		case RIG_TOKEN_TIMES				: return "TIMES";
 		case RIG_TOKEN_DIVIDE				: return "DIVIDED_BY";
-
 		case RIG_TOKEN_EQ					: return "EQ";
 		case RIG_TOKEN_NE					: return "NE";
 		case RIG_TOKEN_GT					: return "GT";
 		case RIG_TOKEN_GE					: return "GE";
 		case RIG_TOKEN_LT					: return "LT";
 		case RIG_TOKEN_LE					: return "LE";
-
 		case RIG_TOKEN_BITWISE_OR			: return "OR";
 		case RIG_TOKEN_BITWISE_AND			: return "AND";
 		case RIG_TOKEN_LOGICAL_OR			: return "L_OR";
 		case RIG_TOKEN_LOGICAL_AND			: return "L_AND";
-
-		case RIG_TOKEN_QUESTION 			: return "QUESTION";
 
 		case RIG_TOKEN_ASSIGN				: return "ASSIGN";
 
@@ -228,13 +225,13 @@ const char *rigTokenToText(int token_id)
 
 		case RIG_TOKEN_COMMA				: return ",";
 		case RIG_TOKEN_SEMICOLON			: return ";";
-		case RIG_TOKEN_LEFT_PAREN			: return "(";
-		case RIG_TOKEN_RIGHT_PAREN			: return ")";
-		case RIG_TOKEN_COLON				: return ":";
-
 		case RIG_TOKEN_LEFT_BRACKET			: return "[";
 		case RIG_TOKEN_RIGHT_BRACKET		: return "]";
 
+		case RIG_TOKEN_LEFT_PAREN			: return "(";
+		case RIG_TOKEN_RIGHT_PAREN			: return ")";
+		case RIG_TOKEN_QUESTION 			: return "?";
+		case RIG_TOKEN_COLON				: return ":";
 		case RIG_TOKEN_NOT					: return "!";
 
 		case RIG_TOKEN_PLUS					: return "+";
@@ -254,7 +251,7 @@ const char *rigTokenToText(int token_id)
 		case RIG_TOKEN_LOGICAL_OR			: return "||";
 		case RIG_TOKEN_LOGICAL_AND			: return "&&";
 
-		case RIG_TOKEN_QUESTION 		: return "?";
+
 
 		case RIG_TOKEN_IDENTIFIER			: return "ID";
 		case RIG_TOKEN_ASSIGN				: return "=";
@@ -280,9 +277,10 @@ static int getRigDelim(char c)
 		case ';' : return RIG_TOKEN_SEMICOLON;
 		case '(' : return RIG_TOKEN_LEFT_PAREN;
 		case ')' : return RIG_TOKEN_RIGHT_PAREN;
-		case ':' : return RIG_TOKEN_COLON;
 		case '[' : return RIG_TOKEN_LEFT_BRACKET;
 		case ']' : return RIG_TOKEN_RIGHT_BRACKET;
+		case ':' : return RIG_TOKEN_COLON;
+		case '?' : return RIG_TOKEN_QUESTION;
 		case '!' : return RIG_TOKEN_NOT;
 		case '+' : return RIG_TOKEN_PLUS;
 		case '-' : return RIG_TOKEN_MINUS;
@@ -292,7 +290,6 @@ static int getRigDelim(char c)
 		case '<' : return RIG_TOKEN_LT;
 		case '|' : return RIG_TOKEN_BITWISE_OR;
 		case '&' : return RIG_TOKEN_BITWISE_AND;
-		case '?' : return RIG_TOKEN_QUESTION;
 		case '=' : return RIG_TOKEN_ASSIGN;
 	}
 	return 0;
@@ -696,7 +693,7 @@ int getRigToken()
 	#endif
 
 	if (!rig_token.id)
-		display(0,"getRigToken() returning EOF!",0);
+		display(dbg_low,"getRigToken() returning EOF!",0);
 
     return rig_token.id;
 }
@@ -708,14 +705,6 @@ int getRigToken()
 
 #if DUMP_PARSE
 
-	static void initDump()
-	{
-		dbgSerial->print("# ");
-		dbgSerial->print(rig_name);
-		dbgSerial->println(".rig");
-		dbgSerial->println();
-	}
-
 	static void dumpToken()
 	{
 		int tt = rig_token.id;
@@ -725,9 +714,7 @@ int getRigToken()
 		{
 			dbgSerial->println();
 			dbgSerial->println();
-			dbgSerial->print("# end of ");
-			dbgSerial->print(rig_name);
-			dbgSerial->println(".rig");
+			dbgSerial->println("# end of rig ");
 			dbgSerial->println();
 			return;
 		}
@@ -848,7 +835,7 @@ bool openRigFile(const char *name)
     strcpy(name_buffer,"/");
     strcat(name_buffer,name);
     strcat(name_buffer,".rig");
-    display(0,"openRigFile(%s)",name);
+    display(dbg_open,"openRigFile(%s)",name);
 
 	rig_file = SD.open(name_buffer, FILE_READ );
     if (!rig_file)
@@ -858,6 +845,6 @@ bool openRigFile(const char *name)
     }
 
     rig_text_len = rig_file.size();
-    display(0,"Rig file(%s) opened - length=%d",name,rig_text_len);
+    display(dbg_open,"Rig file(%s) opened - length=%d",name,rig_text_len);
 	return 1;
 }

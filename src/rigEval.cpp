@@ -1,0 +1,579 @@
+//-------------------------------------------------------
+// rigEval.cpp
+//-------------------------------------------------------
+// the rigMachine expression evaluator
+
+#include <myDebug.h>
+#include "rigMachine.h"
+#include "rigExpression.h"
+
+#define dbg_ops		1
+#define dbg_stack   1
+#define dbg_eval 	1
+	// 0 = just the final return value
+	// -1 = all return values
+	// -2 = all mainline functionality
+	// -3 = everything
+
+#define MAX_OP_STACK	32
+#define MAX_VAL_STACK   32
+#define MAX_COND_STACK  32
+
+#define IS_EXP_OP(op)	(op >= EXP_NOT && op <= EXP_LOGICAL_AND)
+#define OP_TOKEN(op)	(rigTokenToString(op + RIG_TOKEN_LEFT_PAREN - EXP_LEFT_PAREN))
+
+
+const char *VAL_DISPLAY(evalResult_t *rslt)
+{
+	static char local_buf[2][128];
+	static int which = 0;
+	which = which ? 0 : 1;
+	if (!rslt->is_string)
+		sprintf(local_buf[which],"%d",rslt->value);
+	else
+		sprintf(local_buf[which],"\"%s\"",rslt->text);
+	return local_buf[which];
+}
+
+
+
+int op_top;
+int val_top;
+// int cond_top;
+
+uint8_t 	 op_stack[MAX_OP_STACK];
+evalResult_t val_stack[MAX_VAL_STACK];
+
+
+//-----------------------------------------------
+// utilities
+//-----------------------------------------------
+
+
+static void dumpOpStack()
+{
+	if (dbg_eval > -3)
+		return;
+	if (!op_top)
+		Serial.print("{empty}");
+	for (int i=0; i<op_top; i++)
+	{
+		Serial.print("  ");
+		Serial.print(OP_TOKEN(op_stack[i]));
+	}
+	Serial.println();
+}
+
+
+
+bool pushOp(uint8_t op)
+{
+	display(dbg_stack,"pushOp(%d) %d=%s",op_top,op,OP_TOKEN(op));
+	if (op_top >= MAX_OP_STACK)
+	{
+		rig_error("OP_STACK OVERFLOW");
+		return false;
+	}
+	op_stack[op_top++] = op;
+	dumpOpStack();
+	return true;
+}
+
+bool popOp(uint8_t *op)
+{
+	if (!op_top)
+	{
+		rig_error("OP_STACK UNDERFLOW");
+		return false;
+	}
+	*op = op_stack[--op_top];
+	display(dbg_stack,"popOp(%d) %d=%s",op_top,*op,OP_TOKEN(*op));
+	dumpOpStack();
+	return true;
+}
+
+bool pushVal(evalResult_t *val)
+{
+	display(dbg_stack,"pushVal(%d) %s",val_top,VAL_DISPLAY(val));
+	if (val_top >= MAX_VAL_STACK)
+	{
+		rig_error("VAL_STACK OVERFLOW");
+		return false;
+	}
+	memcpy(&val_stack[val_top++],val,sizeof(evalResult_t));
+	return true;
+}
+
+bool pushValInt(uint16_t value)
+{
+	display(dbg_stack,"pushValInt(%d) %d",val_top,value);
+	if (val_top >= MAX_VAL_STACK)
+	{
+		rig_error("VAL_STACK(TEXT) OVERFLOW");
+		return false;
+	}
+	val_stack[val_top].is_string = 0;
+	val_stack[val_top].value = value;
+	val_top++;
+	return true;
+}
+
+bool pushValText(const char *text)
+{
+	display(dbg_stack,"pushValText(%d) \"%s\"",val_top,text);
+	if (val_top >= MAX_VAL_STACK)
+	{
+		rig_error("VAL_STACK(TEXT) OVERFLOW");
+		return false;
+	}
+	val_stack[val_top].is_string = 1;
+	val_stack[val_top].text = text;
+	val_top++;
+	return true;
+}
+
+
+bool popVal(evalResult_t *val)
+{
+	if (!val_top)
+	{
+		rig_error("VAL_STACK UNDERFLOW");
+		return false;
+	}
+	memcpy(val,&val_stack[--val_top],sizeof(evalResult_t));
+	display(dbg_stack,"popVal(%d) %s",val_top,VAL_DISPLAY(&val_stack[val_top]));
+	return true;
+}
+
+
+const int precedence(uint8_t op)
+	// Mine are in reverse order from C++, which places them like this:
+	//  4   !					logical and binary NOT	right-to-left
+	//	5 	a*b   a/b   a%b 	Multiplication, division, and remainder
+	//	6 	a+b   a-b 			Addition and subtraction
+	//	7 	<<   >> 			Bitwise left shift and right shift
+	//	8 	<=> 				Three-way comparison operator (since C++20)
+	//	9 	<   <=   >   >= 	For relational operators < and <= and > and >= respectively
+	//	10 	==   != 			For equality operators = and != respectively
+	//	11 	a&b 				Bitwise AND
+	//	12 	^ 					Bitwise XOR (exclusive or)
+	//	13 	| 					Bitwise OR (inclusive or)
+	//	14 	&& 					Logical AND
+	//	15 	|| 					Logical OR
+	// Added by Me
+	//  16  ? :					Ternary IF and COLON operators
+	//  17  )					RIGHT_PAREN
+	//  19  ( 					LEFT_PAREN
+{
+	// display(0,"precedence(0x%02x)",op);
+	switch(op)
+	{
+		case EXP_NOT :
+			return 1;
+		case EXP_TIMES :
+		case EXP_DIVIDE :
+			return 2;
+		case EXP_PLUS :
+		case EXP_MINUS :
+			return 3;
+		case EXP_GT :
+		case EXP_GE :
+		case EXP_LT :
+		case EXP_LE :
+			return 4;
+		case EXP_EQ :
+		case EXP_NE :
+			return 5;
+		case EXP_BITWISE_AND :
+			return 6;
+		case EXP_BITWISE_OR :
+			return 7;
+		case EXP_LOGICAL_AND :
+			return 8;
+		case EXP_LOGICAL_OR :
+			return 9;
+		//case EXP_QUESTION :
+		//case EXP_COLON :
+		//	return 10;
+		//case OP_CONDITION :
+		//	return 11;
+		//case EXP_RIGHT_PAREN :
+		//	return 12;
+		case EXP_LEFT_PAREN :
+			return 99;
+	}
+	rig_error("unknown op in precedence(0x%02x)",op);
+	return 0;
+}
+
+
+//----------------------------------------------------------------------------------
+// doOp()
+//----------------------------------------------------------------------------------
+
+bool doOp(int op_start, uint8_t op)
+{
+	display(dbg_eval+2,"doOp(%d=%s)",op,OP_TOKEN(op));
+	proc_entry();
+
+	bool ok = 1;
+	evalResult_t val1;
+	evalResult_t val2;
+
+	if (ok && op == EXP_NOT)
+	{
+		ok = popVal(&val2);
+		val1.is_string = 0;
+		display(dbg_ops,"NOT %d",val2.value);
+		val1.value = !val2.value;
+	}
+	else
+	{
+		ok = popVal(&val2);
+		ok = ok && popVal(&val1);
+		if (ok)
+		{
+			display(dbg_ops,"%s %s %s",VAL_DISPLAY(&val1),OP_TOKEN(op),VAL_DISPLAY(&val2));
+			switch (op)
+			{
+				case EXP_PLUS :
+					val1.value += val2.value;
+					break;
+				case EXP_MINUS :
+					val1.value -= val2.value;
+					break;
+				case EXP_TIMES :
+					val1.value *= val2.value;
+					break;
+				case EXP_DIVIDE :
+					if (val2.value == 0)
+					{
+						rig_error("Divide by zero!!");
+						ok = 0;
+					}
+					val1.value /= val2.value;
+					break;
+				case EXP_EQ :
+					val1.value = val1.value == val2.value;
+					break;
+				case EXP_NE :
+					val1.value = val1.value != val2.value;
+					break;
+				case EXP_GT :
+					val1.value = val1.value > val2.value;
+					break;
+				case EXP_GE :
+					val1.value = val1.value >= val2.value;
+					break;
+				case EXP_LT :
+					val1.value = val1.value < val2.value;
+					break;
+				case EXP_LE :
+					val1.value = val1.value <= val2.value;
+					break;
+				case EXP_BITWISE_OR :
+					val1.value |= val2.value;
+					break;
+				case EXP_BITWISE_AND :
+					val1.value &= val2.value;
+					break;
+				case EXP_LOGICAL_OR :
+					val1.value = val1.value || val2.value;
+					break;
+				case EXP_LOGICAL_AND :
+					val1.value = val1.value && val2.value;
+					break;
+			}	// switch
+		}	// ok
+	}	// bin_ops
+
+
+	ok = ok && pushVal(&val1);
+	proc_leave();
+	return ok;
+}
+
+
+
+//---------------------------------------------
+// getAtom()
+//---------------------------------------------
+
+bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
+	// it's either an inline number, or a
+{
+
+	display(dbg_eval + 2,"getAtom(0x%02x) at %d  val_start=%d",code[*offset],*offset,val_top);
+	proc_entry();
+
+	int val_start = val_top;
+	uint8_t byte = code[(*offset)++];
+	uint8_t inline_op = byte & 0x3f;
+
+	bool ok = 1;
+	if (byte == EXP_TEXT)
+	{
+		const char *s = (const char *) &code[*offset];
+		display(dbg_eval + 2,"TEXT = %s",s);
+		ok = pushValText(s);
+		(*offset) += strlen(s) + 1;
+	}
+	else if (byte == EXP_STRING)
+	{
+		display(dbg_eval + 2,"STRING[sub_exp]",0);
+		ok = evaluate(code, offset);				// RECURSE
+		if (ok)
+		{
+			if (code[*offset] == EXP_RIGHT_BRACKET)
+			{
+				display(dbg_eval+2,"STRING[sub_exp] skipping RIGHT_BRACKET",0);
+				(*offset)++;
+			}
+			uint8_t num = val_stack[--val_top].value;
+			uint16_t off = rig_header.strings[num] - 1;
+			const char *s = &rig_code.string_pool[off];
+			display(dbg_eval + 2,"STRING[%d] off(%d) = %s",num,off,s);
+			ok = pushValText(s);
+		}
+	}
+	else if (byte == EXP_VALUE)
+	{
+		display(dbg_eval + 2,"VALUE[sub_exp]",0);
+		ok = evaluate(code, offset);				// RECURSE
+		if (ok)
+		{
+			if (code[*offset] == EXP_RIGHT_BRACKET)
+			{
+				display(dbg_eval+2,"VALUE[sub_exp] skipping RIGHT_BRACKET",0);
+				(*offset)++;
+			}
+			uint8_t num = val_stack[--val_top].value;
+			uint8_t value = m_rig_state.values[num];
+			display(dbg_eval + 2,"VALUE[num=%d] value=%d",num,value);
+			ok = pushValInt(value);
+		}
+	}
+
+	// otherwise everything *should* be an inline
+
+	else if (!(byte & EXP_INLINE))
+	{
+		rig_error("INLINE op expected");
+		ok = 0;
+	}
+	else
+	{
+		uint8_t value = code[(*offset)++];
+
+		if (byte & EXP_INLINE_ID)
+		{
+			display(dbg_eval + 2,"INLINE ID(%d:%s)",value,&rig_code.define_pool[rig_header.define_ids[value] - 1]);
+			value = rig_header.define_values[value];
+		}
+
+		if (inline_op == EXP_LED_COLOR)
+		{
+			display(dbg_eval + 2,"INLINE LED_COLOR(%d) = %s",rigTokenToText(RIG_TOKEN_LED_BLACK + value));
+		}
+		else if (inline_op == EXP_DISPLAY_COLOR)
+		{
+			display(dbg_eval + 2,"INLINE DISPLAY_COLOR(%d) = %s",rigTokenToText(RIG_TOKEN_DISPLAY_BLACK + value));
+		}
+
+		if (inline_op == EXP_STRING)
+		{
+			uint16_t off = rig_header.strings[value];
+			const char *s = &rig_code.string_pool[off];
+			display(dbg_eval + 2,"INLINE_STRING[%d] at %d = %s",value,off,s);
+			ok = pushValText(s);
+		}
+		else
+		{
+			if (inline_op == EXP_VALUE)
+			{
+				display(dbg_eval + 2,"INLINE VALUE[%d]",value);
+				value = m_rig_state.values[value];
+			}
+			else
+				display(dbg_eval + 2,"INLINE NUMBER(%d)",value);
+
+			ok = pushValInt(value);
+		}
+	}
+
+	proc_leave();
+	if (ok)
+		display(dbg_eval + 1,"getAtom() returning(%s) at %d   val_top=%d   op_top=%d",
+				VAL_DISPLAY(&val_stack[val_start]),*offset,val_top,op_top);
+	return ok;
+}
+
+
+
+//============================================================
+// evaluate()
+//============================================================
+
+
+
+bool rigMachine::evaluate(const uint8_t *code, uint16_t *offset)
+{
+	int op_start = op_top;
+	int val_start = val_top;
+
+	display(dbg_eval + 2,"evaluate(0x%02x) at %d  op_start=%d   val_start=%d",code[*offset],*offset,op_start,val_start);
+	proc_entry();
+
+	bool ok = 1;
+	bool done = 0;
+	while (ok && !done &&
+		   code[*offset] != EXP_END &&
+		   code[*offset] != EXP_COLON &&
+		   code[*offset] != EXP_RIGHT_BRACKET)
+	{
+		if (code[*offset] == EXP_QUESTION)
+		{
+			(*offset)++;
+			display(dbg_eval+2,"EXP_QUESTION at %d ",*offset);
+			proc_entry();
+
+			while (ok &&
+				   op_top > op_start &&
+				   op_stack[op_top-1] != EXP_LEFT_PAREN)
+			{
+				uint8_t op;
+				ok = popOp(&op);
+				ok = ok && doOp(op_start,op);
+			}
+
+			// save the result and recurse for the two sub expressions
+
+			evalResult_t cond;
+			evalResult_t val1;
+			evalResult_t val2;
+
+			ok = ok && popVal(&cond);
+
+			if (ok) display(dbg_eval+2,"? exp",0);
+			if (ok && evaluate(code,offset))
+			{
+				ok = ok && popVal(&val1);
+				if (ok) display(dbg_eval+2,"? exp part = %s",VAL_DISPLAY(&val1));
+			}
+
+			if (ok) display(dbg_eval+2,": exp",0);
+			if (code[*offset] == EXP_COLON)
+			{
+				display(dbg_eval+2,": exp part skipping EXP_COLON",0);
+				(*offset)++;
+			}
+			if (ok && evaluate(code,offset))
+			{
+				ok = ok && popVal(&val2);
+				if (ok) display(dbg_eval+2,": exp part = %s",VAL_DISPLAY(&val2));
+			}
+			if (ok)
+			{
+				display(dbg_eval+2,"%d ? %s : %s",cond.value,VAL_DISPLAY(&val1),VAL_DISPLAY(&val2));
+				ok = pushVal(cond.value ? &val1 : &val2);
+			}
+
+			proc_leave();
+		}
+		else if (code[*offset] == EXP_LEFT_PAREN)
+ 		{
+			(*offset)++;
+ 			display(dbg_eval + 2,"LEFT_PAREN at %d",*offset);
+ 			ok = ok && pushOp(EXP_LEFT_PAREN);
+ 		}
+		else if (code[*offset] == EXP_RIGHT_PAREN)
+		{
+			(*offset)++;
+ 			display(dbg_eval + 2,"RIGHT_PAREN at %d",*offset);
+			proc_entry();
+
+			uint8_t op;
+			ok = popOp(&op);
+			while (op != EXP_LEFT_PAREN)
+			{
+				ok = ok && doOp(op_start,op);
+				ok = popOp(&op);
+			}
+
+			proc_leave();
+		}
+
+		else if (code[*offset] == EXP_NOT)
+		{
+			(*offset)++;
+ 			ok = pushOp(EXP_NOT);
+		}
+		else if (IS_EXP_OP(code[*offset]))
+		{
+			display(dbg_eval+2,"IS_EX_OP(%d=%s) at %d  op_top=%d op_start=%d",code[*offset],OP_TOKEN(code[*offset]),*offset,op_top,op_start);
+			proc_entry();
+
+			uint8_t byte = code[(*offset)++];
+
+			while (ok && op_top > op_start &&
+				   precedence(op_stack[op_top-1]) < precedence(byte))
+			{
+				uint8_t op;
+				ok = popOp(&op);
+				ok = ok && doOp(op_start,op);
+			}
+
+			ok = ok && pushOp(byte);
+			proc_leave();
+		}
+
+		// otherwise, it's an atom with a possible nested expression
+
+		else
+		{
+			ok = getAtom(code,offset);	// pushes it on the stack
+			// byte = code[(*offset)++];
+		}
+	}
+
+	if (ok && op_top > op_start)
+	{
+		display(dbg_eval+2,"LEFTOVER_OPS top=%d start=%d",op_top,op_start);
+		proc_entry();
+		while (ok && op_top > op_start)
+		{
+			uint8_t op;
+			ok = popOp(&op);
+			ok = ok && doOp(op_start,op);
+		}
+		proc_leave();
+	}
+
+	proc_leave();
+	if (ok)
+		display(dbg_eval+1,"evaluate() returning %s at %d   op_top=%d  val_top=%d",VAL_DISPLAY(&val_stack[val_start]),*offset,op_top,val_top);
+	return ok;
+}
+
+
+
+
+//-------------------------
+// entry point
+//-------------------------
+
+bool rigMachine::expression(evalResult_t *rslt, const uint8_t *code, uint16_t *offset)
+{
+	display(dbg_eval,"expression at offset %d",*offset);
+
+	op_top = 0;
+	val_top = 0;
+
+	bool ok = evaluate(code,offset);
+	if (ok)
+		memcpy(rslt,&val_stack[0],sizeof(evalResult_t));
+
+	if (ok)
+		display(dbg_eval,"expression() returning %s at %d",VAL_DISPLAY(rslt),*offset);
+	return ok;
+}

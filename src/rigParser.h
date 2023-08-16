@@ -165,7 +165,7 @@ typedef struct
 //		...
 
 
-extern bool parseRig();
+extern bool parseRig(const char *rig_name);
 extern const statement_param_t *findParams(int tt);
 extern const char *argTypeToString(int i);
 

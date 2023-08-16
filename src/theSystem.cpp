@@ -12,7 +12,7 @@
 #include "ftp.h"
 
 
-#include "rigParser.h"
+#include "rigMachine.h"
 
 
 #if 0
@@ -199,7 +199,8 @@ void aSystem::begin()
 		delay(10000);
 	}
 
-    theButtons.setButtonType(4, BUTTON_EVENT_CLICK, LED_BLACK, LED_BLACK, LED_BLACK, LED_PURPLE );
+    theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);		//, LED_BLACK, LED_BLACK, LED_PURPLE );
+    theButtons.setButtonType(9, 				BUTTON_EVENT_CLICK, 	 LED_GREEN);	//, LED_BLACK, LED_BLACK, LED_PURPLE );
         // int num,
         // int mask,
         // int default_color=-1,
@@ -399,15 +400,29 @@ void aSystem::endModal(aWindow *win, uint32_t param)
 
 #endif // 0
 
+
+
 //-----------------------------------------
 // events
 //-----------------------------------------
 
-void aSystem::buttonEvent(int row, int col, int event)
+void aSystem::onButton(int row, int col, int event)
 {
 	int num = row * NUM_BUTTON_COLS + col;
-	if (num == 4)
-		parseRig();
+	if (num == 9)
+	{
+		if (rig_machine.loadRig("default"))
+			setTitle(rig_machine.rigName());
+	}
+	else if (num == THE_SYSTEM_BUTTON && event == BUTTON_EVENT_LONG_CLICK)
+	{
+		if (rig_machine.loadRig("test"))
+			setTitle(rig_machine.rigName());
+	}
+	else
+	{
+		rig_machine.onButton(row,col,event);
+	}
 
 #if 0
 	int num = row * NUM_BUTTON_COLS + col;
@@ -616,6 +631,7 @@ void aSystem::handleSerialData()
 	else if (finished && is_midi)
 	{
 		display_bytes(dbg_sys-1,"aSystem recv serial midi: ",(uint8_t*)static_serial_buffer,4);
+		rig_machine.onSerialMidi(static_serial_buffer[2],static_serial_buffer[3]);
 		// theSystem.getCurRig()->onSerialMidiEvent(static_serial_buffer[2],static_serial_buffer[3]);
 	}
 	else if (finished)
@@ -888,6 +904,8 @@ void aSystem::loop()
 		}
 	}
 
+
+	rig_machine.updateUI();
 
 	// call the current window's updateUI method
 #if 0

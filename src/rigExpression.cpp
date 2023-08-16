@@ -234,6 +234,8 @@ static int atom(int tt)
 				}
 				if (!exp_inline)
 					ok = ok && addExpByte(EXP_RIGHT_BRACKET);
+					// needed for linear dump()
+
 				ok = ok && getRigToken();
 			}
 		}
@@ -281,6 +283,11 @@ static int factor(int tt)
 			type = exp(tt);
 		ok = ok && type != EXP_TYPE_ILLEGAL;
 		if (ok && rig_token.id != RIG_TOKEN_RIGHT_PAREN)
+		{
+			rig_error("RIGHT_PAREN expected");
+			ok = false;
+		}
+		else
 		{
 			ok = addExpByte(EXP_RIGHT_PAREN);
 			tt = getRigToken();
@@ -352,6 +359,7 @@ static int exp(int tt)
 {
 	display(dbg_exp + 1 + (exp_level ? 1 : 0),"exp(%s)",rigTokenToString(tt));
 	proc_entry();
+
 	exp_level++;
 
 	bool ok = 1;

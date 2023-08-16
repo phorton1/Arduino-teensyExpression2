@@ -5,8 +5,6 @@
 
 #pragma once
 
-#define rig_name "test"
-
 #define MAX_RIG_TOKEN 	79
 
 
@@ -203,30 +201,28 @@ extern bool rig_error_found;	// true if any rig_errors occured; cleared in parse
 
 #define RIG_TOKEN_COMMA					110 // ","
 #define RIG_TOKEN_SEMICOLON				111 // ";"
-#define RIG_TOKEN_LEFT_PAREN	 		112 // "("
-#define RIG_TOKEN_RIGHT_PAREN			113 // ")"
-#define RIG_TOKEN_COLON					114 // ":"
+#define RIG_TOKEN_LEFT_BRACKET			112 // "["
+#define RIG_TOKEN_RIGHT_BRACKET			113 // "]"
+#define RIG_TOKEN_LEFT_PAREN	 		118 // "("		// ranged in eval for display
+#define RIG_TOKEN_RIGHT_PAREN			119 // ")"
+#define RIG_TOKEN_QUESTION 				120	// "?"
 
-#define RIG_TOKEN_LEFT_BRACKET			120 // "["
-#define RIG_TOKEN_RIGHT_BRACKET			121 // "]"
-
-#define RIG_TOKEN_NOT					122 // "!"		// ='s versions must follow!
-#define RIG_TOKEN_QUESTION 				123	// "?"		// end ranged in expressions
-
-#define RIG_TOKEN_PLUS					130	// "+"		// ranged in expressions
-#define RIG_TOKEN_MINUS					131 // "-"
-#define RIG_TOKEN_TIMES					132 // "*"
-#define RIG_TOKEN_DIVIDE				133	// "/"
-#define RIG_TOKEN_EQ					134	// "=="
-#define RIG_TOKEN_NE					135	// "!="
-#define RIG_TOKEN_GT					136	// ">"
-#define RIG_TOKEN_GE					137	// ">="
-#define RIG_TOKEN_LT					138	// "<"
-#define RIG_TOKEN_LE					139	// "<="
-#define RIG_TOKEN_BITWISE_OR			140	// "|"
-#define RIG_TOKEN_BITWISE_AND			141	// "&"
-#define RIG_TOKEN_LOGICAL_OR			142	// "||"
-#define RIG_TOKEN_LOGICAL_AND			143	// "&&"
+#define RIG_TOKEN_COLON					121 // ":"		// ranged in eval for OPs
+#define RIG_TOKEN_NOT					122 // "!"
+#define RIG_TOKEN_PLUS					123	// "+"		// ranged in expressions
+#define RIG_TOKEN_MINUS					124 // "-"
+#define RIG_TOKEN_TIMES					125 // "*"
+#define RIG_TOKEN_DIVIDE				126	// "/"
+#define RIG_TOKEN_EQ					127	// "=="
+#define RIG_TOKEN_NE					128	// "!="
+#define RIG_TOKEN_GT					129	// ">"
+#define RIG_TOKEN_GE					130	// ">="
+#define RIG_TOKEN_LT					131	// "<"
+#define RIG_TOKEN_LE					132	// "<="
+#define RIG_TOKEN_BITWISE_OR			133	// "|"
+#define RIG_TOKEN_BITWISE_AND			134	// "&"
+#define RIG_TOKEN_LOGICAL_OR			136	// "||"
+#define RIG_TOKEN_LOGICAL_AND			137	// "&&"
 
 #define RIG_TOKEN_ASSIGN				201 	// "="  	// transient
 
