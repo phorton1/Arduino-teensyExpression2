@@ -330,10 +330,27 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 				(*offset)++;
 			}
 			uint8_t num = val_stack[--val_top].value;
-			uint16_t off = rig_header.strings[num] - 1;
-			const char *s = &rig_code.string_pool[off];
-			display(dbg_eval + 2,"STRING[%d] off(%d) = %s",num,off,s);
-			ok = pushValText(s);
+			if (num > RIG_NUM_STRINGS-1)
+			{
+				rig_error("STRING INDEX(%d) out of range (0..%d)",num,RIG_NUM_STRINGS-1);
+				ok = 9;
+			}
+			else
+			{
+				uint16_t off = rig_header.strings[num];  // one based offset
+				if (!off)
+				{
+					warning(0,"STRING[%d] is not defined; returning empty string",num);
+					ok = pushValText("");
+				}
+				else
+				{
+					off--;
+					const char *s = &rig_code.string_pool[off];
+					display(dbg_eval + 2,"STRING[%d] off(%d) = %s",num,off,s);
+					ok = pushValText(s);
+				}
+			}
 		}
 	}
 	else if (byte == EXP_VALUE)
@@ -348,9 +365,17 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 				(*offset)++;
 			}
 			uint8_t num = val_stack[--val_top].value;
-			uint8_t value = m_rig_state.values[num];
-			display(dbg_eval + 2,"VALUE[num=%d] value=%d",num,value);
-			ok = pushValInt(value);
+			if (num > RIG_NUM_VALUES-1)
+			{
+				rig_error("VALUE INDEX(%d) out of range (0..%d)",num,RIG_NUM_VALUES-1);
+				ok = 9;
+			}
+			else
+			{
+				uint8_t value = m_rig_state.values[num];
+				display(dbg_eval + 2,"VALUE[num=%d] value=%d",num,value);
+				ok = pushValInt(value);
+			}
 		}
 	}
 
