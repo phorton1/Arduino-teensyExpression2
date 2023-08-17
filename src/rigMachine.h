@@ -86,6 +86,8 @@ private:
 	bool evaluate(const uint8_t *code, uint16_t *offset);
 	bool getAtom(const uint8_t *code, uint16_t *offset);
 
+	void rigDisplay(uint16_t area_num, uint16_t color, const char *text);
+
 };	// class rigMachine
 
 

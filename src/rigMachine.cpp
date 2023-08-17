@@ -6,6 +6,10 @@
 #include "rigMachine.h"
 #include "rigExpression.h"
 #include "buttons.h"
+#include "myLeds.h"
+#include "myTFT.h"
+#include "theSystem.h"
+
 
 
 #define dbg_rig 	0
@@ -19,6 +23,50 @@
 	// -2 = show expression return value
 
 rigMachine rig_machine;
+
+
+//------------------------------------------------------
+// enumerated types
+//------------------------------------------------------
+
+const uint16_t DISPLAY_COLORS[] = {
+	TFT_BLACK,
+	TFT_BLUE,
+	TFT_RED,
+	TFT_GREEN,
+	TFT_CYAN,
+	TFT_MAGENTA,
+	TFT_YELLOW,
+	TFT_WHITE,
+	TFT_NAVY,
+	TFT_DARKGREEN,
+	TFT_DARKCYAN,
+	TFT_MAROON,
+	TFT_PURPLE,
+	TFT_OLIVE,
+	TFT_LIGHTGREY,
+	TFT_DARKGREY,
+	TFT_ORANGE,
+	TFT_GREENYELLOW,
+	TFT_PINK,
+};
+
+const uint32_t LED_COLORS[] = {
+	LED_BLACK,
+	LED_RED,
+	LED_GREEN,
+	LED_BLUE,
+	LED_YELLOW,
+	LED_PURPLE,
+	LED_ORANGE,
+	LED_WHITE,
+	LED_CYAN,
+};
+
+
+//------------------------------------------------------
+// methods
+//-------------------------------------------------------
 
 
 bool rigMachine::loadRig(const char *rig_name)
@@ -77,7 +125,7 @@ bool rigMachine::startRig()
 			if (ref)
 			{
 				// prh - parser should only allow click on THE_SYSTEM_BUTTON
-				// and should not allow REPEAT on CLICKS
+				// and should not allow REPEAT on CLICKS or PRESS
 				if (j == RIG_TOKEN_PRESS)	mask |= BUTTON_EVENT_PRESS;
 				if (j == RIG_TOKEN_CLICK)   mask |= BUTTON_EVENT_CLICK;
 				if (j == RIG_TOKEN_LONG)	mask |= BUTTON_EVENT_LONG_CLICK;
@@ -132,66 +180,84 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 	display(dbg_stmt,"executeStatement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
 	proc_entry();
 
+	bool ok = 1;
+
 	const statement_param_t *params = findParams(tt);
-	if (!params) // opposite should never happen
-	{
-		proc_leave();
-		return false;
-	}
+	ok = params;
 
 	int param_num = 0;
 	const int *arg = params->args;
-	while (*arg)
+	while (ok && *arg)
 	{
-		if (!evalParam(&m_param_values[param_num++],*arg++,code,offset))
-		{
-			proc_leave();
-			return false;
-		}
+		ok = evalParam(&m_param_values[param_num++],*arg++,code,offset);
 	}
 
-	bool ok = 1;
-	switch (tt)
+	if (ok)
 	{
-		case RIG_TOKEN_SETVALUE:
+		switch (tt)
 		{
-			uint16_t val0 = m_param_values[0].value;
-			uint16_t val1 = m_param_values[1].value;
-
-			display(dbg_rig,"setValue(%d,%d)",val0,val1);
-			if (val0 >= RIG_NUM_VALUES)
-			{
-				rig_error("setValue(%d, V) value number must be less than %d",val0,RIG_NUM_VALUES);
+			case RIG_TOKEN_SETVALUE:
+				display(dbg_rig,"setValue(%d,%d)",
+					m_param_values[0].value,
+					m_param_values[1].value);
+				m_rig_state.values[m_param_values[0].value] = m_param_values[1].value;
+				break;
+			case RIG_TOKEN_AREA:
+				display(dbg_rig,"AREA(%d,%d,%s,%s,%d,%d,%d,%d)",
+					m_param_values[0].value,
+					m_param_values[1].value,
+					rigTokenToText(m_param_values[2].value + RIG_TOKEN_NORMAL),
+					rigTokenToText(m_param_values[3].value + RIG_TOKEN_LEFT),
+					m_param_values[4].value,
+					m_param_values[5].value,
+					m_param_values[6].value,
+					m_param_values[7].value);
+				m_rig_state.areas[m_param_values[0].value].font_size = m_param_values[1].value;
+				m_rig_state.areas[m_param_values[0].value].font_type = m_param_values[2].value;
+				m_rig_state.areas[m_param_values[0].value].font_just = m_param_values[3].value;
+				m_rig_state.areas[m_param_values[0].value].xs   	 = m_param_values[4].value;
+				m_rig_state.areas[m_param_values[0].value].ys   	 = m_param_values[5].value;
+				m_rig_state.areas[m_param_values[0].value].xe   	 = m_param_values[6].value;
+				m_rig_state.areas[m_param_values[0].value].ye   	 = m_param_values[7].value;
+				break;
+			case RIG_TOKEN_LISTEN:
+				display(dbg_rig,"LISTEN(%d,%s,%d,%d)",
+					m_param_values[0].value,
+					rigTokenToText(m_param_values[1].value + RIG_TOKEN_MIDI0),
+					m_param_values[2].value,
+					m_param_values[3].value);
+				m_rig_state.listens[m_param_values[0].value].active  = 1;
+				m_rig_state.listens[m_param_values[0].value].port    = m_param_values[1].value;
+				m_rig_state.listens[m_param_values[0].value].channel = m_param_values[2].value;
+				m_rig_state.listens[m_param_values[0].value].cc      = m_param_values[3].value;
+				break;
+			case RIG_TOKEN_PEDAL:
+			case RIG_TOKEN_ROTARY:
+				break; // TBD
+			case RIG_TOKEN_DISPLAY:
+				display(dbg_rig,"display(%d,%d=%s,\"%s\")",
+					m_param_values[0].value,
+					m_param_values[1].value,
+					rigTokenToText(m_param_values[1].value + RIG_TOKEN_DISPLAY_BLACK),
+					m_param_values[2].text);
+				rigDisplay(
+					m_param_values[0].value,
+					m_param_values[1].value,
+					m_param_values[2].text);
+				break;
+			case RIG_TOKEN_SEND_CC:
+			case RIG_TOKEN_SEND_PGM_CHG:
+			case RIG_TOKEN_NOTE_ON:
+			case RIG_TOKEN_NOTE_OFF:
+			case RIG_TOKEN_ALL_NOTES_OFF:
+			case RIG_TOKEN_FTP_TUNER:
+			case RIG_TOKEN_FTP_SENSITIVITY:
+				break;
+			default:
+				rig_error("unknown rigStatement: %d=%s",tt,rigTokenToString(tt));
 				ok = 0;
-			}
-			if (val1 > MAX_RIG_VALUE)
-			{
-				rig_error("setValue(N, %d) value number must be less than %d",val1,MAX_RIG_VALUE + 1);
-				ok = 0;
-			}
-			if (ok)
-			{
-				m_rig_state.values[val0] = val1;
-			}
-			break;
+				break;
 		}
-		case RIG_TOKEN_AREA:
-		case RIG_TOKEN_LISTEN:
-		case RIG_TOKEN_PEDAL:
-		case RIG_TOKEN_ROTARY:
-		case RIG_TOKEN_DISPLAY:
-		case RIG_TOKEN_SEND_CC:
-		case RIG_TOKEN_SEND_PGM_CHG:
-		case RIG_TOKEN_NOTE_ON:
-		case RIG_TOKEN_NOTE_OFF:
-		case RIG_TOKEN_ALL_NOTES_OFF:
-		case RIG_TOKEN_FTP_TUNER:
-		case RIG_TOKEN_FTP_SENSITIVITY:
-			break;
-		default:
-			rig_error("unknown rigStatement: %d=%s",tt,rigTokenToString(tt));
-			ok = 0;
-			break;
 	}
 
 	proc_leave();
@@ -203,12 +269,27 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 
 bool rigMachine::evalParam(evalResult_t *rslt, int arg_type, const uint8_t *code, uint16_t *offset)
 {
-	display(dbg_param+1,"evalParam(%s) at code_offset %d",argTypeToString(arg_type),*offset);
+	const char *what = argTypeToString(arg_type);
+	display(dbg_param+1,"evalParam(%s) at code_offset %d",what,*offset);
 	proc_entry();
 
+	bool ok = 1;
+	uint16_t max = 0;
+	uint16_t *ptr16 = 0;
 	rslt->is_string = 0;
 
-	uint16_t *ptr16;
+	switch (arg_type)
+	{
+		case PARAM_AREA_NUM :		max = RIG_NUM_AREAS - 1;	break;
+		case PARAM_VALUE_NUM :		max = RIG_NUM_VALUES - 1;	break;
+		case PARAM_VALUE :			max = MAX_RIG_VALUE;		break;
+		case PARAM_PEDAL_NUM :		max = NUM_PEDALS - 1;		break;
+		case PARAM_ROTARY_NUM :		max = NUM_ROTARY - 1;		break;
+		case PARAM_MIDI_CHANNEL :	max = MIDI_MAX_CHANNEL;		break;
+		case PARAM_MIDI_CC :		max = MIDI_MAX_VALUE;		break;
+		case PARAM_MIDI_VALUE :		max = MIDI_MAX_VALUE;		break;
+	}
+
 	switch (arg_type)
 	{
 		case PARAM_AREA_NUM :
@@ -219,15 +300,20 @@ bool rigMachine::evalParam(evalResult_t *rslt, int arg_type, const uint8_t *code
 		case PARAM_MIDI_CHANNEL :
 		case PARAM_MIDI_CC :
 		case PARAM_MIDI_VALUE :
+			ptr16 = (uint16_t *) &code[*offset];
+			ok = evalCodeExpression(rslt,argTypeToString(arg_type),*ptr16);
+			if (ok && rslt->value > max)
+			{
+				rig_error("%s must be %d or less",what,max);
+				ok = 0;
+			}
+			*offset += 2;
+			break;
 		case PARAM_STRING_EXPRESSION :
 		case PARAM_LED_COLOR_EXPRESSION :
 		case PARAM_DISPLAY_COLOR_EXPRESSION :
 			ptr16 = (uint16_t *) &code[*offset];
-			if (!evalCodeExpression(rslt,argTypeToString(arg_type),*ptr16))
-			{
-				proc_leave();
-				return false;
-			}
+			ok = evalCodeExpression(rslt,argTypeToString(arg_type),*ptr16);
 			*offset += 2;
 			break;
 
@@ -255,16 +341,18 @@ bool rigMachine::evalParam(evalResult_t *rslt, int arg_type, const uint8_t *code
 
 		default:
 			rig_error("unknown arg_type(%d)",arg_type);
-			proc_leave();
-			return false;
+			ok = 0;
 			break;
 	}
 
 	proc_leave();
-	if (rslt->is_string)
-		display(dbg_param,"evalParam(%s) returning(%s) at code_offset %d",argTypeToString(arg_type),rslt->text,*offset);
-	else
-		display(dbg_param,"evalParam(%s) returning(%d) at code_offset %d",argTypeToString(arg_type),rslt->value,*offset);
+	if (ok)
+	{
+		if (rslt->is_string)
+			display(dbg_param,"evalParam(%s) returning(%s) at code_offset %d",argTypeToString(arg_type),rslt->text,*offset);
+		else
+			display(dbg_param,"evalParam(%s) returning(%d) at code_offset %d",argTypeToString(arg_type),rslt->value,*offset);
+	}
 	return true;
 }
 
@@ -340,10 +428,97 @@ bool rigMachine::evalExpression(evalResult_t *rslt, const char *what, const uint
 
 	proc_leave();
 	if (rslt->is_string)
-		display(dbg_param+2,"evalExpression(%s) returning(%d) at offset %d",what,rslt->value,*offset);
-	else
 		display(dbg_param+2,"evalExpression(%s) returning(%s) at offset %d",what,rslt->text,*offset);
+	else
+		display(dbg_param+2,"evalExpression(%s) returning(%d) at offset %d",what,rslt->value,*offset);
 	return true;
+}
+
+
+//-------------------------------------------------
+// rig statement primitives
+//-------------------------------------------------
+
+void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
+{
+	proc_entry();
+	rigArea_t *area = &m_rig_state.areas[area_num];
+
+	display(dbg_stmt,"rigDisplay(%d,%d=%s,\"%s\") font_size=%d",
+		area_num,
+		color,
+		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
+		text,
+		area->font_size);
+
+
+	const ILI9341_t3_font_t *font = 0;
+
+	if (area->font_type)
+	{
+		switch (area->font_size)
+		{
+			case 12: font = &Arial_12_Bold; break;
+			case 14: font = &Arial_14_Bold; break;
+			case 16: font = &Arial_16_Bold; break;
+			case 18: font = &Arial_18_Bold; break;
+			case 20: font = &Arial_20_Bold; break;
+			case 24: font = &Arial_24_Bold; break;
+			case 28: font = &Arial_28_Bold; break;
+			case 32: font = &Arial_32_Bold; break;
+			case 40: font = &Arial_40_Bold; break;
+			case 48: font = &Arial_48_Bold; break;
+			default:
+				rig_error("Unknown font_size(%d)_bold",area->font_type);
+				proc_leave();
+				return;
+				break;
+		}
+	}
+	else
+	{
+		switch (area->font_size)
+		{
+			case 12: font = &Arial_12; break;
+			case 14: font = &Arial_14; break;
+			case 16: font = &Arial_16; break;
+			case 18: font = &Arial_18; break;
+			case 20: font = &Arial_20; break;
+			case 24: font = &Arial_24; break;
+			case 28: font = &Arial_28; break;
+			case 32: font = &Arial_32; break;
+			case 40: font = &Arial_40; break;
+			case 48: font = &Arial_48; break;
+				rig_error("Unknown font_size(%d)",area->font_type);
+				proc_leave();
+				return;
+				break;
+		}
+	}
+
+	display(dbg_stmt,"calling print_justified(%d,%d,%d,%d,  %d, %d=%s,BLACK,1,\"%s\")",
+		client_rect.xs + area->xs,
+		client_rect.ys + area->ys,
+		area->xe - area->xs + 1,
+		area->ye - area->ys + 1,
+		area->font_just,
+		color,
+		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
+		text);
+
+	mylcd.setFont(*font);
+
+	mylcd.print_justified(
+		client_rect.xs + area->xs,
+		client_rect.ys + area->ys,
+		area->xe - area->xs + 1,
+		area->ye - area->ys + 1,
+		area->font_just,
+		DISPLAY_COLORS[color],
+		TFT_BLACK,
+		1,	// use bc
+		text);
+	proc_leave();
 }
 
 
