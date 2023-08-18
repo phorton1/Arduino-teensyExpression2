@@ -1,7 +1,10 @@
+//------------------------------------
+// myTFT.h API to myLcd library
+//------------------------------------
+
 #pragma once
 
-#include <LCDWIKI_GUI.h>    // my modified Core graphics library
-#include <LCDWIKI_KBV.h>    // my modified Hardware-specific library
+#include <myLcdDevice.h>    // my modified library
 #include <font_Arial.h>
 #include <font_ArialBold.h>
 #include "defines.h"
@@ -34,15 +37,16 @@
 #define TFT_PINK            0xF81F
 
 
-extern LCDWIKI_KBV mylcd;
+extern myLcdDevice mylcd;
+
 extern void initMyTFT();
 
 inline void fillRect(int_rect &rect, int color)
 {
     mylcd.Fill_Rect(
-            rect.xs,
-            rect.ys,
-            rect.width(),
-            rect.height(),
-            color);
+        rect.xs,
+        rect.ys,
+        rect.width(),
+        rect.height(),
+        color);
 }

@@ -753,6 +753,8 @@ void aSystem::loop()
 				pedal->clearDisplayValueChanged();
 				int v = pedal->getDisplayValue();
 
+				#if 1	// #ifdef'd out while working on myLcd stuff
+
 				mylcd.setFont(Arial_40_Bold);   // Arial_40);
 				mylcd.Set_Text_colour(TFT_WHITE);
 
@@ -767,6 +769,8 @@ void aSystem::loop()
 					true,
 					"%d",
 					v);
+
+				#endif
 			}
 		}
 	}
@@ -793,7 +797,7 @@ void aSystem::loop()
 		// horizontal line
 
         mylcd.Set_Draw_color(TFT_YELLOW);
-	    mylcd.Draw_Line(0,36,mylcd.Get_Display_Width()-1,36);
+	    mylcd.Draw_Line(0,36,mylcd.Get_Width()-1,36);
 
 		// midi indicator frames
 

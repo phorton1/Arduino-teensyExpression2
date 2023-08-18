@@ -1,3 +1,11 @@
+//-----------------------------------------
+// myTFT.h - CHEAP TFT and TOUCH SCREEN
+//-----------------------------------------
+// Cheap Ardino 3.5" 320x480 TFT's
+// Uses my modified version of LCDWIKI, which
+// I was not using the myLCDWici TouchScreen.
+// I had denormalized that into the TeensyExpression source.
+
 #include "myTFT.h"
 
 #define CHEAP_TFT_DATA0     19      // needed by ts
@@ -16,7 +24,7 @@
 #define CHEAP_TFT_RESET      18
 
 
-LCDWIKI_KBV mylcd(
+myLcdDevice mylcd(
     ILI9486,
     CHEAP_TFT_CS,
     CHEAP_TFT_CD_RS,

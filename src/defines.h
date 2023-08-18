@@ -159,55 +159,6 @@ extern void mem_check(const char *where = 0);
 
 
 
-
-//-----------------------------------------
-// CHEAP TFT and TOUCH SCREEN
-//-----------------------------------------
-// Always defined as of now
-// Cheap Ardino 3.5" 320x480 TFT's
-// Uses my modified version of LCDWIKI, which
-//
-// - has HARDWIRED (though arbitray) pin numbers
-//   in myLCDWIKI_KBV/LCDWikiStuff_for_teensy.cpp
-// - and uses ILI9431_t3.h in myLCDWIKI_GUI/LCDWIKI_GUI.cpp
-//   to implement fonts
-//
-// Do not confuse the CD flash drive pins for the touch screen.
-// This device uses direct measurements of resistance and very
-// touchy, pun intended, modified version of TouchScreen.h which:
-//
-// - ONLY USE getPoint()  !!!
-// - uses digitalWrite instead of portReg stuff
-// - softened up the validity checks
-// - reset all the pinModes when finished
-
-// following moved to myTFT.cpp
-//
-// #define CHEAP_TFT_DATA0     19      // needed by ts
-// #define CHEAP_TFT_DATA1     13      // needed by ts
-// #define CHEAP_TFT_DATA2     34
-// #define CHEAP_TFT_DATA3     35
-// #define CHEAP_TFT_DATA4     36
-// #define CHEAP_TFT_DATA5     37
-// #define CHEAP_TFT_DATA6     38
-// #define CHEAP_TFT_DATA7     39
-//
-// #define CHEAP_TFT_RD         14
-// #define CHEAP_TFT_WR         15
-// #define CHEAP_TFT_CD_RS      16      // needed by ts - labelled "RS" on board
-// #define CHEAP_TFT_CS         17      // needed by ts
-// #define CHEAP_TFT_RESET      18
-
-
-// following weren't used in teensyExpression
-// define   my definition    // pin number   // arduino pin number and notes    // general notes
-// #define YP  CHEAP_TFT_CD_RS  // 17=A4        // A2 maps to LCD_RS on arduino    // must be an analog pin, use "An" notation!
-// #define XM  CHEAP_TFT_CS     // 16=A2        // A3 maps to LCD_CS on arduino    // must be an analog pin, use "An" notation!
-// #define YM  CHEAP_TFT_DATA0  // 14=A0        // 8  maps to LCD_D0 on arduino    // can be a digital pin
-// #define XP  CHEAP_TFT_DATA1  // 13           // 9  maps to LCD_D1 on arduino    // can be a digital pin
-
-
-
 // ansi colors
 
 #define ansi_color_black 	            30
