@@ -17,11 +17,11 @@
 #define CHEAP_TFT_DATA6     38
 #define CHEAP_TFT_DATA7     39
 
-#define CHEAP_TFT_RD         14
-#define CHEAP_TFT_WR         15
-#define CHEAP_TFT_CD_RS      16      // needed by ts - labelled "RS" on board
-#define CHEAP_TFT_CS         17      // needed by ts
-#define CHEAP_TFT_RESET      18
+#define CHEAP_TFT_RD        14
+#define CHEAP_TFT_WR        15
+#define CHEAP_TFT_CD_RS     16      // needed by ts - labelled "RS" on board
+#define CHEAP_TFT_CS        17      // needed by ts
+#define CHEAP_TFT_RESET     18
 
 
 myLcdDevice mylcd(
