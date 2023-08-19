@@ -18,7 +18,9 @@
 
 
 
-SdFatSdio SD;
+// update to SdFat v2
+SdFat32 SD;
+// extern SdFatSdio SD;
     // SdFatSdio uses a traditional DMA SDIO implementation.
     // SdFatSdioEX SD; // SdFatSdioEX uses extended multi-block transfers without DMA.
     // Note the difference is speed and busy yield time.
@@ -37,7 +39,7 @@ Stream *s_Serial = 0;
 
 // state of current put
 
-File write_file;
+File32 write_file;
 uint32_t write_size;
 uint32_t write_offset;
 uint32_t write_checksum;
@@ -56,11 +58,11 @@ char static_timestamp[32];
 #define LIST_DIRECTORY_AT_STARTUP  0
 #if LIST_DIRECTORY_AT_STARTUP
 
-    void printDirectory(File dir, int numTabs)
+    void printDirectory(File32 dir, int numTabs)
     {
         while(true)
         {
-            File entry = dir.openNextFile();
+            File32 entry = dir.openNextFile();
             if (!entry)
                 break;
 
@@ -215,7 +217,7 @@ bool fileSystem::init()
     #endif
 
     #if LIST_DIRECTORY_AT_STARTUP
-        File root = SD.open("/");
+        File32 root = SD.open("/");
         printDirectory(root, 0);
         root.close();
     #endif
@@ -232,10 +234,11 @@ bool fileSystem::init()
 
 uint32_t fileSystem::getFreeMB()
 {
-    int32_t free_cluster_count = SD.freeClusterCount();
-    uint8_t blocks_per_cluster = SD.blocksPerCluster();
+    uint32_t free_cluster_count = SD.freeClusterCount();
+    uint16_t bytes_per_cluster = SD.bytesPerCluster();
+	// prh - may have to use uint8_t bytesPerClusterShift () const
     if (free_cluster_count > 0)
-        return (free_cluster_count * blocks_per_cluster) / (1024*2);
+        return (free_cluster_count * bytes_per_cluster) / (1024*2);
     return 0;
 }
 
@@ -243,8 +246,9 @@ uint32_t fileSystem::getFreeMB()
 uint32_t fileSystem::getTotalMB()
 {
     uint32_t cluster_count = SD.clusterCount();
-    uint8_t blocks_per_cluster = SD.blocksPerCluster();
-    return (cluster_count * blocks_per_cluster) / (1024*2);
+    uint16_t bytes_per_cluster = SD.bytesPerCluster();
+	// prh - may have to use uint8_t bytesPerClusterShift () const
+    return (cluster_count * bytes_per_cluster) / (1024*2);
 }
 
 
@@ -252,38 +256,41 @@ uint32_t fileSystem::getTotalMB()
 // private methods
 //---------------------------------------------
 
-const char *getDateTimeStamp(File *entry, const char *filename)
+const char *getDateTimeStamp(File32 *entry, const char *filename)
 {
-    dir_t dir_entry;
+    DirFat_t dir_entry;
+    static_timestamp[0] = 0;
     if (!entry->dirEntry(&dir_entry))
     {
         my_error("Could not get dir_entry for %s",filename);
-        static_timestamp[0] = 0;
         return static_timestamp;
     }
 
-    uint16_t year = FAT_YEAR(dir_entry.creationDate);
-    uint16_t month = FAT_MONTH(dir_entry.creationDate);
-    uint16_t day = FAT_DAY(dir_entry.creationDate);
-    uint16_t hour = FAT_HOUR(dir_entry.creationTime);
-    uint16_t minute = FAT_MINUTE(dir_entry.creationTime);
-    uint16_t second = FAT_SECOND(dir_entry.creationTime);
-    uint16_t hundredths = dir_entry.creationTimeTenths;
-        // according to comment this actually hundredths ...
-    if (hundredths >= 100)
-    {
-        hundredths -= 100;
-        second += 1;
-    }
+	#if 0 	// PRH PRH PRH - this needs to be reworked
+		uint16_t year = FAT_YEAR(dir_entry.creationDate);
+		uint16_t month = FAT_MONTH(dir_entry.creationDate);
+		uint16_t day = FAT_DAY(dir_entry.creationDate);
+		uint16_t hour = FAT_HOUR(dir_entry.creationTime);
+		uint16_t minute = FAT_MINUTE(dir_entry.creationTime);
+		uint16_t second = FAT_SECOND(dir_entry.creationTime);
+		uint16_t hundredths = dir_entry.creationTimeTenths;
+			// according to comment this actually hundredths ...
+		if (hundredths >= 100)
+		{
+			hundredths -= 100;
+			second += 1;
+		}
 
-    sprintf(static_timestamp,"%d-%02d-%02d %02d:%02d:%02d",
-        year,month,day,hour,minute,second);
+		sprintf(static_timestamp,"%d-%02d-%02d %02d:%02d:%02d",
+			year,month,day,hour,minute,second);
+	#endif
+
     return static_timestamp;
 }
 
 
 
-void setTimeStamp(File the_file, char *ts)
+void setTimeStamp(File32 the_file, char *ts)
 {
     char *year = &ts[0];
     ts[4] = 0;
@@ -361,7 +368,7 @@ void dtCallback(uint16_t* date, uint16_t* time)
 
 
 
-    void doListRecursive(char *full_name, bool recurse, int level, File the_dir)
+    void doListRecursive(char *full_name, bool recurse, int level, File32 the_dir)
     {
         char dir_name[255];
         the_dir.getName(dir_name, sizeof(dir_name));
@@ -374,7 +381,7 @@ void dtCallback(uint16_t* date, uint16_t* time)
         s_Serial->print(",");
         s_Serial->println(full_name);
 
-        File entry = the_dir.openNextFile();
+        File32 entry = the_dir.openNextFile();
         while (entry)
         {
             char filename[255];
@@ -414,7 +421,7 @@ void dtCallback(uint16_t* date, uint16_t* time)
         if (recurse)
         {
             the_dir.rewindDirectory();
-            File entry = the_dir.openNextFile();
+            File32 entry = the_dir.openNextFile();
             while (entry)
             {
                 if (entry.isDirectory())
@@ -463,7 +470,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
             display(dbg_tfs,"list command %s - %s",recurse,dir_name);
 
-            File the_dir = SD.open(dir_name);
+            File32 the_dir = SD.open(dir_name);
             if (the_dir)
             {
                 doListRecursive(dir_name,*recurse=='1',0,the_dir);
@@ -471,7 +478,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
         #else
             const char *dir_name = param;
-            File the_dir = SD.open(dir_name);
+            File32 the_dir = SD.open(dir_name);
             if (the_dir)
             {
                 const char *ts = getDateTimeStamp(&the_dir,dir_name);
@@ -481,7 +488,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 s_Serial->print(",");
                 s_Serial->println(dir_name);
 
-                File entry = the_dir.openNextFile();
+                File32 entry = the_dir.openNextFile();
                 while (entry)
                 {
                     char filename[255];
@@ -545,14 +552,17 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
             // this snippet is how you have to set the timestamp on a directory
 
             strcpy(write_ts,ts);
-            FatFile::dateTimeCallback(dtCallback);
+
+			FsDateTime::setCallback(dtCallback);
+            // FatFile::dateTimeCallback(dtCallback);
             int rslt = SD.mkdir(path);
-            FatFile::dateTimeCallbackCancel();
+			FsDateTime::clearCallback();
+            // FatFile::dateTimeCallbackCancel();
 
             if (rslt)
             {
                 #if 0   // as this does not work
-                    File the_dir = SD.open(path);
+                    File32 the_dir = SD.open(path);
                     if (the_dir)
                     {
                         setTimeStamp(the_dir,ts);
@@ -580,7 +590,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
     {
         const char *filename = param;
         display(dbg_tfs,"fileSystem::get(%s)",filename);
-        File the_file = SD.open(filename);
+        File32 the_file = SD.open(filename);
 
         // The result will be
         // file_reply:FILE $ts,$size,$entry and a bunch of
@@ -710,7 +720,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         {
             if (SD.exists(dir))
             {
-                File the_dir = SD.open(dir);
+                File32 the_dir = SD.open(dir);
                 if (!the_dir.isDirectory())
                 {
                     my_error("NOT A DIRECTORY (is a file): %s",dir);
@@ -731,9 +741,11 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 // cannot call setTimeStamp() on dirs
 
                 strcpy(write_ts,ts);
-                FatFile::dateTimeCallback(dtCallback);
-                bool rslt = SD.mkdir(dir);
-                FatFile::dateTimeCallbackCancel();
+				FsDateTime::setCallback(dtCallback);
+				// FatFile::dateTimeCallback(dtCallback);
+				int rslt = SD.mkdir(dir);
+				FsDateTime::clearCallback();
+				// FatFile::dateTimeCallbackCancel();
 
                 if (!rslt)
                 {
@@ -842,7 +854,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
     else if (!strcmp(command,"delete"))
     {
         display(dbg_tfs,"delete %s",param);
-        File the_file = SD.open(param);
+        File32 the_file = SD.open(param);
         if (the_file)
         {
             bool rslt;
@@ -893,7 +905,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         if (*new_path == ',') *new_path++ = 0;
         display(dbg_tfs,"rename(%s) to '%s'",old_path,new_path);
 
-        File the_file = SD.open(old_path);
+        File32 the_file = SD.open(old_path);
         if (the_file)
         {
             uint32_t size = the_file.size();

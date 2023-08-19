@@ -23,5 +23,7 @@ public:
 };
 
 
-extern SdFatSdio SD;
+// update to SdFat v2
+extern SdFat32 SD;
+// extern SdFatSdio SD;
     // in fileSystem.cpp
