@@ -2,12 +2,12 @@
 
 #include <Arduino.h>
 
-// careful - these are not only teensy specific, but
-// maybe also specific to the teensy version
 // __bss_end was not found in new teensyDuino compiling for teensy 4.1
 
 extern char _sbss;          // start of bss segment
-// extern char __bss_end;      // end of bss
+#ifndef __IMXRT1062__       // if !teensy 4
+    extern char __bss_end;      // end of bss
+#endif
 extern char* __brkval;      // end (top) of heape
 extern char _estack;        // start (top) of stack
 
@@ -49,8 +49,10 @@ void mem_check(const char *where)
     if (where)
         Serial.println(where);
 
-    // print_one(0,"mem used",((uint32_t) &__bss_end) - 0x1fff0000);
-    // print_one(0,"heap_used",((uint32_t) __brkval) - ((uint32_t) &__bss_end) );
+#ifndef __IMXRT1062__       // if !teensy 4
+    print_one(0,"mem used",((uint32_t) &__bss_end) - 0x1fff0000);
+    print_one(0,"heap_used",((uint32_t) __brkval) - ((uint32_t) &__bss_end) );
+#endif
     print_one(0,"free",((uint32_t) &tos) - ((uint32_t) __brkval) );
     print_one(0,"stack_used",((uint32_t) &_estack) - ((uint32_t) &tos) );
 }
