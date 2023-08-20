@@ -197,7 +197,7 @@ I came across mentions that using an external SdFat library is no
 longer recommended, and that it is built in to the later versions
 of the **teensyDuino** (board) environment.
 
-Sheesh, mother-fucker, digression city.
+Sheesh, digression city.
 
 
 ## prep for teensyDuino upgrade
@@ -273,4 +273,18 @@ library available for it.
 - check ILI9488_t3
 - check WS2812Serial
 
-and see what happens ...
+And let it go.  Seemed to work
+
+## Changes for FIRST TEENSY 4.1 COMPILE
+
+- **usb_desc.c** and **usb_desc_prh.h** are now sitting in /data
+- mem_check.cpp was missing **__bss_end**
+- fileSystem.cpp - changed SD type from *SdFatSdio* to **SdFat32 SD**
+- fileSystem.cpp and rigToken.cpp - changed all *File's* to **File32**
+- fileSystem.cpp - **getDateTimeStamp()** is essentially un-implemented
+- fileSystem.cpp - **getTotalMB()** and **getFreeMB()** are likely wrong
+- fileSystem.cpp - the directory listing stuff that's #ifdef'd out was not corrected
+
+It compiles and links.
+
+

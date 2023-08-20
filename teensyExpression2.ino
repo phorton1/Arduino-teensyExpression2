@@ -184,10 +184,10 @@ void setup()
         if (!do_delay) do_delay = 1200;
     }
 
-    #if !defined(USB_MIDI4_SERIAL)
-        error("PROGRAM IS NOT COMPILED UNDER USB_MIDI4_SERIAL teensyDuino type!! Things may not work correctly!!!",0);
+    #if !defined(USB_MIDI_SERIAL)
+        error("PROGRAM IS NOT COMPILED UNDER USB_MIDI_SERIAL teensyDuino type!! Things may not work correctly!!!",0);
         mylcd.Set_Text_colour(TFT_YELLOW);
-        mylcd.println("    NOT COMPILED WITH USB_MIDI4_SERIAL !!");
+        mylcd.println("    NOT COMPILED WITH USB_MIDI_SERIAL !!");
         do_delay = 5000;
     #endif
 
