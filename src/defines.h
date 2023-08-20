@@ -22,13 +22,7 @@ extern void mem_check(const char *where = 0);
 
 
 
-
-
-#if 0
-    #define NEW_DESIGN          0
-        // 2023-07-29 Redesigned Everything
-
-
+#if 0	// obsolete stuff
 
     #define BUTTON_NUM(r,c)    ((r) * NUM_BUTTON_COLS + (c))
     #define BUTTON_ROW(i)      ((i) / NUM_BUTTON_COLS)
@@ -49,6 +43,15 @@ extern void mem_check(const char *where = 0);
         const char *long_name;          // NOT USED IN NEW RIG
         bool mono_mode;                 // NOT USED IN OLD RIG
     }   synthPatch_t;
+
+    // common buttons
+
+    #define BUTTON_MOVE_UP          12
+    #define BUTTON_MOVE_LEFT        16
+    #define BUTTON_MOVE_RIGHT       18
+    #define BUTTON_MOVE_DOWN        22
+    #define BUTTON_SELECT           17
+
 #endif
 
 
@@ -56,24 +59,25 @@ extern void mem_check(const char *where = 0);
 //----------------------------------------------------------------------
 // PIN USAGE
 //----------------------------------------------------------------------
-// We are using Serial3 as our "second" SERIAL_IO_PORT
-//
-// left/right  old                          new
+// On Teensy 3.6 SERIAL is SERIAL3
+// On Teensy 4.1 SERIAL is SERIAL2
+
+// left/right
 //   pin
 //    GND
 // L  0        unused1 RX1 used by LEDS
 // L  1        unused2 TX1 used by LEDS
-// L  2        ROTARY_2A                    ROTARY_1A
-// L  3        ROTARY_2B                    ROTARY_1B
-// L  4        ROTARY_1A                    ROTARY_2B
+// L  2        ROTARY_1A
+// L  3        ROTARY_1B
+// L  4        ROTARY_2A
 // L  5        LEDS_OUT (Serial1)
-// L  6        ROTARY_1B                    ROTARY_2A
-// L  7        SERIAL_RX3
-// L  8        SERIAL_TX3
-// L  9        ROTARY_3B                    ROTARY_3A
-// L 10        ROTARY_3A                    ROTARY_3B
-// L 11        ROTARY_4A                    ROTARY_4B
-// L 12        ROTARY_4B                    ROTary_4A
+// L  6        ROTARY_2B
+// L  7        SERIAL_RX
+// L  8        SERIAL_TX
+// L  9        ROTARY_3A
+// L 10        ROTARY_3B
+// L 11        ROTARY_4A
+// L 12        ROTARY_4B
 //   3.3V
 // L 24        BUTTON_OUT0
 // L 25        BUTTON_OUT1
@@ -91,75 +95,128 @@ extern void mem_check(const char *where = 0);
 // R 22 A8     EXPR2
 // R 21 A7     EXPR3
 // R 20 A6     EXPR4
-// R 19 A5     CHEAP_TFT_DATA0
-// R 18 A4     CHEAP_TFT_RESET
-// R 17 A3     CHEAP_TFT_CS
-// R 16 A2     CHEAP_TFT_CD(RS)
-// R 15 A1     CHEAP_TFT_WR
-// R 14 A0     CHEAP_TFT_RD
-// R 13        CHEAP_TFT_DATA1
+// R 19 A5     TFT_DATA1
+// R 18 A4     TFT_RESET
+// R 17 A3     TFT_CS
+// R 16 A2     TFT_CD(RS)
+// R 15 A1     TFT_WR
+// R 14 A0     TFT_RD
+// R 13        TFT_DATA0
 //      3,3V
-// R    A22    x - unused analog only
-// R    A21    x - unused analog only
-// R 39 A20    CHEAP_TFT_DATA7
-// R 38 A19    CHEAP_TFT_DATA6
-// R 37 A18    CHEAP_TFT_DATA5
-// R 36 A17    CHEAP_TFT_DATA4
-// R 35 A16    CHEAP_TFT_DATA3
-// R 34 A15    CHEAP_TFT_DATA2
+// R    A22    x - unused analog only; 	on perf board, was connected to teensy 13 TFT_DATA0
+// R    A21    x - unused analog only;  on perf board, was connected to teensy 19 TFT_DATA1
+// R 39 A20    TFT_DATA7
+// R 38 A19    TFT_DATA6
+// R 37 A18    TFT_DATA5
+// R 36 A17    TFT_DATA4
+// R 35 A16    TFT_DATA3
+// R 34 A15    TFT_DATA2
 // R 33 A14    BUTTON_IN4
 
-// The pins for the TFT were not well laid on in the circuit,
-// causing a twisted cable, and some late fixes (13 and 19 to
-// CHEAP_DATA1 and 0, right on top of unused A21 and A22 pins
-// which cannot be used for digital io.
+// Note that on the perf board, to get the connector pins to line up,
+// I used A21 and A22 as "null" pins, that in turn, connected
+// to teensy pin 19 (TFT_DATA1) and 12 (TFT_DATA0), respectively.
+// Thus the old connector was 7,6,5,4,3,2,1,0.
+
+// On the new board, the connector is correctly connected to
+// teensy pins 13 and 19, and thus the connector is 7,6,5,4,3,2,0,1
+
+
+//============================================================
+// pin definitions and connectors
+//============================================================
+// Button in and out pins
+// in FACING connector order (when seen from front of board)
+
+#define PIN_BUTTON_IN0      29      // pin 5 on 1st connector facing
+#define PIN_BUTTON_IN1      30      // pin 4
+#define PIN_BUTTON_IN2      31      // pin 3
+#define PIN_BUTTON_IN3      32      // pin 2
+#define PIN_BUTTON_IN4      33      // pin 1
+
+#define PIN_BUTTON_OUT4     28      // pin 1 on 2nd connector facing
+#define PIN_BUTTON_OUT3     27      // pin 2
+#define PIN_BUTTON_OUT2     26      // pin 3
+#define PIN_BUTTON_OUT1     25      // pin 4
+#define PIN_BUTTON_OUT0     24      // pin 5
+
+
+//---------------------------------------
+// Rotary Pins and connectors
+//---------------------------------------
+// the connectors are FACING FROM THE FRONT
+// and the opposite of the kicad connectors
+
+		                    // pin 1 3V on 3rd connector facing
+#define ROTARY_4B   12      // pin 2
+#define ROTARY_4A   11      // pin 3
+#define ROTARY_3B   10      // pin 4
+#define ROTARY_3A   9       // pin 5
+
+                            // pin 1 GND on 4th connector facing
+#define ROTARY_2B   6       // pin 2
+#define ROTARY_2A   4       // pin 3
+#define ROTARY_1B   3       // pin 4
+#define ROTARY_1A   2       // pin 5
+
+
+//-----------------------------------------------
+// UNO style parallel ILI9486 320x480 display
+//-----------------------------------------------
+// The TFT DATA is on the 1st front connector, facing
+
+#define TFT_DATA2	34     // pin 1
+#define TFT_DATA3   35     // pin 2
+#define TFT_DATA4   36     // pin 3
+#define TFT_DATA5   37     // pin 4
+#define TFT_DATA6   38     // pin 5
+#define TFT_DATA7   39     // pin 6
+#define TFT_DATA0   13     // pin 7 - on perf board, 13 was TFT_DATA1, thru null pin A21
+#define TFT_DATA1   19     // pin 8 - on perf board, 10 was TFT_DATA0, thru null pin A22
+
+// The TFT controls and power are on the 2nd front connector, facing
 //
-// The pins for the ROTARY were munged ... one of em is
-// different, and the order is weird
-//
-// I had to add 10K resistors to the 1/4" pedal jacks to
+// GND              			// pin 1
+#define TFT_RD     		14      // pin 2
+#define TFT_WR          15 		// pin 3
+#define TFT_CD_RS		16 		// pin 4
+#define TFT_CS          17 		// pin 5
+#define TFT_RESET       18 		// pin 6
+// 5V               			// pin 7
+// 3.3V             			// pin 8
+
+
+//--------------------------------------------------------
+// Expression pedal connector, 3rd on front row, facing
+//--------------------------------------------------------
+// I added 10K resistors to the 1/4" pedal jacks to
 // the insertion switch to ground them when not in use!
 
+#define PIN_EXPR4    20     // pin1 A6
+#define PIN_EXPR3    21     // pin2 A7
+#define PIN_EXPR2    22     // pin3 A8
+#define PIN_EXPR1    23     // pin4 A9
+                            // pin5 3.3V
+                            // pin6 GND
 
-#define PIN_BUTTON_OUT0     24
-#define PIN_BUTTON_OUT1     25
-#define PIN_BUTTON_OUT2     26
-#define PIN_BUTTON_OUT3     27
-#define PIN_BUTTON_OUT4     28
-#define PIN_BUTTON_IN0      29
-#define PIN_BUTTON_IN1      30
-#define PIN_BUTTON_IN2      31
-#define PIN_BUTTON_IN3      32
-#define PIN_BUTTON_IN4      33
+//--------------------------------------------
+// The serial cable connector, on front row,
+//--------------------------------------------
+// On Teensy 3.6 SERIAL is SERIAL3
+// On Teensy 4.1 SERIAL is SERIAL2
+// In terms of the teensy's viewpoint of RX/TX,
+// which is the opposite of the Looper's, and we also
+// have to keep track of Tip, Ring (middle), and Sleeve (outer)
 
-#define PIN_EXPR1    23  // A6
-#define PIN_EXPR2    22  // A7
-#define PIN_EXPR3    21  // A8
-#define PIN_EXPR4    20  // A9
-
-#if NEW_DESIGN
-    #define ROTARY_1A   2     // mashed up pin assignments
-    #define ROTARY_1B   3
-    #define ROTARY_2B   4
-    #define ROTARY_2A   6
-    #define ROTARY_3A   9    //  I suspect this is backwards due to Looper
-    #define ROTARY_3B   10
-    #define ROTARY_4B   11
-    #define ROTARY_4A   12
-#else
-    #define ROTARY_1A   4     // mashed up pin assignments
-    #define ROTARY_1B   6
-    #define ROTARY_2A   2
-    #define ROTARY_2B   3
-    #define ROTARY_3A   10    // this one is wired differently than the others
-    #define ROTARY_3B   9
-    #define ROTARY_4A   11
-    #define ROTARY_4B   12
-#endif
+// SERIAL_TX    pin 1		// Sleeve on TE
+// SERIAL_RX	pin 2		// Tip on TE
+// GND          pin 3		// Sleeve on both
 
 
 
+//===========================================================
 // ansi colors
+//===========================================================
 
 #define ansi_color_black 	            30
 #define ansi_color_red 	     	        31
@@ -199,20 +256,12 @@ extern void mem_check(const char *where = 0);
 
 
 
-#if 0
-    // common buttons
-
-    #define BUTTON_MOVE_UP          12
-    #define BUTTON_MOVE_LEFT        16
-    #define BUTTON_MOVE_RIGHT       18
-    #define BUTTON_MOVE_DOWN        22
-    #define BUTTON_SELECT           17
-
-#endif
 
 
 
-
+//===========================================================
+// int_rect
+//===========================================================
 
 class int_rect
 {
@@ -251,3 +300,6 @@ public:
     int xe;
     int ye;
 };
+
+
+// end of defines.h
