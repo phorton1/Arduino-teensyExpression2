@@ -95,31 +95,23 @@ extern void mem_check(const char *where = 0);
 // R 22 A8     EXPR2
 // R 21 A7     EXPR3
 // R 20 A6     EXPR4
-// R 19 A5     TFT_DATA1
+// R 19 A5     TFT_DATA7
 // R 18 A4     TFT_RESET
 // R 17 A3     TFT_CS
 // R 16 A2     TFT_CD(RS)
 // R 15 A1     TFT_WR
 // R 14 A0     TFT_RD
-// R 13        TFT_DATA0
+// R 13        TFT_DATA6
 //      3,3V
-// R    A22    x - unused analog only; 	on perf board, was connected to teensy 13 TFT_DATA0
-// R    A21    x - unused analog only;  on perf board, was connected to teensy 19 TFT_DATA1
-// R 39 A20    TFT_DATA7
-// R 38 A19    TFT_DATA6
-// R 37 A18    TFT_DATA5
-// R 36 A17    TFT_DATA4
-// R 35 A16    TFT_DATA3
-// R 34 A15    TFT_DATA2
+// R    A22    x - unused analog only;
+// R    A21    x - unused analog only;
+// R 39 A20    TFT_DATA5
+// R 38 A19    TFT_DATA4
+// R 37 A18    TFT_DATA3
+// R 36 A17    TFT_DATA2
+// R 35 A16    TFT_DATA1
+// R 34 A15    TFT_DATA0
 // R 33 A14    BUTTON_IN4
-
-// Note that on the perf board, to get the connector pins to line up,
-// I used A21 and A22 as "null" pins, that in turn, connected
-// to teensy pin 19 (TFT_DATA1) and 12 (TFT_DATA0), respectively.
-// Thus the old connector was 7,6,5,4,3,2,1,0.
-
-// On the new board, the connector is correctly connected to
-// teensy pins 13 and 19, and thus the connector is 7,6,5,4,3,2,0,1
 
 
 //============================================================
@@ -165,14 +157,15 @@ extern void mem_check(const char *where = 0);
 //-----------------------------------------------
 // The TFT DATA is on the 1st front connector, facing
 
-#define TFT_DATA2	34     // pin 1
-#define TFT_DATA3   35     // pin 2
-#define TFT_DATA4   36     // pin 3
-#define TFT_DATA5   37     // pin 4
-#define TFT_DATA6   38     // pin 5
-#define TFT_DATA7   39     // pin 6
-#define TFT_DATA0   13     // pin 7 - on perf board, 13 was TFT_DATA1, thru null pin A21
-#define TFT_DATA1   19     // pin 8 - on perf board, 10 was TFT_DATA0, thru null pin A22
+#define TFT_DATA0   34     // pin 1
+#define TFT_DATA1   35     // pin 2
+#define TFT_DATA2	36     // pin 3
+#define TFT_DATA3   37     // pin 4
+#define TFT_DATA4   38     // pin 5
+#define TFT_DATA5   39     // pin 6
+#define TFT_DATA6   13     // pin 7
+#define TFT_DATA7   19     // pin 8
+
 
 // The TFT controls and power are on the 2nd front connector, facing
 //

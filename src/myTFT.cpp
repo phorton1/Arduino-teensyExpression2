@@ -30,9 +30,9 @@ void initMyTFT()
         TFT_DATA5,
         TFT_DATA6,
         TFT_DATA7);
-    mylcd.Init_LCD();
-    mylcd.Set_Rotation(1);
+    mylcd.begin();
+    mylcd.setRotation(1);
     // mylcd.Set_Text_Mode(0);
     // starts with default my "m_use_bc=1"
-    mylcd.Fill_Screen(0);
+    mylcd.fillScreen(TFT_BLACK);
 }

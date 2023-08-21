@@ -508,7 +508,7 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 
 	mylcd.setFont(*font);
 
-	mylcd.print_justified(
+	mylcd.printJustified(
 		client_rect.xs + area->xs,
 		client_rect.ys + area->ys,
 		area->xe - area->xs + 1,

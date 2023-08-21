@@ -12,6 +12,8 @@
 #define TFT_WIDTH           480
 #define TFT_HEIGHT          320
 
+// these color constants are the same whether using
+// myLCD, ILI9486_t3, or ILI9341_t3
 
 #define TFT_RGB_COLOR(r,g,b)  ((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | ((b) >> 3))
 
@@ -43,7 +45,7 @@ extern void initMyTFT();
 
 inline void fillRect(int_rect &rect, int color)
 {
-    mylcd.Fill_Rect(
+    mylcd.fillRect(
         rect.xs,
         rect.ys,
         rect.width(),

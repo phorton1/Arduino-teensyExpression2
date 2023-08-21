@@ -109,10 +109,10 @@ void setup()
 
     initMyTFT();
 
-    mylcd.Set_Text_Back_colour(0);
-    mylcd.Set_Text_colour(TFT_WHITE);
+    mylcd.setTextBackColor(0);
+    mylcd.setTextColor(TFT_WHITE);
     mylcd.setFont(Arial_16);
-    mylcd.Set_Text_Cursor(5,5);
+    mylcd.setCursor(5,5);
     mylcd.print("teensyExpression ");
     mylcd.print(TEENSY_EXPRESSION_VERSION);
     mylcd.println(" started ... ");
@@ -156,9 +156,9 @@ void setup()
 
         for (int i=0; i<20; i++)
         {
-            mylcd.Fill_Screen(TFT_BLACK);
+            mylcd.fillScreen(TFT_BLACK);
             mylcd.setFont(*test_fonts[i]);
-            mylcd.Set_Text_Cursor(5,5);
+            mylcd.setCursor(5,5);
             mylcd.print("teensyExpression ");
             mylcd.print(TEENSY_EXPRESSION_VERSION);
             mylcd.println(" started ... ");
@@ -173,20 +173,20 @@ void setup()
     int do_delay = 2000;
     if (!dbgSerial)
     {
-        mylcd.Set_Text_colour(TFT_YELLOW);
+        mylcd.setTextColor(TFT_YELLOW);
         mylcd.println("    NO SERIAL PORT IS ACTIVE!!");
         do_delay = 3000;
     }
     else if (debug_device == OUTPUT_DEVICE_SERIAL)
     {
-        mylcd.Set_Text_colour(TFT_YELLOW);
+        mylcd.setTextColor(TFT_YELLOW);
         mylcd.println("    DEBUG_OUTPUT to hardware Serial3!");
         if (!do_delay) do_delay = 1200;
     }
 
     #if !defined(USB_MIDI_SERIAL)
         error("PROGRAM IS NOT COMPILED UNDER USB_MIDI_SERIAL teensyDuino type!! Things may not work correctly!!!",0);
-        mylcd.Set_Text_colour(TFT_YELLOW);
+        mylcd.setTextColor(TFT_YELLOW);
         mylcd.println("    NOT COMPILED WITH USB_MIDI_SERIAL !!");
         do_delay = 5000;
     #endif
@@ -211,7 +211,7 @@ void setup()
         delay(do_delay);
     clearLEDs();
     showLEDs();
-    mylcd.Fill_Screen(TFT_BLACK);
+    mylcd.fillScreen(TFT_BLACK);
 
     //-----------------------------------
     // start the system
