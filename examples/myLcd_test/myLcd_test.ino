@@ -64,16 +64,16 @@
 #define WHITE   0xFFFF
 
 
-#ifdef __MK66FX1M0__		// My Teensy Configuration
+#ifdef __LCD_TEENSY__		// My Teensy Configuration
 
-	#define TFT_DATA0     19      // needed by ts
-	#define TFT_DATA1     13      // needed by ts
-	#define TFT_DATA2     34
-	#define TFT_DATA3     35
-	#define TFT_DATA4     36
-	#define TFT_DATA5     37
-	#define TFT_DATA6     38
-	#define TFT_DATA7     39
+	#define TFT_DATA0     34      // needed by ts
+	#define TFT_DATA1     35      // needed by ts
+	#define TFT_DATA2     36
+	#define TFT_DATA3     37
+	#define TFT_DATA4     38
+	#define TFT_DATA5     39
+	#define TFT_DATA6     13
+	#define TFT_DATA7     19
 
 	#define TFT_RD        14
 	#define TFT_WR        15
@@ -83,11 +83,11 @@
 
 	myLcdDevice mylcd(
 		ILI9486,
-		CHEAP_CS,
-		CHEAP_CD_RS,
-		CHEAP_WR,
-		CHEAP_RD,
-		CHEAP_RESET);
+		TFT_CS,
+		TFT_CD_RS,
+		TFT_WR,
+		TFT_RD,
+		TFT_RESET);
 
 #else	// tested and works as an Arduino Uno Shield
 
@@ -105,16 +105,16 @@ void setup()
 	delay(1200);
 	display(0,"testLcd.ino setup() started",0);
 
-    #ifdef __MK66FX1M0__    // My Teensy Configuration
+    #ifdef __LCD_TEENSY__    // My Teensy Configuration
         setTFTDataPins(
-            CHEAP_DATA0,
-            CHEAP_DATA1,
-            CHEAP_DATA2,
-            CHEAP_DATA3,
-            CHEAP_DATA4,
-            CHEAP_DATA5,
-            CHEAP_DATA6,
-            CHEAP_DATA7);
+            TFT_DATA0,
+            TFT_DATA1,
+            TFT_DATA2,
+            TFT_DATA3,
+            TFT_DATA4,
+            TFT_DATA5,
+            TFT_DATA6,
+            TFT_DATA7);
     #endif
 
     mylcd.begin();

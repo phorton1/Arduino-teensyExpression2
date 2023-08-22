@@ -60,7 +60,7 @@
 //if the IC model is not known and the modules is readable,you can use this constructed function
 //LCDWIKI_KBV mylcd(240,320,40,38,39,44,41);//width,height,cs,cd,wr,rd,reset for
 //LCDWIKI_KBV mylcd(320,480,40,38,39,44,41);//width,height,cs,cd,wr,rd,reset
-/--------------------------------------------------------------------------
+//--------------------------------------------------------------------------
 
 
 // define some colour values
@@ -77,20 +77,20 @@
 
 #ifdef __MK66FX1M0__    // My Teensy Configuration
 
-  #define TFT_DATA0     19      // needed by ts
-  #define TFT_DATA1     13      // needed by ts
-  #define TFT_DATA2     34
-  #define TFT_DATA3     35
-  #define TFT_DATA4     36
-  #define TFT_DATA5     37
-  #define TFT_DATA6     38
-  #define TFT_DATA7     39
+	#define TFT_DATA0     34      // needed by ts
+	#define TFT_DATA1     35      // needed by ts
+	#define TFT_DATA2     36
+	#define TFT_DATA3     37
+	#define TFT_DATA4     38
+	#define TFT_DATA5     39
+	#define TFT_DATA6     13
+	#define TFT_DATA7     19
 
-  #define TFT_RD        14
-  #define TFT_WR        15
-  #define TFT_CD_RS     16      // needed by ts - labelled "RS" on board
-  #define TFT_CS        17      // needed by ts
-  #define TFT_RESET     18
+	#define TFT_RD        14
+	#define TFT_WR        15
+	#define TFT_CD_RS     16      // needed by ts - labelled "RS" on board
+	#define TFT_CS        17      // needed by ts
+	#define TFT_RESET     18
 
   LCDWIKI_KBV mylcd(
     ILI9486,
@@ -112,7 +112,7 @@ void setup()
 {
   Serial.begin(115200);
   delay(1200);
-  display(0,"LCDWIKI_test.ino setup(%d) started",TEST);
+  display(0,"LCDWIKI_test.ino setup(%d) started",0);
 
     #ifdef __MK66FX1M0__    // My Teensy Configuration
         setTFTDataPins(
@@ -144,7 +144,7 @@ void loop()
 
   mylcd.Set_Text_colour(GREEN);
   mylcd.Set_Text_Size(2);
-  mylcd.drawString("Hello World!", 0, 40);
+  mylcd.Print_String("Hello World!", 0, 40);
   mylcd.Print_Number_Float(01234.56789, 2, 0, 56, '.', 0, ' ');
   mylcd.Print_Number_Int(0xDEADBEF, 0, 72, 0, ' ',16);
 
