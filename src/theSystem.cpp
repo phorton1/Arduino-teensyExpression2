@@ -225,8 +225,8 @@ void aSystem::begin()
         // int touch_color=-1,
         // int pressed_color=-1);
 
-	// if (rig_machine.loadRig("default"))
-	// 	setTitle(rig_machine.rigName());
+	if (rig_machine.loadRig("default"))
+		setTitle(rig_machine.rigName());
 
 #if 0
     addRig(new configSystem());

@@ -145,29 +145,264 @@ bool rigMachine::startRig()
 }
 
 
-bool rigMachine::executeStatementList(int statement_num)
+
+//-------------------------------------------------
+// rig statement primitives
+//-------------------------------------------------
+
+void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 {
-	uint16_t offset = cur_rig_header->statements[statement_num];
-	uint16_t last_offset  = cur_rig_header->statements[statement_num+1];
-
-	display(dbg_rig,"executeStatmentList(%d) from %d to %d (%d bytes)",
-		statement_num,
-		offset,
-		last_offset,
-		last_offset-offset);
 	proc_entry();
+	rigArea_t *area = &m_rig_state.areas[area_num];
 
-	while (offset < last_offset)
+	display(dbg_stmt,"rigDisplay(%d,%d=%s,\"%s\") font_size=%d",
+		area_num,
+		color,
+		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
+		text,
+		area->font_size);
+
+
+	const ILI9341_t3_font_t *font = 0;
+
+	if (area->font_type)
 	{
-		if (!executeStatement(&offset,last_offset))
+		switch (area->font_size)
 		{
-			proc_leave();
-			return false;
+			case 12: font = &Arial_12_Bold; break;
+			case 14: font = &Arial_14_Bold; break;
+			case 16: font = &Arial_16_Bold; break;
+			case 18: font = &Arial_18_Bold; break;
+			case 20: font = &Arial_20_Bold; break;
+			case 24: font = &Arial_24_Bold; break;
+			case 28: font = &Arial_28_Bold; break;
+			case 32: font = &Arial_32_Bold; break;
+			case 40: font = &Arial_40_Bold; break;
+			case 48: font = &Arial_48_Bold; break;
+			default:
+				rig_error("Unknown font_size(%d)_bold",area->font_type);
+				proc_leave();
+				return;
+				break;
+		}
+	}
+	else
+	{
+		switch (area->font_size)
+		{
+			case 12: font = &Arial_12; break;
+			case 14: font = &Arial_14; break;
+			case 16: font = &Arial_16; break;
+			case 18: font = &Arial_18; break;
+			case 20: font = &Arial_20; break;
+			case 24: font = &Arial_24; break;
+			case 28: font = &Arial_28; break;
+			case 32: font = &Arial_32; break;
+			case 40: font = &Arial_40; break;
+			case 48: font = &Arial_48; break;
+				rig_error("Unknown font_size(%d)",area->font_type);
+				proc_leave();
+				return;
+				break;
 		}
 	}
 
+	display(dbg_stmt,"calling print_justified(%d,%d,%d,%d,  %d, %d=%s,BLACK,1,\"%s\")",
+		client_rect.xs + area->xs,
+		client_rect.ys + area->ys,
+		area->xe - area->xs + 1,
+		area->ye - area->ys + 1,
+		area->font_just,
+		color,
+		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
+		text);
+
+	mylcd.setFont(*font);
+
+	mylcd.printJustified(
+		client_rect.xs + area->xs,
+		client_rect.ys + area->ys,
+		area->xe - area->xs + 1,
+		area->ye - area->ys + 1,
+		area->font_just,
+		DISPLAY_COLORS[color],
+		TFT_BLACK,
+		1,	// use bc
+		text);
 	proc_leave();
-	display(dbg_rig,"executeStatementList() finished",0);
+}
+
+
+
+//-------------------------------------------------------------------
+// Expression Evaluation
+//-------------------------------------------------------------------
+
+bool rigMachine::evalExpression(evalResult_t *rslt, const char *what, const uint8_t *code, uint16_t *offset)
+{
+	display(dbg_param+1,"evalExpression(%s) at offset %d",what,*offset);
+	proc_entry();
+
+	if (!expression(rslt,code,offset))
+	{
+		rig_error("evalExpression(%s) failed at offset %d",what,*offset);
+		proc_leave();
+		return false;
+	}
+
+	proc_leave();
+	if (rslt->is_string)
+		display(dbg_param+2,"evalExpression(%s) returning(%s) at offset %d",what,rslt->text,*offset);
+	else
+		display(dbg_param+2,"evalExpression(%s) returning(%d) at offset %d",what,rslt->value,*offset);
+	return true;
+}
+
+
+bool rigMachine::evalCodeExpression(evalResult_t *rslt, const char *what, uint16_t offset)
+{
+	if (offset & (EXP_INLINE << 8))
+	{
+		uint8_t byte = offset >> 8;
+		uint8_t inline_op = byte & 0x3f;
+		uint8_t value = offset & 0xff;
+
+		display(dbg_param+1,"inline %s == 0x%02x%02x",what,byte,value);
+
+		if (byte & EXP_INLINE_ID)
+		{
+			display(dbg_param+1,"inline id(%d)=%s",value,&rig_code.define_pool[rig_header.define_ids[value] - 1]);
+			value = rig_header.define_values[value];
+		}
+
+		if (inline_op == EXP_LED_COLOR)
+		{
+			display(dbg_param+1,"inline LED_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_LED_BLACK + value));
+		}
+		else if (inline_op == EXP_DISPLAY_COLOR)
+		{
+			display(dbg_param+1,"inline DISPLAY_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_DISPLAY_BLACK + value));
+		}
+
+		if (inline_op == EXP_VALUE)
+		{
+			display(dbg_param+1,"inline VALUE[%d]",value);
+			value = m_rig_state.values[value];
+		}
+
+		if (inline_op == EXP_STRING)
+		{
+			display(dbg_param+1,"inline STRING[%d]",value);
+			uint16_t off = rig_header.strings[value];
+			rslt->text = &rig_code.string_pool[off];
+			rslt->is_string = 1;
+		}
+		else
+		{
+			rslt->value = value;
+		}
+	}
+	else	// dumpExpression for real
+	{
+		offset -= 1;		// real expression offset are one based
+		const uint8_t *code = cur_rig_code->expression_pool;
+		if (!evalExpression(rslt,what,code,&offset))
+			return false;
+	}
+	return true;
+}
+
+
+//---------------------------------------------------
+// Statement execution
+//---------------------------------------------------
+
+bool rigMachine::evalParam(evalResult_t *rslt, int arg_type, const uint8_t *code, uint16_t *offset)
+{
+	const char *what = argTypeToString(arg_type);
+	display(dbg_param+1,"evalParam(%s) at code_offset %d",what,*offset);
+	proc_entry();
+
+	bool ok = 1;
+	uint16_t max = 0;
+	uint16_t *ptr16 = 0;
+	rslt->is_string = 0;
+
+	switch (arg_type)
+	{
+		case PARAM_AREA_NUM :		max = RIG_NUM_AREAS - 1;	break;
+		case PARAM_VALUE_NUM :		max = RIG_NUM_VALUES - 1;	break;
+		case PARAM_VALUE :			max = MAX_RIG_VALUE;		break;
+		case PARAM_PEDAL_NUM :		max = NUM_PEDALS - 1;		break;
+		case PARAM_ROTARY_NUM :		max = NUM_ROTARY - 1;		break;
+		case PARAM_MIDI_CHANNEL :	max = MIDI_MAX_CHANNEL;		break;
+		case PARAM_MIDI_CC :		max = MIDI_MAX_VALUE;		break;
+		case PARAM_MIDI_VALUE :		max = MIDI_MAX_VALUE;		break;
+	}
+
+	switch (arg_type)
+	{
+		case PARAM_AREA_NUM :
+		case PARAM_VALUE_NUM :
+		case PARAM_VALUE :
+		case PARAM_PEDAL_NUM :
+		case PARAM_ROTARY_NUM :
+		case PARAM_MIDI_CHANNEL :
+		case PARAM_MIDI_CC :
+		case PARAM_MIDI_VALUE :
+			ptr16 = (uint16_t *) &code[*offset];
+			ok = evalCodeExpression(rslt,argTypeToString(arg_type),*ptr16);
+			if (ok && rslt->value > max)
+			{
+				rig_error("%s must be %d or less",what,max);
+				ok = 0;
+			}
+			*offset += 2;
+			break;
+		case PARAM_STRING_EXPRESSION :
+		case PARAM_LED_COLOR_EXPRESSION :
+		case PARAM_DISPLAY_COLOR_EXPRESSION :
+			ptr16 = (uint16_t *) &code[*offset];
+			ok = evalCodeExpression(rslt,argTypeToString(arg_type),*ptr16);
+			*offset += 2;
+			break;
+
+		case PARAM_FONT_TYPE :
+		case PARAM_FONT_JUST :
+		case PARAM_FONT_SIZE :
+		case PARAM_MIDI_PORT :
+			rslt->value = code[(*offset)++];
+			break;
+		case PARAM_END_X :
+		case PARAM_END_Y :
+		case PARAM_START_X :
+		case PARAM_START_Y :
+			ptr16 = (uint16_t *) &code[*offset];
+			rslt->value = *ptr16;
+			*offset += 2;
+			break;
+
+		case PARAM_PEDAL_NAME :
+			ptr16 = (uint16_t *) &code[*offset];
+			rslt->text = &rig_code.string_pool[*ptr16];
+			rslt->is_string = 1;
+			*offset += 2;
+			break;
+
+		default:
+			rig_error("unknown arg_type(%d)",arg_type);
+			ok = 0;
+			break;
+	}
+
+	proc_leave();
+	if (ok)
+	{
+		if (rslt->is_string)
+			display(dbg_param,"evalParam(%s) returning(%s) at code_offset %d",argTypeToString(arg_type),rslt->text,*offset);
+		else
+			display(dbg_param,"evalParam(%s) returning(%d) at code_offset %d",argTypeToString(arg_type),rslt->value,*offset);
+	}
 	return true;
 }
 
@@ -267,258 +502,30 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 }
 
 
-bool rigMachine::evalParam(evalResult_t *rslt, int arg_type, const uint8_t *code, uint16_t *offset)
+bool rigMachine::executeStatementList(int statement_num)
 {
-	const char *what = argTypeToString(arg_type);
-	display(dbg_param+1,"evalParam(%s) at code_offset %d",what,*offset);
+	uint16_t offset = cur_rig_header->statements[statement_num];
+	uint16_t last_offset  = cur_rig_header->statements[statement_num+1];
+
+	display(dbg_rig,"executeStatmentList(%d) from %d to %d (%d bytes)",
+		statement_num,
+		offset,
+		last_offset,
+		last_offset-offset);
 	proc_entry();
 
-	bool ok = 1;
-	uint16_t max = 0;
-	uint16_t *ptr16 = 0;
-	rslt->is_string = 0;
-
-	switch (arg_type)
+	while (offset < last_offset)
 	{
-		case PARAM_AREA_NUM :		max = RIG_NUM_AREAS - 1;	break;
-		case PARAM_VALUE_NUM :		max = RIG_NUM_VALUES - 1;	break;
-		case PARAM_VALUE :			max = MAX_RIG_VALUE;		break;
-		case PARAM_PEDAL_NUM :		max = NUM_PEDALS - 1;		break;
-		case PARAM_ROTARY_NUM :		max = NUM_ROTARY - 1;		break;
-		case PARAM_MIDI_CHANNEL :	max = MIDI_MAX_CHANNEL;		break;
-		case PARAM_MIDI_CC :		max = MIDI_MAX_VALUE;		break;
-		case PARAM_MIDI_VALUE :		max = MIDI_MAX_VALUE;		break;
-	}
-
-	switch (arg_type)
-	{
-		case PARAM_AREA_NUM :
-		case PARAM_VALUE_NUM :
-		case PARAM_VALUE :
-		case PARAM_PEDAL_NUM :
-		case PARAM_ROTARY_NUM :
-		case PARAM_MIDI_CHANNEL :
-		case PARAM_MIDI_CC :
-		case PARAM_MIDI_VALUE :
-			ptr16 = (uint16_t *) &code[*offset];
-			ok = evalCodeExpression(rslt,argTypeToString(arg_type),*ptr16);
-			if (ok && rslt->value > max)
-			{
-				rig_error("%s must be %d or less",what,max);
-				ok = 0;
-			}
-			*offset += 2;
-			break;
-		case PARAM_STRING_EXPRESSION :
-		case PARAM_LED_COLOR_EXPRESSION :
-		case PARAM_DISPLAY_COLOR_EXPRESSION :
-			ptr16 = (uint16_t *) &code[*offset];
-			ok = evalCodeExpression(rslt,argTypeToString(arg_type),*ptr16);
-			*offset += 2;
-			break;
-
-		case PARAM_FONT_TYPE :
-		case PARAM_FONT_JUST :
-		case PARAM_FONT_SIZE :
-		case PARAM_MIDI_PORT :
-			rslt->value = code[(*offset)++];
-			break;
-		case PARAM_END_X :
-		case PARAM_END_Y :
-		case PARAM_START_X :
-		case PARAM_START_Y :
-			ptr16 = (uint16_t *) &code[*offset];
-			rslt->value = *ptr16;
-			*offset += 2;
-			break;
-
-		case PARAM_PEDAL_NAME :
-			ptr16 = (uint16_t *) &code[*offset];
-			rslt->text = &rig_code.string_pool[*ptr16];
-			rslt->is_string = 1;
-			*offset += 2;
-			break;
-
-		default:
-			rig_error("unknown arg_type(%d)",arg_type);
-			ok = 0;
-			break;
-	}
-
-	proc_leave();
-	if (ok)
-	{
-		if (rslt->is_string)
-			display(dbg_param,"evalParam(%s) returning(%s) at code_offset %d",argTypeToString(arg_type),rslt->text,*offset);
-		else
-			display(dbg_param,"evalParam(%s) returning(%d) at code_offset %d",argTypeToString(arg_type),rslt->value,*offset);
-	}
-	return true;
-}
-
-
-
-
-bool rigMachine::evalCodeExpression(evalResult_t *rslt, const char *what, uint16_t offset)
-{
-	if (offset & (EXP_INLINE << 8))
-	{
-		uint8_t byte = offset >> 8;
-		uint8_t inline_op = byte & 0x3f;
-		uint8_t value = offset & 0xff;
-
-		display(dbg_param+1,"inline %s == 0x%02x%02x",what,byte,value);
-
-		if (byte & EXP_INLINE_ID)
+		if (!executeStatement(&offset,last_offset))
 		{
-			display(dbg_param+1,"inline id(%d)=%s",value,&rig_code.define_pool[rig_header.define_ids[value] - 1]);
-			value = rig_header.define_values[value];
-		}
-
-		if (inline_op == EXP_LED_COLOR)
-		{
-			display(dbg_param+1,"inline LED_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_LED_BLACK + value));
-		}
-		else if (inline_op == EXP_DISPLAY_COLOR)
-		{
-			display(dbg_param+1,"inline DISPLAY_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_DISPLAY_BLACK + value));
-		}
-
-		if (inline_op == EXP_VALUE)
-		{
-			display(dbg_param+1,"inline VALUE[%d]",value);
-			value = m_rig_state.values[value];
-		}
-
-		if (inline_op == EXP_STRING)
-		{
-			display(dbg_param+1,"inline STRING[%d]",value);
-			uint16_t off = rig_header.strings[value];
-			rslt->text = &rig_code.string_pool[off];
-			rslt->is_string = 1;
-		}
-		else
-		{
-			rslt->value = value;
-		}
-	}
-	else	// dumpExpression for real
-	{
-		offset -= 1;		// real expression offset are one based
-		const uint8_t *code = cur_rig_code->expression_pool;
-		if (!evalExpression(rslt,what,code,&offset))
+			proc_leave();
 			return false;
-	}
-	return true;
-}
-
-
-
-bool rigMachine::evalExpression(evalResult_t *rslt, const char *what, const uint8_t *code, uint16_t *offset)
-{
-	display(dbg_param+1,"evalExpression(%s) at offset %d",what,*offset);
-	proc_entry();
-
-	if (!expression(rslt,code,offset))
-	{
-		rig_error("evalExpression(%s) failed at offset %d",what,*offset);
-		proc_leave();
-		return false;
-	}
-
-	proc_leave();
-	if (rslt->is_string)
-		display(dbg_param+2,"evalExpression(%s) returning(%s) at offset %d",what,rslt->text,*offset);
-	else
-		display(dbg_param+2,"evalExpression(%s) returning(%d) at offset %d",what,rslt->value,*offset);
-	return true;
-}
-
-
-//-------------------------------------------------
-// rig statement primitives
-//-------------------------------------------------
-
-void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
-{
-	proc_entry();
-	rigArea_t *area = &m_rig_state.areas[area_num];
-
-	display(dbg_stmt,"rigDisplay(%d,%d=%s,\"%s\") font_size=%d",
-		area_num,
-		color,
-		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
-		text,
-		area->font_size);
-
-
-	const ILI9341_t3_font_t *font = 0;
-
-	if (area->font_type)
-	{
-		switch (area->font_size)
-		{
-			case 12: font = &Arial_12_Bold; break;
-			case 14: font = &Arial_14_Bold; break;
-			case 16: font = &Arial_16_Bold; break;
-			case 18: font = &Arial_18_Bold; break;
-			case 20: font = &Arial_20_Bold; break;
-			case 24: font = &Arial_24_Bold; break;
-			case 28: font = &Arial_28_Bold; break;
-			case 32: font = &Arial_32_Bold; break;
-			case 40: font = &Arial_40_Bold; break;
-			case 48: font = &Arial_48_Bold; break;
-			default:
-				rig_error("Unknown font_size(%d)_bold",area->font_type);
-				proc_leave();
-				return;
-				break;
-		}
-	}
-	else
-	{
-		switch (area->font_size)
-		{
-			case 12: font = &Arial_12; break;
-			case 14: font = &Arial_14; break;
-			case 16: font = &Arial_16; break;
-			case 18: font = &Arial_18; break;
-			case 20: font = &Arial_20; break;
-			case 24: font = &Arial_24; break;
-			case 28: font = &Arial_28; break;
-			case 32: font = &Arial_32; break;
-			case 40: font = &Arial_40; break;
-			case 48: font = &Arial_48; break;
-				rig_error("Unknown font_size(%d)",area->font_type);
-				proc_leave();
-				return;
-				break;
 		}
 	}
 
-	display(dbg_stmt,"calling print_justified(%d,%d,%d,%d,  %d, %d=%s,BLACK,1,\"%s\")",
-		client_rect.xs + area->xs,
-		client_rect.ys + area->ys,
-		area->xe - area->xs + 1,
-		area->ye - area->ys + 1,
-		area->font_just,
-		color,
-		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
-		text);
-
-	mylcd.setFont(*font);
-
-	mylcd.printJustified(
-		client_rect.xs + area->xs,
-		client_rect.ys + area->ys,
-		area->xe - area->xs + 1,
-		area->ye - area->ys + 1,
-		area->font_just,
-		DISPLAY_COLORS[color],
-		TFT_BLACK,
-		1,	// use bc
-		text);
 	proc_leave();
+	display(dbg_rig,"executeStatementList() finished",0);
+	return true;
 }
 
 
