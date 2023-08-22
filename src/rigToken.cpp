@@ -17,7 +17,7 @@
 // extern
 int parse_section;			// 0=none, 1=program, 2=buttons, 3=end
 
-static File32 rig_file;
+static myFileType_t rig_file;
 
 static int rig_text_len;
 static int parse_ptr;

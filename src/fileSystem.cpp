@@ -1,10 +1,63 @@
 // abstracted file system for use with serial IO protocol
 //
-// We are using the sdFat library downloaded from https://github.com/greiman/SdFat
-// which is in our Arduino/libraries directory, NOT either of the ones from the
-// teensyDuino or original Arduino installations.
+// Actually the initial problem was bad connectors on the perf-board
+// to Uno 3.5" TFT display that made me think that my 3.6's might be bad ..
 //
-// A block is 512 bytes and "kBytes" is block_count/2
+// What a fucking mess.
+//
+// I was using a slighly modified version of the sdFat library v1.1.2 that I
+// downloaded from https://github.com/greiman/SdFat 3 years ago in my libraries
+// folder.  It was working well with my old version 1.53 of teensyDuino ...
+// The only mod I had made was to BUSY_TIMEOUT_MICROS from 500000 to 1000000
+// in /Arduino/libraries/SdFat/src/SdCard/SdioTeensy.cpp
+// to 'fix' a problem where the SD Card would not start on a cold boot, but
+// WOULD start from a Komodo (or Arduino IDE) compile and upload.
+//
+// I was worried about my teensy3.6's, they're being discontinued, and I have two brand new 4.1's.
+// But the 4.1 is not supported by that old version of SdFat.  To get SdFat for 4.1's, tt was
+// "recommended" that one upgrades the teensyDuino to a newer version which includes
+// SdFat (and SD) libraries ...
+//
+// So I went through the hassle of upgrading teensyDuino to v1.58.
+// A nice change with the new teensyDuino was that I also was able to do away
+// with my usb_desc.prh scheme and use a somewhat approved method of overriding
+// the USB definitions.
+//
+// With teensyDuino 1.58 I got SdFat v2.1.2 in the Program Files (x86)
+// folder as part of the deal. So, I saved off and removed my old SdFat library,
+// and endevored to build with the new SdFat library. I immediatly found that
+// SdFat v2.1.2 is a complete rewrite from the old version and I had to figure
+// out what objects to use just to get it basically working:
+//
+//		SdFat32 instead of the old SdFatSdio for the SD type
+//		File32 instead of the old File for files
+//		DirFat_t instead the old dir_t for directory entries
+//      ... I still haven't figured out directory entries and datetime stamps
+//
+// I got it basicly working with the teensy3.6 (then made new PCB's and
+// fixed the bad connector problem), and then noticed that new SdFat library
+// has the opposite problem of the one I 'fixed' in the old library. It
+// fails to initialze the SD card on a soft reboot (after a compile/upload),
+// and now requiires me to unplug and replug in the teensy each time I want
+// to test the program.
+//
+// So I made the compile conditional based on a USE_OLD_FAT define.
+// I moved the SdFat and SD libraries from Program Files (x86) and put
+// them in my libraries folder and saved them off elsewhere.
+// I can now place either the 'new' or 'old' SdFat library in my
+// libraries folder, adjust the #define, and build against either one.
+// And I verified that the old one still works on either kind of reboot.
+// Howevber,
+//
+//--------------------------------------------------------------------------------
+// I CANNOT HAVE BOTH SDFAT LIBRARIES IN MY LIBRARIES FOLDER AT THE SAME TIME.
+//--------------------------------------------------------------------------------
+// SO I NEED A GOOD PLACE TO STORE THEM, esp since one is under source control
+// and I am tempted to modify them, and /junk is not a good place for them.
+// So they are in:
+//
+//                       /zip/_teensy/_SdFat_libraries
+
 
 
 #include "fileSystem.h"
@@ -12,25 +65,26 @@
 #include <myDebug.h>
 #include <Base64.h>
 
-#define dbg_tfs    2
+#define dbg_tfs    0
     // This debugging *may* affect timing.
     // It "works" when this is on (0), but "not" when 1 (debugging turned off)
 
 
+#if USE_OLD_FAT
+	SdFatSdio SD;
+#else
+	SdFat32 SD;
+#endif
 
-// update to SdFat v2
-SdFat32 SD;
-// extern SdFatSdio SD;
-    // SdFatSdio uses a traditional DMA SDIO implementation.
-    // SdFatSdioEX SD; // SdFatSdioEX uses extended multi-block transfers without DMA.
-    // Note the difference is speed and busy yield time.
-    // Teensy 3.5 & 3.6 SDIO: 4 to 5 times the throughput using the 4-bit SDIO mode compared to the 1-bit SPI mode
-    //
-    // prh - I was getting an error when starting the system from a cold power up.
+	// prh - I was getting an error when starting the system from a cold power up.
     // it was working ok from a compile (ctrl-I in Komodo) right after the TeensyLoader
     // put the program on the teensy, but not on a subsequent cold-powerup.
     // I "fixed" it by increasing BUSY_TIMEOUT_MICROS from 500000 to 1000000
     // in /Arduino/libraries/SdFat/src/SdCard/SdioTeensy.cpp.
+
+	// 2023-08-22 - new library not working from Komodo compile.
+	// tried increasing BUSY_TIMEOUT_MICROS to 2000000, no joy.
+
 
 Stream *s_Serial = 0;
     // The serial port to send commands to.
@@ -39,7 +93,7 @@ Stream *s_Serial = 0;
 
 // state of current put
 
-File32 write_file;
+myFileType_t write_file;
 uint32_t write_size;
 uint32_t write_offset;
 uint32_t write_checksum;
@@ -55,14 +109,20 @@ char static_timestamp[32];
 // debugging
 //---------------------------------------------
 
-#define LIST_DIRECTORY_AT_STARTUP  0
+#define LIST_DIRECTORY_AT_STARTUP  0	// USE_OLD_FAT
+
 #if LIST_DIRECTORY_AT_STARTUP
 
-    void printDirectory(File32 dir, int numTabs)
+	#define dbg_print_dir  1
+
+    void printDirectory(myFileType_t dir, int numTabs = 0)
     {
+		int save_proc_level = proc_level;
+		proc_level = numTabs + 1;
+
         while(true)
         {
-            File32 entry = dir.openNextFile();
+            myFileType_t entry = dir.openNextFile();
             if (!entry)
                 break;
 
@@ -75,11 +135,11 @@ char static_timestamp[32];
                 my_error("Could not get dir_entry for %s",filename);
                 return;
             }
-            display(0,"dir_entry   cdate(%d) ctime(%d) c10ths(%d)",
+            display(dbg_print_dir,"    cdate(%d) ctime(%d) c10ths(%d)",
                 dir_entry.creationDate,dir_entry.creationTime,dir_entry.creationTimeTenths);
-            display(0,"            adate(%d) wdate(%d) wtime(%d)",
+            display(dbg_print_dir,"    adate(%d) wdate(%d) wtime(%d)",
                 dir_entry.lastAccessDate,dir_entry.lastWriteDate,dir_entry.lastWriteTime);
-            display(0,"            attr(0x%02x), size(%d)",
+            display(dbg_print_dir,"    attr(0x%02x), size(%d)",
                 dir_entry.attributes,dir_entry.fileSize);
 
             uint16_t year = FAT_YEAR(dir_entry.creationDate);
@@ -97,7 +157,8 @@ char static_timestamp[32];
                 second += 1;
             }
 
-            display(0,"date(%02d,%02d,%02d) time(%02d:%02d:%02d.%02d)",
+			char time_buf[36];
+			sprintf(time_buf,"%04d-%02d-%02d %02d:%02d:%02d.%02d",
                 year,
                 month,
                 day,
@@ -106,25 +167,30 @@ char static_timestamp[32];
                 second,
                 hundredths);
 
-            for (uint8_t i=0; i<numTabs; i++)
-            {
-                Serial.print('\t');
-            }
+			char tab_buf[24];
+			memset(tab_buf,32,24);
+			if (numTabs > 4)
+				tab_buf[16] = 0;
+			tab_buf[ (4-numTabs) * 4 ] = 0;
 
             if (entry.isDirectory())
             {
-                display(0,"%s/",filename);
+                display(0,":%-32s%s         %s",filename,tab_buf,time_buf);
                 printDirectory(entry, numTabs+1);
             }
             else
             {
-                display(0,"\t\t%s    %d",
+                display(0,"%-32s%s%-08d  %s",
                     filename,
-                    entry.size());
+					tab_buf,
+                    entry.size(),
+					time_buf);
             }
 
             entry.close();
         }
+
+		proc_level = save_proc_level;
      }
 #endif  // LIST_DIRECTORY_AT_STARTUP
 
@@ -155,8 +221,12 @@ bool fileSystem::init()
         s_Serial = &Serial3;
     }
 
+#if USE_OLD_FAT
     if (!SD.begin())
-    {
+#else
+	if (!SD.begin(BUILTIN_SDCARD))
+#endif
+	{
         my_error("Could not initialize SD",0);
         return false;
     }
@@ -208,7 +278,7 @@ bool fileSystem::init()
             block_count);
     #endif  // SHOW_SIZE_DETAILS
 
-    #if  1  // SHOW_HUMAN_READABLE_SPACE_USED
+    #if  1  // SHOW_HUMAN_READABLE_SPACE_USED ('real' GB same as Windows)
         uint32_t gb_free = 10 * getFreeMB() / 1024;
         uint32_t gb_total = 10 * getTotalMB() / 1024;
         uint32_t gb_used = gb_total - gb_free;
@@ -217,8 +287,8 @@ bool fileSystem::init()
     #endif
 
     #if LIST_DIRECTORY_AT_STARTUP
-        File32 root = SD.open("/");
-        printDirectory(root, 0);
+        myFileType_t root = SD.open("/");
+        printDirectory(root);
         root.close();
     #endif
 
@@ -234,21 +304,48 @@ bool fileSystem::init()
 
 uint32_t fileSystem::getFreeMB()
 {
-    uint32_t free_cluster_count = SD.freeClusterCount();
-    uint16_t bytes_per_cluster = SD.bytesPerCluster();
-	// prh - may have to use uint8_t bytesPerClusterShift () const
-    if (free_cluster_count > 0)
-        return (free_cluster_count * bytes_per_cluster) / (1024*2);
-    return 0;
+	#if USE_OLD_FAT
+		uint32_t cluster_count = SD.freeClusterCount();
+		uint8_t blocks_per_cluster = SD.blocksPerCluster();
+		return (cluster_count * blocks_per_cluster) / (1024*2);
+	#else
+		uint32_t cluster_count32 = SD.freeClusterCount();
+		uint32_t bytes_per_cluster32 = SD.bytesPerCluster();
+		delay(100);
+		display(0,"free  count=%d  per=%d  shift=%d",cluster_count32,bytes_per_cluster32,SD.bytesPerClusterShift());
+		uint64_t cluster_count = cluster_count32;
+		uint64_t bytes_per_cluster = bytes_per_cluster32;
+		uint64_t total_bytes = cluster_count * bytes_per_cluster;
+		total_bytes /= 1024 * 1024;
+		return total_bytes;
+	#endif
 }
 
 
 uint32_t fileSystem::getTotalMB()
+	// NOWHERE is there an example of how to use these to determine the size of the file system.
+	// bytesPerClusterShift() is really unclear.
+	// On my 32GB card, cluserCount() returns 953948 and bytesPerCluster returns 32768.
+	// Interestingly, multiplying these gives 31,258,968,064, which agrees with the
+	// total bytes for the volume given by the Properties in Windows, without using
+	// bytesPerClusterShift(), wtf ever that is.  Then dividing by 1024^2 gives
+	// 'real' MB's.
 {
-    uint32_t cluster_count = SD.clusterCount();
-    uint16_t bytes_per_cluster = SD.bytesPerCluster();
-	// prh - may have to use uint8_t bytesPerClusterShift () const
-    return (cluster_count * bytes_per_cluster) / (1024*2);
+	#if USE_OLD_FAT
+		uint32_t cluster_count = SD.clusterCount();
+		uint8_t blocks_per_cluster = SD.blocksPerCluster();
+		return (cluster_count * blocks_per_cluster) / (1024*2);
+	#else
+		uint32_t cluster_count32 = SD.clusterCount();
+		uint32_t bytes_per_cluster32 = SD.bytesPerCluster();
+		delay(100);
+		display(0,"total count=%d  per=%d  shift=%d",cluster_count32,bytes_per_cluster32,SD.bytesPerClusterShift());
+		uint64_t cluster_count = cluster_count32;
+		uint64_t bytes_per_cluster = bytes_per_cluster32;
+		uint64_t total_bytes = cluster_count * bytes_per_cluster;
+		total_bytes /= 1024 * 1024;
+		return total_bytes;
+	#endif
 }
 
 
@@ -256,9 +353,9 @@ uint32_t fileSystem::getTotalMB()
 // private methods
 //---------------------------------------------
 
-const char *getDateTimeStamp(File32 *entry, const char *filename)
+const char *getDateTimeStamp(myFileType_t *entry, const char *filename)
 {
-    DirFat_t dir_entry;
+    myDir_t dir_entry;
     static_timestamp[0] = 0;
     if (!entry->dirEntry(&dir_entry))
     {
@@ -266,7 +363,7 @@ const char *getDateTimeStamp(File32 *entry, const char *filename)
         return static_timestamp;
     }
 
-	#if 0 	// PRH PRH PRH - this needs to be reworked
+	#if USE_OLD_FAT 	// PRH PRH PRH - this needs to be reworked
 		uint16_t year = FAT_YEAR(dir_entry.creationDate);
 		uint16_t month = FAT_MONTH(dir_entry.creationDate);
 		uint16_t day = FAT_DAY(dir_entry.creationDate);
@@ -290,7 +387,7 @@ const char *getDateTimeStamp(File32 *entry, const char *filename)
 
 
 
-void setTimeStamp(File32 the_file, char *ts)
+void setTimeStamp(myFileType_t the_file, char *ts)
 {
     char *year = &ts[0];
     ts[4] = 0;
@@ -368,7 +465,7 @@ void dtCallback(uint16_t* date, uint16_t* time)
 
 
 
-    void doListRecursive(char *full_name, bool recurse, int level, File32 the_dir)
+    void doListRecursive(char *full_name, bool recurse, int level, myFileType_t the_dir)
     {
         char dir_name[255];
         the_dir.getName(dir_name, sizeof(dir_name));
@@ -381,7 +478,7 @@ void dtCallback(uint16_t* date, uint16_t* time)
         s_Serial->print(",");
         s_Serial->println(full_name);
 
-        File32 entry = the_dir.openNextFile();
+        myFileType_t entry = the_dir.openNextFile();
         while (entry)
         {
             char filename[255];
@@ -421,7 +518,7 @@ void dtCallback(uint16_t* date, uint16_t* time)
         if (recurse)
         {
             the_dir.rewindDirectory();
-            File32 entry = the_dir.openNextFile();
+            myFileType_t entry = the_dir.openNextFile();
             while (entry)
             {
                 if (entry.isDirectory())
@@ -470,7 +567,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
             display(dbg_tfs,"list command %s - %s",recurse,dir_name);
 
-            File32 the_dir = SD.open(dir_name);
+            myFileType_t the_dir = SD.open(dir_name);
             if (the_dir)
             {
                 doListRecursive(dir_name,*recurse=='1',0,the_dir);
@@ -478,7 +575,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
         #else
             const char *dir_name = param;
-            File32 the_dir = SD.open(dir_name);
+            myFileType_t the_dir = SD.open(dir_name);
             if (the_dir)
             {
                 const char *ts = getDateTimeStamp(&the_dir,dir_name);
@@ -488,7 +585,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 s_Serial->print(",");
                 s_Serial->println(dir_name);
 
-                File32 entry = the_dir.openNextFile();
+                myFileType_t entry = the_dir.openNextFile();
                 while (entry)
                 {
                     char filename[255];
@@ -553,16 +650,20 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
             strcpy(write_ts,ts);
 
-			FsDateTime::setCallback(dtCallback);
-            // FatFile::dateTimeCallback(dtCallback);
-            int rslt = SD.mkdir(path);
-			FsDateTime::clearCallback();
-            // FatFile::dateTimeCallbackCancel();
+			#if USE_OLD_FAT
+				FatFile::dateTimeCallback(dtCallback);
+				int rslt = SD.mkdir(path);
+				FatFile::dateTimeCallbackCancel();
+			#else
+				FsDateTime::setCallback(dtCallback);
+				int rslt = SD.mkdir(path);
+				FsDateTime::clearCallback();
+			#endif
 
             if (rslt)
             {
                 #if 0   // as this does not work
-                    File32 the_dir = SD.open(path);
+                    myFileType_t the_dir = SD.open(path);
                     if (the_dir)
                     {
                         setTimeStamp(the_dir,ts);
@@ -590,7 +691,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
     {
         const char *filename = param;
         display(dbg_tfs,"fileSystem::get(%s)",filename);
-        File32 the_file = SD.open(filename);
+        myFileType_t the_file = SD.open(filename);
 
         // The result will be
         // file_reply:FILE $ts,$size,$entry and a bunch of
@@ -720,7 +821,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         {
             if (SD.exists(dir))
             {
-                File32 the_dir = SD.open(dir);
+                myFileType_t the_dir = SD.open(dir);
                 if (!the_dir.isDirectory())
                 {
                     my_error("NOT A DIRECTORY (is a file): %s",dir);
@@ -741,13 +842,18 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 // cannot call setTimeStamp() on dirs
 
                 strcpy(write_ts,ts);
-				FsDateTime::setCallback(dtCallback);
-				// FatFile::dateTimeCallback(dtCallback);
-				int rslt = SD.mkdir(dir);
-				FsDateTime::clearCallback();
-				// FatFile::dateTimeCallbackCancel();
 
-                if (!rslt)
+				#if USE_OLD_FAT
+					FatFile::dateTimeCallback(dtCallback);
+					int rslt = SD.mkdir(dir);
+					FatFile::dateTimeCallbackCancel();
+				#else
+					FsDateTime::setCallback(dtCallback);
+					int rslt = SD.mkdir(dir);
+					FsDateTime::clearCallback();
+				#endif
+
+				if (!rslt)
                 {
                     my_error("COULD NOT CREATE DIRECTORY: %s",dir);
                     s_Serial->print("file_reply:ERROR - COULD NOT CREATE DIRECTORY ");
@@ -854,7 +960,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
     else if (!strcmp(command,"delete"))
     {
         display(dbg_tfs,"delete %s",param);
-        File32 the_file = SD.open(param);
+        myFileType_t the_file = SD.open(param);
         if (the_file)
         {
             bool rslt;
@@ -905,7 +1011,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         if (*new_path == ',') *new_path++ = 0;
         display(dbg_tfs,"rename(%s) to '%s'",old_path,new_path);
 
-        File32 the_file = SD.open(old_path);
+        myFileType_t the_file = SD.open(old_path);
         if (the_file)
         {
             uint32_t size = the_file.size();

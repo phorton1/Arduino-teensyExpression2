@@ -5,6 +5,9 @@
 
 #pragma once
 
+#define USE_OLD_FAT		1
+
+
 #include "Arduino.h"
 #include <SdFat.h>
 
@@ -24,6 +27,13 @@ public:
 
 
 // update to SdFat v2
-extern SdFat32 SD;
-// extern SdFatSdio SD;
-    // in fileSystem.cpp
+
+#if USE_OLD_FAT
+	#define myFileType_t File
+	#define myDir_t		 dir_t
+	extern SdFatSdio SD;
+#else
+	#define myFileType_t File32
+	#define myDir_t		 DirFat_t
+	extern SdFat32 SD;
+#endif
