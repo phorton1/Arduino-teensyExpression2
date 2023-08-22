@@ -58,6 +58,23 @@
 #define EXP_TIMER_PRIORITY  240                     // lowest priority
     // compared to default priority of 128
 
+//----------------------------------------
+// constant screen layout
+//----------------------------------------
+
+#define BATTERY_X       435
+#define BATTERY_Y       12
+#define BATTERY_FRAME   2
+#define BATTERY_WIDTH   36
+#define BATTERY_HEIGHT  16
+
+#define INDICATOR_Y      	 	20
+#define INDICATOR_RADIUS  	  	5
+#define INDICATOR_X 			280
+#define INDICATOR_PAIR_SPACING  40
+#define INDICATOR_SPACING    	15
+
+#define PEDAL_TEXT_AREA_HEIGHT  30
 
 //--------------------------------
 // global variables
@@ -68,8 +85,11 @@ aSystem theSystem;
 int_rect tft_rect(0,0,479,319);				// full screen
 int_rect title_rect(0,0,479,35);			// not including line
 int_rect full_client_rect(0,37,479,319);	// under line to bottom of screen
-int_rect pedal_rect(0,235,479,319);			// 89 high, starting at 230
 int_rect client_rect(0,37,479,235);			// under line to above pedals
+int_rect pedal_rect(0,235,479,319);			// 89 high, starting at 230
+
+
+#if 0
 
 #define SYNTH_RECT_HEIGHT 70
 #define SONG_STATE_WIDTH  100
@@ -95,12 +115,6 @@ int_rect song_state_rect(
 
 int_rect song_msg_rect[2];
 	// assigned in begin()
-
-
-
-
-
-#if 0
 
 const char *rig_names[MAX_EXP_RIGS];
 
@@ -134,6 +148,9 @@ aSystem::aSystem()
 	draw_title = 1;
 	m_title = 0;
 
+
+#if 0
+
 	song_msg_rect[0].assign(
 		client_rect.xs,
 		song_title_rect.ye + 10,
@@ -145,8 +162,6 @@ aSystem::aSystem()
 		song_title_rect.ye + 10,
 		client_rect.xe,
 		client_rect.ye);
-
-#if 0
 
     m_num_rigs = 0;
     m_cur_rig_num = -1;
@@ -174,6 +189,7 @@ void aSystem::setTitle(const char *title)
 
 
 
+
 void aSystem::begin()
 {
 	display(dbg_sys,"aSystem::begin()",0);
@@ -193,10 +209,11 @@ void aSystem::begin()
 
 	if (!fileSystem::init())
 	{
+		my_error("aSystem COULD NOT START FILE SYSTEM!!",0);
         mylcd.setTextColor(TFT_YELLOW);
         mylcd.println("");
         mylcd.println("aSystem: COULD NOT START FILE SYSTEM!!");
-		delay(10000);
+		delay(5000);
 	}
 
     theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);		//, LED_BLACK, LED_BLACK, LED_PURPLE );
@@ -207,6 +224,9 @@ void aSystem::begin()
         // int selected_color=-1,
         // int touch_color=-1,
         // int pressed_color=-1);
+
+	// if (rig_machine.loadRig("default"))
+	// 	setTitle(rig_machine.rigName());
 
 #if 0
     addRig(new configSystem());
@@ -246,7 +266,6 @@ void aSystem::begin()
 
     activateRig(rig_num);
         // show the first windw
-
 
 #endif // 0
 
@@ -663,21 +682,7 @@ void aSystem::handleSerialData()
 //--------------------------------------
 // loop()
 //--------------------------------------
-// battery indicator
 
-#define BATTERY_X       435
-#define BATTERY_Y       12
-#define BATTERY_FRAME   2
-#define BATTERY_WIDTH   36
-#define BATTERY_HEIGHT  16
-
-#define INDICATOR_Y      	 	20
-#define INDICATOR_RADIUS  	  	5
-#define INDICATOR_X 			280
-#define INDICATOR_PAIR_SPACING  40
-#define INDICATOR_SPACING    	15
-
-#define PEDAL_TEXT_AREA_HEIGHT  30
 
 
 void aSystem::loop()
@@ -717,7 +722,7 @@ void aSystem::loop()
 				TFT_YELLOW);
 
 			mylcd.setFont(Arial_18_Bold);   // Arial_16);
-			mylcd.setTextColor(0);
+			mylcd.setTextColor(TFT_BLACK);
 			mylcd.setDrawColor(TFT_YELLOW);
 
 			for (int i=0; i<NUM_PEDALS; i++)

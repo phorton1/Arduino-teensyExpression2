@@ -25,7 +25,7 @@
 #include "src/prefs.h"
 #include "src/myLeds.h"
 #include "src/theSystem.h"
-
+#include "src/fileSystem.h"
 
 
 void setup()
@@ -36,10 +36,8 @@ void setup()
     //
     // reset_prefs();
     // prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
-
-    prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
-
-    save_prefs();
+    // prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
+    // save_prefs();
 
     //-------------------------------------
     // Start the serial portS
@@ -164,8 +162,10 @@ void setup()
             mylcd.println(" started ... ");
             delay(500);
         }
+        mylcd.fillScreen(TFT_BLACK);
+        mylcd.setFont(Arial_16);
+        mylcd.setCursor(0,40);
     #endif  // test all fonts
-
 
     // write critical debugging messages to screen
     // with variable delays
