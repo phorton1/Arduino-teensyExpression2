@@ -13,6 +13,7 @@
 
 
 #include "rigMachine.h"
+#include "rigExpression.h"		// for EXP_MIDI_PORT_SERIAL
 
 
 #if 0
@@ -32,6 +33,8 @@
 #define MIDI_ACTIVITY_TIMEOUT 			90
 
 #define BATTERY_CHECK_TIME  			30000
+
+#define UI_UPDATE_INTERVAL				30			// 33 frames per second
 
 //----------------------------------
 // normal timer loop
@@ -200,7 +203,7 @@ void aSystem::begin()
 		m_last_midi_activity[i] = 0;
 	}
 
-    theButtons.init();
+    theButtons.begin();
 	thePedals.init();
 	initRotary();
 
@@ -216,14 +219,7 @@ void aSystem::begin()
 		delay(5000);
 	}
 
-    theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);		//, LED_BLACK, LED_BLACK, LED_PURPLE );
-    theButtons.setButtonType(9, 				BUTTON_EVENT_CLICK, 	 LED_GREEN);	//, LED_BLACK, LED_BLACK, LED_PURPLE );
-        // int num,
-        // int mask,
-        // int default_color=-1,
-        // int selected_color=-1,
-        // int touch_color=-1,
-        // int pressed_color=-1);
+    theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);
 
 	if (rig_machine.loadRig("default"))
 		setTitle(rig_machine.rigName());
@@ -484,11 +480,6 @@ void aSystem::onButton(int row, int col, int event)
 // static
 void aSystem::timer_handler()
 {
-	// basics
-
-    theButtons.task();
-	thePedals.task();
-	pollRotary();
 	theSystem.handleSerialData();
 
 	// get and enque midi messages
@@ -596,7 +587,7 @@ void aSystem::handleSerialData()
 		from_serial3 = 1;
 
 		int c = Serial3.read();
-		if (c == 0x0B)
+		if (c == 0x0B)		// ONLY CC commands on channel 0
 		{
 			is_midi = 1;
 			static_serial_buffer[buf_ptr++] = c;
@@ -650,8 +641,20 @@ void aSystem::handleSerialData()
 	else if (finished && is_midi)
 	{
 		display_bytes(dbg_sys-1,"aSystem recv serial midi: ",(uint8_t*)static_serial_buffer,4);
-		rig_machine.onSerialMidi(static_serial_buffer[2],static_serial_buffer[3]);
-		// theSystem.getCurRig()->onSerialMidiEvent(static_serial_buffer[2],static_serial_buffer[3]);
+
+		// Note that the looper ONLY sends
+		// 	 0x0b - header byte indicating a CC message
+		//   0xb0 - second byte indicating a CC message on channel 1 (0 based second nibble)
+		//   0xYY - the CC number, 0..127
+		//   0xZZ - the value, 0..127
+
+		// Here we correct to 1 based channels during the call to onMidiCC
+
+		rig_machine.onMidiCC(
+				EXP_MIDI_PORT_SERIAL,
+				(static_serial_buffer[1] & 0x0f) + 1,
+				static_serial_buffer[2],
+				static_serial_buffer[3]);
 	}
 	else if (finished)
 	{
@@ -688,6 +691,19 @@ void aSystem::handleSerialData()
 void aSystem::loop()
 	//  called from Arduino loop()
 {
+	// static uint32_t last_update = 0;
+	// uint32_t now = millis();
+	// if (now - last_update < UI_UPDATE_INTERVAL)
+	// 	return;
+	// last_update = now;
+
+	// basics
+
+    theButtons.task();
+	thePedals.task();
+	pollRotary();
+
+
 	// initQueryFTP();
 		// query the FTP battery level on a timer
 
@@ -882,7 +898,7 @@ void aSystem::loop()
 	// remap from by output-cable  Di0,Di1,Do0,Do1,Hi0,Hi1,Ho0,Ho1
 	// to by cable-output:         Di0,Do0, Di1,Do1,  Hi0,Ho0, Hi1,Ho1
 
-	unsigned now = millis();
+	uint32_t now = millis();
 	for (int cable_pair=0; cable_pair<NUM_MIDI_PORTS/2; cable_pair++)
 	{
 		for (int out=0; out<2; out++)

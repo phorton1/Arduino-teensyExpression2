@@ -1,6 +1,7 @@
 #--------------------------------------------
 # default.rig
 #--------------------------------------------
+# does NOT currently use buttons 9 or 14
 # externally defined constants have comments
 
 BaseRig		 # required initial rig type
@@ -27,6 +28,16 @@ define(6, AREA_MSG,			2);		# upper right big message
 #-----------------------------------------------------
 # Synth Constants (SampleTank as I have it on iPad)
 #-----------------------------------------------------
+# The MULTI_OFFSET is vestigial since, at some point, I didn't want to
+# re-organize SampleTank's Multi-Patches, I just created a whole new
+# set starting at 16 (which is one based, or #17 in Sample Tank).
+#
+# Futhermore, in that scheme, the patch buttons are thought to
+# be colums that start at 0 on the 3rd row.  So patch 0 is
+# button 10, patch 1 is button 5, patch 3 is button 0, then
+# in the second column, patch 4 is button 11, and so on.
+# This is a bit wonky and definitely related to my own personal
+# SampleTank setup.
 
 define(8,  MULTI_OFFSET, 16);			# MULTI_OFFSET = 16
 define(9,  SYNTH_VOLUME_CHANNEL,  1);	# SYNTH_VOLUME_CHANNEL 	= 1
@@ -52,6 +63,9 @@ define(20,	GUITAR_ECHO_CC, 		30 );	# GUITAR_ECHO_CC 		= 30
 #------------------------------------------------------
 # Looper Constants (as defined by my Looper program)
 #------------------------------------------------------
+# The looper Serial midi sends, and expects only CC messages on Channel 1,
+# which is 0 or'd into the first byte of the message.
+
 # TRACK_STATE_EMPTY               = 0  = 0x00;
 # TRACK_STATE_RECORDING           = 1  = 0x01;
 # TRACK_STATE_PLAYING             = 2  = 0x02;
@@ -120,16 +134,61 @@ define(114, _track4_state,	12);	# TRACK4 STATE
 #----------------------------
 # String Definition
 #----------------------------
+# These strings are in the same order as the patches on SampleTank,
+# starting at MULTI_OFFSET (which is one based, and 17 in the
+# SampleTank UI).
 
-define_string(0, "BASS1"  );			# PATCH_SHORT_NAME{0}
-define_string(1, "BASS-F" );			# PATCH_SHORT_NAME{1}
-define_string(2, "BASS1-G" );			# PATCH_SHORT_NAME{2}
+define_string(0,	"BASS1" );		# SHORT_NAME[0]
+define_string(1,	"BASS-F" );
+define_string(2,	"BASS-G" );
+define_string(3,	"SFLUTE" );
+define_string(4,	"SPACE1" );
+define_string(5,	"SPACE2" );
+define_string(6,	"ORGAN1" );
+define_string(7,	"ORGAN2" );
+define_string(8,	"BRASS" );
+define_string(9,	"PIANO1" );
+define_string(10,	"PIANO2" );
+define_string(11,	"SPACE3" );
+define_string(12,	"BASS2" );
+define_string(13,	"BASS2-G" );
+define_string(14,	"EMPTY" );
+define_string(15,	"FLUTE1" );
+define_string(16,	"VOICE OH" );
+define_string(17,	"VOICE AH" );
+define_string(18,	"STRINGS1" );
+define_string(19,	"STRING2" );
+define_string(20,	"BANJO" );
+define_string(21,	"CHIME" );
+define_string(22,	"MARIMNA" );
+define_string(23,	"FX" );
+
 # and so on ...
 
-define_string(24, "MM Bass Finger");	# PATCH_LONG_NAME{0}
-define_string(25, "MM Bass Finger");	# PATCH_LONG_NAME{1}
-define_string(26, "MM Bass Finger");	# PATCH_LONG_NAME{2}
-# and so on ...
+define_string(24,	"MM Bass Finger" );	# PATCH_LONG_NAME{0}
+define_string(25,	"MM Bass Finger" );
+define_string(26,	"MM Bass Finger" );
+define_string(27,	"Psych Flute" );
+define_string(28,	"Whispering Pad" );
+define_string(29,	"Mega Motion 3" );
+define_string(30,	"Ballad B Pad" );
+define_string(31,	"Drawbars Bow" );
+define_string(32,	"Drama Brass" );
+define_string(33,	"Mellow Grand 2" );
+define_string(34,	"Classical Grand" );
+define_string(35,	"Mega Motion 4" );
+define_string(36,	"Chorus Fretless" );
+define_string(37,	"Chorus Fretless" );
+define_string(38,	"" );
+define_string(39,	"Orch Flute" );
+define_string(40,	"Vocal Oh" );
+define_string(41,	"Vocal Ahh" );
+define_string(42,	"Violin" );
+define_string(43,	"String Orch2" );
+define_string(44,	"Banjo" );
+define_string(45,	"Vibes+Octave" );
+define_string(46,	"Marimba" );
+define_string(47,	"SFX Collection" );
 
 
 #----------------------------------------
@@ -151,20 +210,20 @@ AREA(AREA_SHORT_NAME,	32,  BOLD, 	LEFT,	 5,   5, 299, 40);		# patch short name i
 AREA(AREA_LONG_NAME,	18,  BOLD,	LEFT,	 5,  43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
 AREA(AREA_MSG,  		32,  NORMAL,  RIGHT, 300, 5, 475, 40);		# General Purpose area in upper right
 
-LISTEN(_dub_mode, SERIAL, 0, LOOP_DUB_STATE_CC);
+LISTEN(_dub_mode, SERIAL, 1, LOOP_DUB_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_DUB_STATE_CC=37 messages and stick
 	# their values in the _dub_mode value
 
-LISTEN(_stop_cmd, SERIAL, 0, LOOP_STOP_CMD_STATE_CC);
+LISTEN(_stop_cmd, SERIAL, 1, LOOP_STOP_CMD_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_STOP_CMD_STATE_CC=38 messages and stick
 	# their values in the _stop_cmd value
 
-LISTEN(_track1_state, SERIAL, 0, TRACK_STATE_BASE_CC + 0);
-LISTEN(_track2_state, SERIAL, 0, TRACK_STATE_BASE_CC + 1);
-LISTEN(_track3_state, SERIAL, 0, TRACK_STATE_BASE_CC + 2);
-LISTEN(_track4_state, SERIAL, 0, TRACK_STATE_BASE_CC + 3);
+LISTEN(_track1_state, SERIAL, 1, TRACK_STATE_BASE_CC + 0);
+LISTEN(_track2_state, SERIAL, 1, TRACK_STATE_BASE_CC + 1);
+LISTEN(_track3_state, SERIAL, 1, TRACK_STATE_BASE_CC + 2);
+LISTEN(_track4_state, SERIAL, 1, TRACK_STATE_BASE_CC + 3);
 	# Listen on the Serial Midi Port for
 	# TRACK_STATE_BASE_CC(20..23) messages
 	# and stick their values into the appropriate
@@ -203,7 +262,7 @@ BUTTON(4):
 #
 # If the BUTTON number matches the _patch_button value THEN
 #   the _patch_button value is set to the BUTTON number
-#   the _patch_number value is set to the correct logical value
+#   the _patch_number value is set to the correct (wonky) logical value
 #   the _patch_number value plus the MULTI_OFFSET constant
 #   	is sent via a ProgramChange message to the Midi Port,
 #   	on the SYNTH_PROGRAM_CHANNEL
@@ -211,126 +270,126 @@ BUTTON(4):
 
 BUTTON(0):
 	color:
-		VALUE[_patch_button] == 0 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 0 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 0);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 0);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 2);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 BUTTON(1):
 	color:
-		VALUE[_patch_button] == 1 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 1 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 1);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 1);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 5);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 BUTTON(2):
 	color:
-		VALUE[_patch_button] == 2 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 2 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 2);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 2);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 8);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 BUTTON(3):
 	color:
-		VALUE[_patch_button] == 3 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 3 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 3);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 3);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 11);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
+
 # Second Row
-# Note that henceforth there is a difference between
-# the _patch_button and the _patch_number values
 
 BUTTON(5):
 	color:
-		VALUE[_patch_button] == 5 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 5 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 5);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 4);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 1);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 BUTTON(6):
 	color:
-		VALUE[_patch_button] == 6 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 6 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 6);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 5);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 4);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 BUTTON(7):
 	color:
-		VALUE[_patch_button] == 7 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 7 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 7);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 6);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 7);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 BUTTON(8):
 	color:
-		VALUE[_patch_button] == 8 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 8 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 8);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 7);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 10);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
+
 
 # Third Row
 
 BUTTON(10):
 	color:
-		VALUE[_patch_button] == 10 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 10 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 10);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 8);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 0);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 BUTTON(11):
 	color:
-		VALUE[_patch_button] == 11 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 11 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 11);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 9);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 3);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 BUTTON(12):
 	color:
-		VALUE[_patch_button] == 12 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 12 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 12);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 10);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 6);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 BUTTON(13):
 	color:
-		VALUE[_patch_button] == 13 ? VALUE[_bank] ? LED_BLUE : LED_CYAN : LED_BLACK;
+		VALUE[_patch_button] == 13 ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK;
 	press:
 		setValue(_patch_button, 13);
-		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 11);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 9);
 		SendPgmChg(MIDI0, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
@@ -417,10 +476,18 @@ BUTTON(19):
 		VALUE[_stop_cmd] == 3 ? LED_WHITE :	 #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP ? LED_WHITE :
 		LED_BLACK;
 	click:
-		sendCC(SERIAL, 0, LOOP_COMMAND_CC, VALUE[_stop_cmd]);
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, VALUE[_stop_cmd]);
 		display(AREA_MSG, YELLOW, VALUE[_stop_cmd] == 2 ? "STOP!" : VALUE[_stop_cmd] == 3 ? "STOP" : "");
 	long:
-		sendCC(SERIAL, 0, LOOP_COMMAND_CC, 1);
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_CLEAR_ALL);
+		display(AREA_MSG, YELLOW, "LOOP CLEAR");
+		# even though we will get these back, clear them for testing
+		setValue(_stop_cmd, 0);
+		setValue(_track1_state,0);
+		setValue(_track2_state,0);
+		setValue(_track3_state,0);
+		setValue(_track4_state,0);
+
 
 
 #------------------------------------------
@@ -445,10 +512,10 @@ BUTTON(20):				# track1 button
 		VALUE[_track1_state] & 18 ? LED_YELLOW :
 		VALUE[_track1_state] & 36 ? LED_GREEN :
 		LED_BLACK;
-	blink:
-		VALUE[_track1_state] & 56;
+#	blink:
+#		VALUE[_track1_state] & 56;
 	press:
-		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 0);
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 0);
 		display(AREA_MSG, YELLOW, "TRACK1");
 
 BUTTON(21):
@@ -457,10 +524,10 @@ BUTTON(21):
 		VALUE[_track2_state] & 18 ? LED_YELLOW :
 		VALUE[_track2_state] & 36 ? LED_GREEN :
 		LED_BLACK;
-	blink:
-		VALUE[_track2_state] & 56;
+#	blink:
+#		VALUE[_track2_state] & 56;
 	press:
-		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 1);
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 1);
 		display(AREA_MSG, YELLOW, "TRACK2");
 
 BUTTON(22):
@@ -469,10 +536,10 @@ BUTTON(22):
 		VALUE[_track3_state] & 18 ? LED_YELLOW :
 		VALUE[_track3_state] & 36 ? LED_GREEN :
 		LED_BLACK;
-	blink:
-		VALUE[_track3_state] & 56;
+#	blink:
+#		VALUE[_track3_state] & 56;
 	press:
-		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 2);
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 2);
 		display(AREA_MSG, YELLOW, "TRACK3");
 
 BUTTON(23):
@@ -481,10 +548,10 @@ BUTTON(23):
 		VALUE[_track4_state] & 18 ? LED_YELLOW :
 		VALUE[_track4_state] & 36 ? LED_GREEN :
 		LED_BLACK;
-	blink:
-		VALUE[_track4_state] & 56;
+#	blink:
+#		VALUE[_track4_state] & 56;
 	press:
-		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 3);
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 3);
 		display(AREA_MSG, YELLOW, "TRACK4");
 
 
@@ -509,5 +576,11 @@ BUTTON(24):
 	long:
 		sendCC(SERIAL, 0, LOOP_COMMAND_CC, LOOP_COMMAND_CLEAR_ALL);
 		display(AREA_MSG, YELLOW, "LOOP CLEAR");
+		# even though we will get these back, clear them for testing
+		setValue(_stop_cmd, 0);
+		setValue(_track1_state,0);
+		setValue(_track2_state,0);
+		setValue(_track3_state,0);
+		setValue(_track4_state,0);
 
 # end of test.rig

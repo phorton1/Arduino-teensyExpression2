@@ -1,6 +1,13 @@
 //-------------------------------------------------------
 // rigMachine.cpp
 //-------------------------------------------------------
+// Remember that the expression evaluator is not re-entrant!
+// We 'solved' the problem by calling buttons, pedals, and rotaries
+// from theSystem.loop() method, which also then calls rigMachine::updateUI(),
+// so we never find ourselves in the middle of executing a statement
+// from onButton, and evalauating it's parameters, at the same time as we
+// try to evaluate a COLOR/BLINK expression.
+
 
 #include <myDebug.h>
 #include "rigMachine.h"
@@ -9,6 +16,7 @@
 #include "myLeds.h"
 #include "myTFT.h"
 #include "theSystem.h"
+#include "midiQueue.h"	// for send methods
 
 
 
@@ -21,6 +29,8 @@
 	// 0  = just show final param value
 	// -1 = show param details and expression header
 	// -2 = show expression return value
+#define dbg_midi    0
+	// show midi stuff
 
 rigMachine rig_machine;
 
@@ -117,8 +127,7 @@ bool rigMachine::startRig()
 
 		// invariantly add the long click for the system button
 
-		int mask = i == THE_SYSTEM_BUTTON ? BUTTON_EVENT_LONG_CLICK : 0;	// BUTTON_MASK_USER_DRAW
-
+		int mask = (i == THE_SYSTEM_BUTTON) ? BUTTON_EVENT_LONG_CLICK : 0;
 		for (uint16_t j=RIG_TOKEN_PRESS; j<=RIG_TOKEN_REPEAT && ok; j++)
 		{
 			uint16_t ref = rig_header.button_refs[i][j - RIG_TOKEN_COLOR];
@@ -135,7 +144,7 @@ bool rigMachine::startRig()
 		}
 		if (mask)
 		{
-			display(dbg_rig,"setButton(%d,0x%04x)",i,mask);
+			// display(dbg_rig,"setButton(%d,0x%04x)",i,mask);
 			theButtons.setButtonType(i,mask);
 		}
 	}
@@ -415,10 +424,8 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 	display(dbg_stmt,"executeStatement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
 	proc_entry();
 
-	bool ok = 1;
-
 	const statement_param_t *params = findParams(tt);
-	ok = params;
+	bool ok = params;
 
 	int param_num = 0;
 	const int *arg = params->args;
@@ -469,6 +476,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 			case RIG_TOKEN_PEDAL:
 			case RIG_TOKEN_ROTARY:
 				break; // TBD
+
 			case RIG_TOKEN_DISPLAY:
 				display(dbg_rig,"display(%d,%d=%s,\"%s\")",
 					m_param_values[0].value,
@@ -480,8 +488,68 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 					m_param_values[1].value,
 					m_param_values[2].text);
 				break;
+
 			case RIG_TOKEN_SEND_CC:
+				display(dbg_rig,"sendCC(%d=%s,%d,%d,%d)",
+					m_param_values[0].value,
+					rigTokenToText(m_param_values[0].value + RIG_TOKEN_MIDI0),
+					m_param_values[1].value,
+					m_param_values[2].value,
+					m_param_values[3].value);
+				if (m_param_values[0].value == EXP_MIDI_PORT_SERIAL)
+				{
+					// note that the send channel (param1) is currently ignored
+					// as the Looper ALWAYS sends and receives on channel 1 (which is 0 in the byte)
+					sendSerialControlChange(
+						m_param_values[2].value,
+						m_param_values[3].value);
+				}
+				else if (m_param_values[0].value == EXP_MIDI_PORT_MIDI0)
+				{
+					if (!m_param_values[1].value)
+					{
+						ok = 0;
+						rig_error("cannot sendCC to MIDI0 port on Channel 0 !!!");
+					}
+					else
+					{
+						mySendDeviceControlChange(
+							m_param_values[1].value,
+							m_param_values[2].value,
+							m_param_values[3].value);
+					}
+				}
+				else // if (m_param_values[0].value == EXP_MIDI_PORT_MIDI1)
+				{
+					ok = 0;
+					rig_error("Sending CC's to MIDI1 port is not currently supported");
+				}
+				break;
+
 			case RIG_TOKEN_SEND_PGM_CHG:
+				display(dbg_rig,"sendPgmChg(%d=%s,%d,%d)",
+					m_param_values[0].value,
+					rigTokenToText(m_param_values[0].value + RIG_TOKEN_MIDI0),
+					m_param_values[1].value,
+					m_param_values[2].value);
+				if (m_param_values[0].value != EXP_MIDI_PORT_MIDI0)
+				{
+					ok = 0;
+					rig_error("sendPgmChange() only supported on MIDI0 port!!!");
+				}
+				else if (!m_param_values[1].value)
+				{
+					ok = 0;
+					rig_error("cannot sendPgmChg to MIDI0 port on Channel 0 !!!");
+				}
+				else
+				{
+					mySendDeviceProgramChange(
+						m_param_values[1].value,
+						m_param_values[2].value);
+				}
+				break;
+
 			case RIG_TOKEN_NOTE_ON:
 			case RIG_TOKEN_NOTE_OFF:
 			case RIG_TOKEN_ALL_NOTES_OFF:
@@ -504,6 +572,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 
 bool rigMachine::executeStatementList(int statement_num)
 {
+	bool ok = 1;
 	uint16_t offset = cur_rig_header->statements[statement_num];
 	uint16_t last_offset  = cur_rig_header->statements[statement_num+1];
 
@@ -514,18 +583,14 @@ bool rigMachine::executeStatementList(int statement_num)
 		last_offset-offset);
 	proc_entry();
 
-	while (offset < last_offset)
+	while (ok && offset < last_offset)
 	{
-		if (!executeStatement(&offset,last_offset))
-		{
-			proc_leave();
-			return false;
-		}
+		ok = executeStatement(&offset,last_offset);
 	}
 
 	proc_leave();
-	display(dbg_rig,"executeStatementList() finished",0);
-	return true;
+	display(dbg_rig,"executeStatementList() returning %d",ok);
+	return ok;
 }
 
 
@@ -535,12 +600,26 @@ bool rigMachine::executeStatementList(int statement_num)
 
 void rigMachine::onMidiCC(int port, int channel, int cc_num, int value)
 {
+	display(dbg_midi,"onMidiCC(%d,%d,%d,%d)",port,channel,cc_num,value);
 
-}
-void rigMachine::onSerialMidi(int cc_num, int value)
-{
+	// set the value into any SERIAL Listens for the given CC number
+	// with the convention that listening to channel 0 accepts all channels
 
+	for (int num=0; num<RIG_NUM_LISTENS; num++)
+	{
+		rigListen_t *listen = &m_rig_state.listens[num];
+		if (listen->active &&
+			listen->port == port &&
+			listen->cc == cc_num && (
+			listen->channel == 0 ||
+			listen->channel == channel))
+		{
+			display(dbg_midi,"    --> setting value(%d) to 0x%02x",num,value);
+			m_rig_state.values[num] = value;
+		}
+	}
 }
+
 
 void rigMachine::onButton(int row, int col, int event)
 {
@@ -572,7 +651,9 @@ void rigMachine::onButton(int row, int col, int event)
 		uint16_t ref = refs[ref_num];
 		display(dbg_rig,"checking tt(%s=%d) ref=%d",rigTokenToText(tt),ref_num,ref);
 		if (ref)
+		{
 			executeStatementList(ref-1);
+		}
 	}
 
 	proc_leave();
@@ -584,8 +665,68 @@ void rigMachine::onButton(int row, int col, int event)
 //--------------------------------------------------
 // updateUI
 //--------------------------------------------------
+// I probably want to turn off some debugging in this.
+
+#define UI_INTERVAL     20		// 50 times a second
+#define BLINK_INTERVAL  300    	// ms
 
 void rigMachine::updateUI()
 {
+	// invariantly toggle the blink_state every BLINK_INTERVAL ms
 
+	static uint32_t blink_time = 0;
+	static bool blink_state = 0;
+	uint32_t now = millis();
+	if (now - blink_time >= BLINK_INTERVAL)
+	{
+		blink_time = now;
+		blink_state = !blink_state;
+	}
+
+	// evaulate any defined button color or blink expression
+	// they are never strings, so no need for rslt->is_string = 0;
+
+	evalResult_t rslt;
+	const uint8_t *code = cur_rig_code->expression_pool;
+
+	for (int num=0; num<NUM_BUTTONS; num++)
+	{
+		uint16_t *refs = rig_header.button_refs[num];
+		uint16_t ref = refs[SUBSECTION_NUM(RIG_TOKEN_COLOR)];
+
+		// if it has a color expression, evaluate it
+
+		if (ref)
+		{
+			uint16_t offset = ref-1;
+			uint8_t led_color_idx  = 0;
+			if (evalExpression(&rslt,"LED_COLOR",code,&offset))
+			{
+				led_color_idx = rslt.value;	// 0..7 color index
+				uint16_t ref = refs[SUBSECTION_NUM(RIG_TOKEN_BLINK)];
+				if (ref)
+				{
+					offset = ref -1;
+					if (evalExpression(&rslt,"BLINK",code,&offset) &&
+						rslt.value &&
+						!blink_state)
+					{
+						led_color_idx = 0;	// color index for black
+					}
+				}
+			}
+
+			// if the led_color index has changed, call myLeds to set the new one
+
+			if (theButtons.getButtonColor(num) != LED_COLORS[led_color_idx])
+			{
+				display(0,"rigMachine calling setButtonColor(%d) to index %d=0x%06x  old=0x%06x",
+					num,
+					led_color_idx,
+					LED_COLORS[led_color_idx],
+					theButtons.getButtonColor(num));
+				theButtons.setButtonColor(num,LED_COLORS[led_color_idx]);
+			}
+		}
+	}
 }

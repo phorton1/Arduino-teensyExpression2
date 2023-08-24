@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Arduino.h>
+
 #define LED_BLACK  0x000000
 #define LED_RED    0xFF0000
 #define LED_GREEN  0x00FF00
@@ -18,8 +20,11 @@ extern void clearLEDs();
 extern int getLEDBrightness();
 extern void setLEDBrightness(int brightness);   // 0..100
 
-extern void setLED(int num, unsigned color);
-extern void setLED(int row, int col, unsigned color);
-extern void showLEDs(bool force=false);
+extern uint32_t getLED(int num);
+extern uint32_t getLED(int row, int col);
 
+extern void setLED(int num, uint32_t color);
+extern void setLED(int row, int col, uint32_t color);
+
+extern void showLEDs(bool force=false);
 extern void LEDFancyStart();

@@ -526,10 +526,6 @@ uint16_t rigValueExpression(int tt)
 {
 	return genericExpression("VALUE_NUM",EXP_TYPE_NUMBER,tt,MAX_RIG_VALUE);
 }
-uint16_t rigMidiPortExpression(int tt)
-{
-	return genericExpression("MIDI_PORT",EXP_TYPE_NUMBER,tt,MIDI_MAX_CHANNEL);
-}
 uint16_t rigMidiChannelExpression(int tt)
 {
 	return genericExpression("MIDI_CHANNEL",EXP_TYPE_NUMBER,tt,MIDI_MAX_CHANNEL);

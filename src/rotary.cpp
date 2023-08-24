@@ -121,15 +121,14 @@ void pollRotary()
             {
                 sendSerialControlChange(
                     rotary_pref->MIDI_CC,
-                    rotary[i].value,
-                    "pedals.cpp");
+                    rotary[i].value);
             }
             else
             {
                 mySendDeviceControlChange(
                     rotary_pref->MIDI_CHANNEL,
-                    rotary[i].value,
-                    rotary_pref->MIDI_CC);
+                    rotary_pref->MIDI_CC,
+                    rotary[i].value);
             }
         }
     }

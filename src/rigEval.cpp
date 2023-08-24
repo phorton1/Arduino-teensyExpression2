@@ -1,7 +1,10 @@
 //-------------------------------------------------------
 // rigEval.cpp
 //-------------------------------------------------------
-// the rigMachine expression evaluator
+// The rigMachine expression evaluator.
+//
+// Note that the expression evaluator is NOT re-entrant!!
+
 
 #include <myDebug.h>
 #include "rigMachine.h"

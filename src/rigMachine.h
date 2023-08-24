@@ -33,7 +33,6 @@ typedef struct
 
 typedef struct
 {
-
 	rigArea_t	areas[RIG_NUM_AREAS];
 	uint8_t		values[RIG_NUM_VALUES];
 	rigListen_t	listens[RIG_NUM_LISTENS];
@@ -63,8 +62,7 @@ public:
 
 	void updateUI();
     void onButton(int row, int col, int event);
-	void onMidiCC(int port, int channel, int cc_num, int value);	// not yet called
-	void onSerialMidi(int cc_num, int value);
+	void onMidiCC(int port, int channel, int cc_num, int value);
 
 private:
 

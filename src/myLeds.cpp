@@ -44,21 +44,35 @@
     //      Serial6 on Teensy 3.6 is not currently supported, due to different hardware
     //      registers.
 
-#define NUM_LEDS         (NUM_BUTTON_ROWS * NUM_BUTTON_COLS)
+#define NUM_LEDS            (NUM_BUTTON_ROWS * NUM_BUTTON_COLS)
+#define RC_TO_LED_NUM(r,c)  ( (r & 1) ? ((r+1) * NUM_BUTTON_COLS - c - 1) : (r * NUM_BUTTON_COLS + c))
+    //  0, 1, 2, 3, 4
+    //  9, 8, 7, 6, 5
+    // 10,11,12,13,14
+    // 19,18,17,16,15
+    // 20,21,22,23,24
 
 
-unsigned drawingMemory[NUM_LEDS];
+uint32_t drawingMemory[NUM_LEDS];         //  4 bytes per LED, MINE - independent of brightness
 byte renderingMemory[NUM_LEDS*3];         //  3 bytes per LED
-DMAMEM byte displayMemory[NUM_LEDS*12]; // 12 bytes per LED
+DMAMEM byte displayMemory[NUM_LEDS*12];   // 12 bytes per LED
+
 WS2812Serial leds(NUM_LEDS, displayMemory, renderingMemory, LED_PIN, WS2812_GRB);
 
-unsigned brightness = 100;
+uint32_t brightness = 100;
 bool leds_changed = 0;
 
 void initLEDs()
 {
     leds.begin();
 }
+
+void clearLEDs()
+{
+    for (int i=0; i<NUM_BUTTONS; i++)
+        setLED(i,LED_BLACK);
+}
+
 
 int getLEDBrightness()
 {
@@ -72,31 +86,29 @@ void setLEDBrightness(int i)   // 0..100
 }
 
 
-void setLED(int num, unsigned color)
+uint32_t getLED(int num)
+{
+    int row = num / NUM_BUTTON_COLS;
+    int col = num % NUM_BUTTON_COLS;
+    return getLED(row,col);
+}
+
+uint32_t getLED(int row, int col)
+{
+    return drawingMemory[RC_TO_LED_NUM(row,col)];
+}
+
+
+void setLED(int num, uint32_t color)
 {
     int row = num / NUM_BUTTON_COLS;
     int col = num % NUM_BUTTON_COLS;
     setLED(row,col,color);
 }
 
-
-void setLED(int row, int col, unsigned color)
-    //  0, 1, 2, 3, 4
-    //  9, 8, 7, 6, 5
-    // 10,11,12,13,14
-    // 19,18,17,16,15
-    // 20,21,22,23,24
+void setLED(int row, int col, uint32_t color)
 {
-    int i;
-    if (row & 1)
-    {
-        i = (row+1) * NUM_BUTTON_COLS - col - 1;
-    }
-    else
-    {
-        i = row * NUM_BUTTON_COLS + col;
-    }
-    drawingMemory[i] = color;
+    drawingMemory[RC_TO_LED_NUM(row,col)] = color;
     leds_changed = 1;
 }
 
@@ -108,10 +120,10 @@ void showLEDs(bool force)
     {
         for (int i=0; i<NUM_LEDS; i++)
         {
-            unsigned c = drawingMemory[i];
-            unsigned r = (c >> 16) * brightness;
-            unsigned g = ((c >> 8) & 0xff) * brightness;
-            unsigned b = (c & 0xff) * brightness;
+            uint32_t c = drawingMemory[i];
+            uint32_t r = (c >> 16) * brightness;
+            uint32_t g = ((c >> 8) & 0xff) * brightness;
+            uint32_t b = (c & 0xff) * brightness;
             r /= 100;
             g /= 100;
             b /= 100;
@@ -136,26 +148,13 @@ void LEDFancyStart()
             float blue = ((4-c)/4) * 255.0;
             float green = (r/4) * 255.0;
 
-            unsigned rr = red;
-            unsigned gg = green;
-            unsigned bb = blue;
+            uint32_t rr = red;
+            uint32_t gg = green;
+            uint32_t bb = blue;
 
             setLED(row,col,(rr << 16) + (gg << 8) + bb);
             showLEDs();
-
             delay(40);
-        }
-    }
-}
-
-
-void clearLEDs()
-{
-    for (int row=0; row<NUM_BUTTON_ROWS; row++)
-    {
-        for (int col=0; col<NUM_BUTTON_COLS; col++)
-        {
-            setLED(row,col,0);
         }
     }
 }

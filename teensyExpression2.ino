@@ -34,10 +34,10 @@ void setup()
 
     // things I might want to do:
     //
-    // reset_prefs();
+    reset_prefs();
     // prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
     // prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
-    // save_prefs();
+    save_prefs();
 
     //-------------------------------------
     // Start the serial portS
@@ -73,8 +73,8 @@ void setup()
 
     // output the initial message
 
-    delay(400);
-    mem_check("early in setup()");
+    // delay(400);
+    // mem_check("early in setup()");
         // at start of day 2023-08-05
         // mem used       8604
         // heap_used      0
@@ -221,7 +221,7 @@ void setup()
     theSystem.begin();
 
     display(0,"teensyExpression.ino setup() completed.",0);
-    mem_check("at end of setup()");
+    // mem_check("at end of setup()");
         // at start of day 2023-08-05
         // mem used       8604
         // heap_used      3684

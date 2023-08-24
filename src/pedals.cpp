@@ -64,7 +64,7 @@ void expressionPedal::init(
 
 void expressionPedal::poll()
 {
-    unsigned time = millis();
+    uint32_t time = millis();
     bool raw_changed = false;
     int raw_value = analogRead(m_pin);
 
@@ -216,14 +216,13 @@ void pedalManager::pedalEvent(int num, int value)
     {
         sendSerialControlChange(
             pedal_pref->MIDI_CC,
-            value,
-            "pedals.cpp");
+            value);
     }
     else
     {
         mySendDeviceControlChange(
+            pedal_pref->MIDI_CHANNEL,
             pedal_pref->MIDI_CC,
-            value,
-            pedal_pref->MIDI_CHANNEL);
+            value);
 	}
 }

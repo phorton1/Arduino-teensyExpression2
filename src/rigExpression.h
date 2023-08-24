@@ -9,7 +9,6 @@
 
 #define MAX_EXP_STACK   16
 
-
 // NumericExpression =
 //		NUMBER
 //      NOT NumericExpression
@@ -26,6 +25,12 @@
 //		( ColorExpression )
 //		NumericExpression ? ColorExpression : ColorExpression
 // BIN_OP  + - * / == != > >= < <= & && | ||
+
+// Some Useful Constants
+
+#define EXP_MIDI_PORT_MIDI0		(RIG_TOKEN_MIDI0 - RIG_TOKEN_MIDI0)		// 0
+#define EXP_MIDI_PORT_MIDI1		(RIG_TOKEN_MIDI1 - RIG_TOKEN_MIDI0)		// 1
+#define EXP_MIDI_PORT_SERIAL	(RIG_TOKEN_SERIAL - RIG_TOKEN_MIDI0)	// 2
 
 
 //-------------------------------------------------
@@ -76,10 +81,6 @@
 
 #define EXP_END				0xFF
 
-
-
-
-
 //-----------------------------------
 // methods
 //-----------------------------------
@@ -93,7 +94,6 @@ extern uint16_t rigAreaNumExpression(int tt);
 extern uint16_t rigValueNumExpression(int tt);
 
 extern uint16_t rigValueExpression(int tt);
-extern uint16_t rigMidiPortExpression(int tt);
 extern uint16_t rigMidiChannelExpression(int tt);
 extern uint16_t rigMidiValueExpression(int tt);
 

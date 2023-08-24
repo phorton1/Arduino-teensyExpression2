@@ -108,7 +108,7 @@ class expressionPedal
         bool     m_valid;
         int      m_raw_value;       // 0..1023
         int      m_direction;       // -1,0,1
-        unsigned m_settle_time;
+        uint32_t m_settle_time;
         int      m_value;           // 0..127
 
         int      m_display_value;           // display helper

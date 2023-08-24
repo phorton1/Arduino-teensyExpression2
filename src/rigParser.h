@@ -20,8 +20,17 @@
 #include "defines.h"
 #include "rigToken.h"	// for NUM_SUBSECTIONS
 
-#define MIDI_MAX_PORT			(RIG_TOKEN_SERIAL - RIG_TOKEN_MIDI0)
-#define MIDI_MAX_CHANNEL		15
+#define MIDI_MAX_CHANNEL		16
+#define MIDI_MIN_CHANNEL		1
+#define MIDI_OMNI_CHANNEL		0
+	// Midi messages MUST be sent on a valid midi channel 1-16, which
+	// 		will be 0..15 or'd into the sent message.
+	// The special value of 0 is only available for Listens, which means
+	// to listen on any channel.
+	// TBD: Error checking for MIDI_MIN_CHANNEL==1 on sending
+	//      and differentiating between LISTEN and send statements
+
+
 #define MIDI_MAX_VALUE			127
 
 // These are fixed by architecture
@@ -38,7 +47,7 @@
 #define RIG_NUM_STRINGS			128
 
 #define RIG_NUM_AREAS			16
-#define RIG_NUM_LISTENS			128
+#define RIG_NUM_LISTENS			128		// same as RIG_NUM_VALUES
 
 
 // Pool Sizes

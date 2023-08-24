@@ -7,6 +7,9 @@
 #include "theSystem.h"
 
 
+#define dbg_midi_send  0
+
+
 #define MAX_PROCESS_QUEUE   8192
 #define MAX_SYSEX_BUFFER    1024
 #define MAX_OUTGOING_QUEUE  1024
@@ -107,8 +110,9 @@ void mySendMidiMessage(uint8_t msg_type, uint8_t channel, uint8_t p1, uint8_t p2
 }
 
 
-void mySendDeviceProgramChange(uint8_t prog_num, uint8_t channel)
+void mySendDeviceProgramChange(uint8_t channel, uint8_t prog_num)
 {
+    display(dbg_midi_send,"mySendDeviceProgramChange(%d, %d)",channel,prog_num);
     #if 1
         mySendMidiMessage(0x0C, channel, prog_num, 0);
     #else
@@ -123,8 +127,10 @@ void mySendDeviceProgramChange(uint8_t prog_num, uint8_t channel)
     #endif
 }
 
-void mySendDeviceControlChange(uint8_t cc_num, uint8_t value, uint8_t channel)
+void mySendDeviceControlChange(uint8_t channel, uint8_t cc_num, uint8_t value)
 {
+    display(dbg_midi_send,"mySendDeviceControlChange(%d, %d, %d)",channel,cc_num,value);
+
     #if 1
         mySendMidiMessage(0x0B, channel, cc_num, value);
     #else
@@ -141,11 +147,9 @@ void mySendDeviceControlChange(uint8_t cc_num, uint8_t value, uint8_t channel)
 
 
 
-void sendSerialControlChange(uint8_t cc_num, uint8_t value, const char *debug_msg)
+void sendSerialControlChange(uint8_t cc_num, uint8_t value)
 {
-    #if 0
-        display(0,"sendSerialControlChange(0x%02x, 0x%02x) from %s",cc_num,value,debug_msg);
-    #endif
+    display(dbg_midi_send,"sendSerialControlChange(%d, %d)",cc_num,value);
 
     unsigned char midi_buf[4];
     midi_buf[0] = 0xB;				// controller message

@@ -137,7 +137,7 @@ class aSystem
         IntervalTimer m_timer;
         static void timer_handler();
 
-        unsigned m_midi_activity[NUM_MIDI_PORTS];
+        uint32_t m_midi_activity[NUM_MIDI_PORTS];
         bool m_last_midi_activity[NUM_MIDI_PORTS];
 
         void handleSerialData();
