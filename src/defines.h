@@ -117,8 +117,24 @@ extern void mem_check(const char *where = 0);
 //============================================================
 // pin definitions and connectors
 //============================================================
+// The serial cable connector, 3 pin Dupon on front of PCB, pins are facing.
+//      On Teensy 3.6 SERIAL is SERIAL3
+//      On Teensy 4.1 SERIAL is SERIAL2
+// In terms of the teensy's viewpoint of RX/TX,
+// which map to Tip, Ring, and Sleeve the opposite
+// of the Looper's.
+
+// SERIAL_TX    pin 1		// Tip on TE
+// SERIAL_RX	pin 2		// Ring on TE
+// GND          pin 3		// Sleeve on both
+
+
+//--------------------------------------------
 // Button in and out pins
-// in FACING connector order (when seen from front of board)
+//--------------------------------------------
+// 1st and 2nd 5 pin connectors on back in FACING order
+// when seen from front of board.  Note that a single
+// 15 pin connector on the board is used for 3 5 pin plugs.
 
 #define PIN_BUTTON_IN0      29      // pin 5 on 1st connector facing
 #define PIN_BUTTON_IN1      30      // pin 4
@@ -133,11 +149,27 @@ extern void mem_check(const char *where = 0);
 #define PIN_BUTTON_OUT0     24      // pin 5
 
 
+//--------------------------------------------------------
+// Expression pedal connector, 6 pin dupont on front, facing
+//--------------------------------------------------------
+// I added 10K resistors to the 1/4" pedal jacks to
+// the insertion switch to ground them when not in use.
+// New PCB also adds 10K pulldowns to each as well as a
+// 1K inline power resistor to prevent reboots when inserting
+// expression pedal plugs, resulting in an effective range of
+// about 0..(0.75 * 1023)
+
+#define PIN_EXPR4    20     // pin1 A6
+#define PIN_EXPR3    21     // pin2 A7
+#define PIN_EXPR2    22     // pin3 A8
+#define PIN_EXPR1    23     // pin4 A9
+                            // pin5 3.3V
+                            // pin6 GND
+
 //---------------------------------------
 // Rotary Pins and connectors
 //---------------------------------------
-// The connectors are FACING FROM THE FRONT
-// and the opposite of the kicad connectors.
+// 3rd and 4th 5 pin connectors on back in FACING order
 // The kicad files show the NEW rotary board setup.
 
 #if 0		// NEW ROTARY BOARD DESIGN
@@ -176,7 +208,7 @@ extern void mem_check(const char *where = 0);
 //-----------------------------------------------
 // UNO style parallel ILI9486 320x480 display
 //-----------------------------------------------
-// The TFT DATA is on the 1st front connector, facing
+// The TFT DATA is on the 1st front 8 pin JST connector, facing
 
 #define TFT_DATA0   34     // pin 1
 #define TFT_DATA1   35     // pin 2
@@ -188,7 +220,7 @@ extern void mem_check(const char *where = 0);
 #define TFT_DATA7   19     // pin 8
 
 
-// The TFT controls and power are on the 2nd front connector, facing
+// The TFT controls and power are on the 2nd front 8 pin JST connector, facing
 //
 // GND              			// pin 1
 #define TFT_RD     		14      // pin 2
@@ -199,33 +231,12 @@ extern void mem_check(const char *where = 0);
 // 5V               			// pin 7
 // 3.3V             			// pin 8
 
+// Touch Screen Redefinitions
 
-//--------------------------------------------------------
-// Expression pedal connector, 3rd on front row, facing
-//--------------------------------------------------------
-// I added 10K resistors to the 1/4" pedal jacks to
-// the insertion switch to ground them when not in use!
-
-#define PIN_EXPR4    20     // pin1 A6
-#define PIN_EXPR3    21     // pin2 A7
-#define PIN_EXPR2    22     // pin3 A8
-#define PIN_EXPR1    23     // pin4 A9
-                            // pin5 3.3V
-                            // pin6 GND
-
-//--------------------------------------------
-// The serial cable connector, on front row,
-//--------------------------------------------
-// On Teensy 3.6 SERIAL is SERIAL3
-// On Teensy 4.1 SERIAL is SERIAL2
-// In terms of the teensy's viewpoint of RX/TX,
-// which is the opposite of the Looper's, and we also
-// have to keep track of Tip, Ring (middle), and Sleeve (outer)
-
-// SERIAL_TX    pin 1		// Sleeve on TE
-// SERIAL_RX	pin 2		// Tip on TE
-// GND          pin 3		// Sleeve on both
-
+#define YP  TFT_CD_RS   // 16=A2        // A2 maps to LCD_RS on arduino    // must be an analog pin, use "An" notation!
+#define XM  TFT_CS      // 17=A3        // A3 maps to LCD_CS on arduino    // must be an analog pin, use "An" notation!
+#define YM  TFT_DATA0   // 34=A15        / 8  maps to LCD_D0 on arduino    // can be a digital pin
+#define XP  TFT_DATA1   // 35=A16       // 9  maps to LCD_D1 on arduino    // can be a digital pin
 
 
 //===========================================================
