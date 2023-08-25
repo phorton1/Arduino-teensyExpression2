@@ -114,7 +114,7 @@ void pollRotary()
     {
         if (_pollRotary(i))
         {
-            // theSystem.rotaryEvent(i,rotary[i].value);
+            // the_system.rotaryEvent(i,rotary[i].value);
             pref_rotary_t *rotary_pref = &prefs.ROTARY[i];
 
             if (rotary_pref->IS_SERIAL)

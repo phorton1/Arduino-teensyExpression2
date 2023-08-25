@@ -125,10 +125,10 @@ extern bool showPerformanceCCs;
 
 
 extern void enqueueProcess(uint32_t msg);
-    // called by theSystem::timer_handler() for messages from device
+    // called by the_system::timer_handler() for messages from device
 
 extern void dequeueProcess();
-    // called by theSystem::timer_handler() or updateUI()
+    // called by the_system::timer_handler() or updateUI()
     // this method is currently doing all the work
     // and the return value is ignored, there are
     // no messages eneuqued for display

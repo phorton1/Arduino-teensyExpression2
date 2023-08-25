@@ -3,10 +3,9 @@
 #include "theSystem.h"
 #include "myLeds.h"
 
-#define dbg_btn   -1
+#define dbg_btn   1
 	// 0 = show initialization
 	// -1 = show actions
-
 
 #define BUTTON_STATE_PRESSED       0x0001
     // is the button currently pressed
@@ -15,12 +14,10 @@
 #define BUTTON_STATE_HANDLED       0x0100
 	// LONG_CLICK event was sent
 
-
-
-#define DEBOUNCE_MILLIS    30
-#define LONG_PRESS_TIME    800
-#define DOUBLE_CLICK_TIME  360
-
+#define DEBOUNCE_MILLIS		30
+#define LONG_PRESS_TIME		800
+#define DOUBLE_CLICK_TIME	360
+#define BLINK_INTERVAL		300
 
 
 buttonArray theButtons;
@@ -44,7 +41,8 @@ void arrayedButton::init()
 {
     m_mask = 0;
 	m_color = LED_BLACK;
-    m_press_time = 0;
+    m_blink = 0;
+	m_press_time = 0;
     m_debounce_time = 0;
     m_repeat_time = 0;
 }
@@ -90,26 +88,12 @@ void buttonArray::setButtonType(int num, uint16_t mask, uint32_t color)
 }
 
 
-void buttonArray::setButtonMask(int num, uint16_t mask)
-{
-	display(dbg_btn,"setButtonMask(%d, 0x%04X)",num,mask);
-    m_buttons[num].m_mask = mask;
-}
-
-
-void buttonArray::setButtonColor(int num, uint32_t color)
-{
-	display(dbg_btn,"setButtonColor(%d, 0x%06X)",num,color);
-    m_buttons[num].m_color = color;
-}
-
 
 void buttonArray::showButton(int num)
 	// forces a button to show the correct color before an event
 {
-    arrayedButton *pb = &m_buttons[num];
-	uint32_t use_color = (pb->m_state & BUTTON_STATE_WHITE) ? LED_WHITE : pb->m_color;
-	display(dbg_btn+1,"showButton(%d, color=0x%06x, use_color=0x%06x)",num,pb->m_color,use_color);
+    uint32_t use_color = (m_buttons[num].m_state & BUTTON_STATE_WHITE) ? LED_WHITE : m_buttons[num].m_color;
+	display(dbg_btn+1,"showButton(%d, color=0x%06x, use_color=0x%06x)",num,m_buttons[num].m_color,use_color);
 	setLED(num,use_color);
 	showLEDs(1);	// force
 }
@@ -121,6 +105,19 @@ void buttonArray::showButton(int num)
 
 void buttonArray::task()
 {
+	// invariantly toggle the blink_state every BLINK_INTERVAL ms
+
+	static uint32_t blink_time = 0;
+	static bool blink_state = 0;
+	uint32_t now = millis();
+	if (now - blink_time >= BLINK_INTERVAL)
+	{
+		blink_time = now;
+		blink_state = !blink_state;
+	}
+
+	// poll the buttons
+
     for (int row=0; row<NUM_BUTTON_ROWS; row++)
     {
         digitalWrite(row_pins[row],1);
@@ -163,7 +160,7 @@ void buttonArray::task()
                     if (pb->m_mask & BUTTON_EVENT_PRESS)		// PRESS buttons don't turn white
                     {
                         display(dbg_btn+1,"BUTTON_EVENT_PRESS(%d,%d)",row,col);
-                        theSystem.onButton(row, col, BUTTON_EVENT_PRESS);
+                        the_system.onButton(row, col, BUTTON_EVENT_PRESS);
                     }
 					else
 					{
@@ -184,12 +181,12 @@ void buttonArray::task()
 						if (pb->m_mask & BUTTON_EVENT_RELEASE)
 						{
 							display(dbg_btn+1,"BUTTON_EVENT_RELEASE(%d,%d)",row,col);
-							theSystem.onButton(row, col, BUTTON_EVENT_RELEASE);
+							the_system.onButton(row, col, BUTTON_EVENT_RELEASE);
 						}
 						if (pb->m_mask & BUTTON_EVENT_CLICK)
 						{
 							display(dbg_btn+1,"BUTTON_EVENT_CLICK(%d,%d)",row,col);
-							theSystem.onButton(row, col, BUTTON_EVENT_CLICK);
+							the_system.onButton(row, col, BUTTON_EVENT_CLICK);
 						}
                     }
 
@@ -224,7 +221,7 @@ void buttonArray::task()
                     if (now - pb->m_repeat_time > interval)
                     {
                         display(dbg_btn+1,"repeat BUTTON_EVENT_PRESS(%d,%d)",row,col);
-                        theSystem.onButton(row, col, BUTTON_EVENT_PRESS);
+                        the_system.onButton(row, col, BUTTON_EVENT_PRESS);
                         pb->m_repeat_time = now;
                     }
                 }
@@ -237,14 +234,17 @@ void buttonArray::task()
 					pb->m_state &= ~BUTTON_STATE_WHITE;
 					showButton(num);
                     display(dbg_btn+1,"BUTTON_EVENT_LONG_CLICK(%d,%d)",row,col);
-                    theSystem.onButton(row, col, BUTTON_EVENT_LONG_CLICK);
+                    the_system.onButton(row, col, BUTTON_EVENT_LONG_CLICK);
                 }
 
             }   // pressed and not handled yet
 
 			// check if the button LED needs to be written
 
-			uint32_t use_color = pb->m_state & BUTTON_STATE_WHITE ? LED_WHITE : pb->m_color;
+			uint32_t use_color =
+				pb->m_state & BUTTON_STATE_WHITE ? LED_WHITE :
+				pb->m_blink && !blink_state ? LED_BLACK :
+				pb->m_color;
 			if (getLED(num) != use_color)
 				setLED(num,use_color);
 

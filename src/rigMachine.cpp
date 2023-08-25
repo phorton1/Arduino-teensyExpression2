@@ -3,7 +3,7 @@
 //-------------------------------------------------------
 // Remember that the expression evaluator is not re-entrant!
 // We 'solved' the problem by calling buttons, pedals, and rotaries
-// from theSystem.loop() method, which also then calls rigMachine::updateUI(),
+// from the_system.loop() method, which also then calls rigMachine::updateUI(),
 // so we never find ourselves in the middle of executing a statement
 // from onButton, and evalauating it's parameters, at the same time as we
 // try to evaluate a COLOR/BLINK expression.
@@ -21,16 +21,24 @@
 
 
 #define dbg_rig 	0
-
+	// 0 = show loadRig() and onButton() calls
+	// -1 = show rig setButtonType() calls
 #define dbg_stmt    0
-	// 0  = just show statement header
-	// -1 = show statment result
-#define dbg_param	0
+	// 0  = show executeStatementList()
+	// -1 = show individual Statements
+#define dbg_calls	0
+	// 0 = show functions actually called by statements
+	// -1 = show rigDisplay() details
+#define dbg_param	1
 	// 0  = just show final param value
 	// -1 = show param details and expression header
 	// -2 = show expression return value
 #define dbg_midi    0
-	// show midi stuff
+	// 0 = show setting of Listen Values
+	// -1 = show onMidiCC header
+#define dbg_btns	1
+	// show calls to setButtonColor and setButtonBlink during loop() expression handling
+
 
 rigMachine rig_machine;
 
@@ -142,9 +150,9 @@ bool rigMachine::startRig()
 				if (j == RIG_TOKEN_REPEAT)  mask |= BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT;
 			}
 		}
-		if (mask)
+		// if (mask || rig_header.overlay_type == EXP_RIG_TYPE_BASERIG)
 		{
-			// display(dbg_rig,"setButton(%d,0x%04x)",i,mask);
+			display(dbg_rig+1,"setButton(%d,0x%04x)",i,mask);
 			theButtons.setButtonType(i,mask);
 		}
 	}
@@ -164,7 +172,7 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 	proc_entry();
 	rigArea_t *area = &m_rig_state.areas[area_num];
 
-	display(dbg_stmt,"rigDisplay(%d,%d=%s,\"%s\") font_size=%d",
+	display(dbg_calls+1,"rigDisplay(%d,%d=%s,\"%s\") font_size=%d",
 		area_num,
 		color,
 		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
@@ -216,7 +224,7 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 		}
 	}
 
-	display(dbg_stmt,"calling print_justified(%d,%d,%d,%d,  %d, %d=%s,BLACK,1,\"%s\")",
+	display(dbg_calls+1,"calling print_justified(%d,%d,%d,%d,  %d, %d=%s,BLACK,1,\"%s\")",
 		client_rect.xs + area->xs,
 		client_rect.ys + area->ys,
 		area->xe - area->xs + 1,
@@ -421,7 +429,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 	const uint8_t *code = cur_rig_code->statement_pool;
 	uint8_t tt = code[(*offset)++];
 
-	display(dbg_stmt,"executeStatement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
+	display(dbg_stmt+1,"executeStatement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
 	proc_entry();
 
 	const statement_param_t *params = findParams(tt);
@@ -439,13 +447,13 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 		switch (tt)
 		{
 			case RIG_TOKEN_SETVALUE:
-				display(dbg_rig,"setValue(%d,%d)",
+				display(dbg_calls,"setValue(%d,%d)",
 					m_param_values[0].value,
 					m_param_values[1].value);
 				m_rig_state.values[m_param_values[0].value] = m_param_values[1].value;
 				break;
 			case RIG_TOKEN_AREA:
-				display(dbg_rig,"AREA(%d,%d,%s,%s,%d,%d,%d,%d)",
+				display(dbg_calls,"AREA(%d,%d,%s,%s,%d,%d,%d,%d)",
 					m_param_values[0].value,
 					m_param_values[1].value,
 					rigTokenToText(m_param_values[2].value + RIG_TOKEN_NORMAL),
@@ -463,7 +471,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 				m_rig_state.areas[m_param_values[0].value].ye   	 = m_param_values[7].value;
 				break;
 			case RIG_TOKEN_LISTEN:
-				display(dbg_rig,"LISTEN(%d,%s,%d,%d)",
+				display(dbg_calls,"LISTEN(%d,%s,%d,%d)",
 					m_param_values[0].value,
 					rigTokenToText(m_param_values[1].value + RIG_TOKEN_MIDI0),
 					m_param_values[2].value,
@@ -478,7 +486,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 				break; // TBD
 
 			case RIG_TOKEN_DISPLAY:
-				display(dbg_rig,"display(%d,%d=%s,\"%s\")",
+				display(dbg_calls,"display(%d,%d=%s,\"%s\")",
 					m_param_values[0].value,
 					m_param_values[1].value,
 					rigTokenToText(m_param_values[1].value + RIG_TOKEN_DISPLAY_BLACK),
@@ -490,7 +498,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 				break;
 
 			case RIG_TOKEN_SEND_CC:
-				display(dbg_rig,"sendCC(%d=%s,%d,%d,%d)",
+				display(dbg_calls,"sendCC(%d=%s,%d,%d,%d)",
 					m_param_values[0].value,
 					rigTokenToText(m_param_values[0].value + RIG_TOKEN_MIDI0),
 					m_param_values[1].value,
@@ -527,7 +535,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 				break;
 
 			case RIG_TOKEN_SEND_PGM_CHG:
-				display(dbg_rig,"sendPgmChg(%d=%s,%d,%d)",
+				display(dbg_calls,"sendPgmChg(%d=%s,%d,%d)",
 					m_param_values[0].value,
 					rigTokenToText(m_param_values[0].value + RIG_TOKEN_MIDI0),
 					m_param_values[1].value,
@@ -565,7 +573,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 
 	proc_leave();
 	if (ok)
-		display(dbg_stmt+1,"executeStatement() finished",0);
+		display(dbg_stmt+2,"executeStatement() finished",0);
 	return ok;
 }
 
@@ -576,7 +584,7 @@ bool rigMachine::executeStatementList(int statement_num)
 	uint16_t offset = cur_rig_header->statements[statement_num];
 	uint16_t last_offset  = cur_rig_header->statements[statement_num+1];
 
-	display(dbg_rig,"executeStatmentList(%d) from %d to %d (%d bytes)",
+	display(dbg_stmt,"executeStatmentList(%d) from %d to %d (%d bytes)",
 		statement_num,
 		offset,
 		last_offset,
@@ -589,7 +597,7 @@ bool rigMachine::executeStatementList(int statement_num)
 	}
 
 	proc_leave();
-	display(dbg_rig,"executeStatementList() returning %d",ok);
+	display(dbg_stmt+1,"executeStatementList() returning %d",ok);
 	return ok;
 }
 
@@ -600,7 +608,7 @@ bool rigMachine::executeStatementList(int statement_num)
 
 void rigMachine::onMidiCC(int port, int channel, int cc_num, int value)
 {
-	display(dbg_midi,"onMidiCC(%d,%d,%d,%d)",port,channel,cc_num,value);
+	display(dbg_midi+1,"onMidiCC(%d,%d,%d,%d)",port,channel,cc_num,value);
 
 	// set the value into any SERIAL Listens for the given CC number
 	// with the convention that listening to channel 0 accepts all channels
@@ -614,7 +622,13 @@ void rigMachine::onMidiCC(int port, int channel, int cc_num, int value)
 			listen->channel == 0 ||
 			listen->channel == channel))
 		{
-			display(dbg_midi,"    --> setting value(%d) to 0x%02x",num,value);
+			display(dbg_midi,"onMidiCC(%d,%d,%d,%d) --> setting value(%d) to 0x%02x",
+				port,
+				channel,
+				cc_num,
+				value,
+				num,
+				value);
 			m_rig_state.values[num] = value;
 		}
 	}
@@ -665,67 +679,47 @@ void rigMachine::onButton(int row, int col, int event)
 //--------------------------------------------------
 // updateUI
 //--------------------------------------------------
-// I probably want to turn off some debugging in this.
-
-#define UI_INTERVAL     20		// 50 times a second
-#define BLINK_INTERVAL  300    	// ms
 
 void rigMachine::updateUI()
 {
-	// invariantly toggle the blink_state every BLINK_INTERVAL ms
-
-	static uint32_t blink_time = 0;
-	static bool blink_state = 0;
-	uint32_t now = millis();
-	if (now - blink_time >= BLINK_INTERVAL)
-	{
-		blink_time = now;
-		blink_state = !blink_state;
-	}
-
-	// evaulate any defined button color or blink expression
-	// they are never strings, so no need for rslt->is_string = 0;
+	// evaulate and act on any defined button color or blink expression
+	// if a button has a color expression, evaluate it and set it to the button.
+	// and then if it has a blink, evaluate that, and set that into the button
 
 	evalResult_t rslt;
-	const uint8_t *code = cur_rig_code->expression_pool;
-
 	for (int num=0; num<NUM_BUTTONS; num++)
 	{
 		uint16_t *refs = rig_header.button_refs[num];
 		uint16_t ref = refs[SUBSECTION_NUM(RIG_TOKEN_COLOR)];
-
-		// if it has a color expression, evaluate it
-
 		if (ref)
 		{
-			uint16_t offset = ref-1;
-			uint8_t led_color_idx  = 0;
-			if (evalExpression(&rslt,"LED_COLOR",code,&offset))
+			if (evalCodeExpression(&rslt, "LED_COLOR", ref))
 			{
-				led_color_idx = rslt.value;	// 0..7 color index
-				uint16_t ref = refs[SUBSECTION_NUM(RIG_TOKEN_BLINK)];
+				// these checks are only to generate change debug messags
+				if (theButtons.getButtonColor(num) != LED_COLORS[rslt.value])
+				{
+					display(dbg_btns,"rigMachine calling setButtonColor(%d) to index %d=0x%06x  old=0x%06x",
+						num,
+						rslt.value,
+						LED_COLORS[rslt.value],
+						theButtons.getButtonColor(num));
+					theButtons.setButtonColor(num,LED_COLORS[rslt.value]);
+				}
+
+				ref = refs[SUBSECTION_NUM(RIG_TOKEN_BLINK)];
 				if (ref)
 				{
-					offset = ref -1;
-					if (evalExpression(&rslt,"BLINK",code,&offset) &&
-						rslt.value &&
-						!blink_state)
+					if (evalCodeExpression(&rslt, "BLINK", ref))
 					{
-						led_color_idx = 0;	// color index for black
+						if (theButtons.getButtonBlink(num) != rslt.value)
+						{
+							display(dbg_btns,"rigMachine calling setButtonBlink(%d,%d)",
+								num,
+								rslt.value);
+							theButtons.setButtonBlink(num,rslt.value);
+						}
 					}
 				}
-			}
-
-			// if the led_color index has changed, call myLeds to set the new one
-
-			if (theButtons.getButtonColor(num) != LED_COLORS[led_color_idx])
-			{
-				display(0,"rigMachine calling setButtonColor(%d) to index %d=0x%06x  old=0x%06x",
-					num,
-					led_color_idx,
-					LED_COLORS[led_color_idx],
-					theButtons.getButtonColor(num));
-				theButtons.setButtonColor(num,LED_COLORS[led_color_idx]);
 			}
 		}
 	}

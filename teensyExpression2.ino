@@ -35,8 +35,8 @@ void setup()
     // things I might want to do:
     //
     reset_prefs();
-    // prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
-    // prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
+    prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
+    prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
     save_prefs();
 
     //-------------------------------------
@@ -218,7 +218,7 @@ void setup()
     //-----------------------------------
 
     display(0,"initializing system ...",0);
-    theSystem.begin();
+    the_system.begin();
 
     display(0,"teensyExpression.ino setup() completed.",0);
     // mem_check("at end of setup()");
@@ -258,5 +258,5 @@ void setup()
 
 void loop()
 {
-    theSystem.loop();
+    the_system.loop();
 }

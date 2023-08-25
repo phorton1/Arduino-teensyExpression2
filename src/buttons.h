@@ -33,14 +33,18 @@ class arrayedButton
 
         void init();                    // clears mask, color, and all state
 
-        uint16_t getMask()              { return m_mask; }
-        void setMask(uint16_t mask)     { m_mask = mask; }
-        uint32_t getColor()             { return m_color; }
-        void setColor(uint32_t color)   { m_color = color; }
+        //uint16_t getMask()              { return m_mask; }
+        //void setMask(uint16_t mask)     { m_mask = mask; }
+        //uint32_t getColor()             { return m_color; }
+        //void setColor(uint32_t color)   { m_color = color; }
+        //
+        //void setBlink(bool blink)       { m_blink = blink; }
 
     private:
 
         friend class buttonArray;
+
+        bool     m_blink;
 
         uint16_t m_mask;
         uint32_t m_color;
@@ -63,16 +67,18 @@ class buttonArray
 
         void begin();       // called once
         void clear();       // called on new windows
-        void task();        // called by theSystem timer
+        void task();        // called by the_system timer
 
-        arrayedButton *getButton(int num)            { return &m_buttons[num]; }
+        // arrayedButton *getButton(int num)            { return &m_buttons[num]; }
 
         void setButtonType(int num, uint16_t mask, uint32_t color = LED_BLACK);
-        void setButtonMask(int num, uint16_t mask);
-        void setButtonColor(int num, uint32_t color);
 
-        uint16_t getButtonMask(int num)    { return getButton(num)->getMask(); }
-        uint32_t getButtonColor(int num)   { return getButton(num)->getColor(); }
+        void setButtonMask(int num, uint16_t mask)      { m_buttons[num].m_mask = mask; }
+        void setButtonColor(int num, uint32_t color)    { m_buttons[num].m_color = color; }
+        void setButtonBlink(int num, bool blink)        { m_buttons[num].m_blink = blink; }
+        uint16_t getButtonMask(int num)                 { return m_buttons[num].m_mask; }
+        uint32_t getButtonColor(int num)                { return m_buttons[num].m_color; }
+        bool getButtonBlink(int num)                    { return m_buttons[num].m_blink; }
 
     private:
 

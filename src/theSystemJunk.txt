@@ -17,16 +17,24 @@
 #include "rigExpression.h"		// for EXP_MIDI_PORT_SERIAL
 
 
+#if 0
+	#include "ftp_defs.h"
+	#include "configSystem.h"
+	#include "rigLooper.h"
+	#include "rigTest.h"
+	#include "rigMidiHost.h"
+#endif // 0
+
+
 #define dbg_sys   0
-	// show system startup, etc
-#define dbg_midi  1
-	// show receieved serial midi bytes
+
 
 
 #define MIDI_ACTIVITY_TIMEOUT 			90
-#define BATTERY_CHECK_TIME  			30000
-#define UI_UPDATE_INTERVAL				30			// 33 frames per second
 
+#define BATTERY_CHECK_TIME  			30000
+
+#define UI_UPDATE_INTERVAL				30			// 33 frames per second
 
 //----------------------------------
 // normal timer loop
@@ -53,7 +61,6 @@
 #define EXP_TIMER_PRIORITY  240                     // lowest priority
     // compared to default priority of 128
 
-
 //----------------------------------------
 // constant screen layout
 //----------------------------------------
@@ -72,7 +79,6 @@
 
 #define PEDAL_TEXT_AREA_HEIGHT  30
 
-
 //--------------------------------
 // global variables
 //--------------------------------
@@ -86,10 +92,55 @@ int_rect client_rect(0,37,479,235);			// under line to above pedals
 int_rect pedal_rect(0,235,479,319);			// 89 high, starting at 230
 
 
+#if 0
+
+#define SYNTH_RECT_HEIGHT 70
+#define SONG_STATE_WIDTH  100
+#define SONG_MSG1_WIDTH   120
+
+int_rect synth_rect(
+	client_rect.xs,
+	client_rect.ys,
+	client_rect.xe,
+	client_rect.ys + SYNTH_RECT_HEIGHT-1);
+
+int_rect song_title_rect(
+	client_rect.xs,
+	synth_rect.ye,
+	client_rect.xe - SONG_STATE_WIDTH,
+	synth_rect.ye + 35);
+
+int_rect song_state_rect(
+	song_title_rect.xe,
+	synth_rect.ye,
+	client_rect.xe,
+	song_title_rect.ye);
+
+int_rect song_msg_rect[2];
+	// assigned in begin()
+
+const char *rig_names[MAX_EXP_RIGS];
+
+//----------------------------------------
+// aWindow (base class)
+//----------------------------------------
+
+
+// virtual
+void aWindow::endModal(uint32_t param)
+	// currently
+{
+    // called by modal windows when they end themselves
+	the_system.endModal(this,param);
+}
+
+
 
 //----------------------------------------
 // theSystem
 //----------------------------------------
+
+#endif // 0
 
 
 theSystem::theSystem()
@@ -99,7 +150,37 @@ theSystem::theSystem()
 	draw_pedals = 1;
 	draw_title = 1;
 	m_title = 0;
+
+
+#if 0
+
+	song_msg_rect[0].assign(
+		client_rect.xs,
+		song_title_rect.ye + 10,
+		client_rect.xs + SONG_MSG1_WIDTH - 1,
+		client_rect.ye);
+
+	song_msg_rect[1].assign(
+		song_msg_rect[0].xe,
+		song_title_rect.ye + 10,
+		client_rect.xe,
+		client_rect.ye);
+
+    m_num_rigs = 0;
+    m_cur_rig_num = -1;
+    m_prev_rig_num = 0;
+
+	m_num_modals = 0;
+
+    for (int i=0; i<MAX_EXP_RIGS; i++)
+        m_rigs[i] = 0;
+
+#endif // 0
+
 }
+
+
+
 
 
 void theSystem::setTitle(const char *title)
@@ -107,6 +188,9 @@ void theSystem::setTitle(const char *title)
 	m_title = title;
 	draw_title = 1;
 }
+
+
+
 
 
 void theSystem::begin()
@@ -140,8 +224,196 @@ void theSystem::begin()
 	if (rig_machine.loadRig("default"))
 		setTitle(rig_machine.rigName());
 
+#if 0
+    addRig(new configSystem());
+    addRig(new rigLooper());
+    // addRig(new rigNew());
+    // addRig(new rigOld());
+	addRig(new rigTest());
+    addRig(new rigMidiHost());
+
+	song_msg_rect[0].assign(
+		client_rect.xs,
+		song_title_rect.ye + 10,
+		client_rect.xs + SONG_MSG1_WIDTH - 1,
+		client_rect.ye);
+
+	song_msg_rect[1].assign(
+		song_msg_rect[0].xe,
+		song_title_rect.ye + 10,
+		client_rect.xe,
+		client_rect.ye);
+
+	for (int i=0; i<m_num_rigs; i++)
+		rig_names[i] = m_rigs[i]->short_name();
+
+	setPrefMax(PREF_RIG_NUM,m_num_rigs-1);
+	setPrefStrings(PREF_RIG_NUM,rig_names);
+
+    // get rig_num from prefs and activate it
+
+    int rig_num = getPref8(PREF_RIG_NUM);
+    if (rig_num >= m_num_rigs)
+        rig_num = m_num_rigs - 1;
+
+    // rig_num = 0;
+        // override prefs setting
+        // for working on a particular rig
+
+    activateRig(rig_num);
+        // show the first windw
+
+#endif // 0
+
 	display(dbg_sys,"returning from theSystem::begin()",0);
 }
+
+
+//-------------------------------------------------
+// Rig management
+//-------------------------------------------------
+
+#if 0
+
+void theSystem::addRig(aWindow *pRig)
+{
+    if (m_num_rigs >= MAX_EXP_RIGS + 1)
+    {
+        my_error("TOO MANY RIGS! %d",m_num_rigs+1);
+        return;
+    }
+    m_rigs[m_num_rigs++] = pRig;
+}
+
+
+void theSystem::activateRig(int new_rig_num)
+{
+	display(dbg_sys,"activateRig(%d)",new_rig_num);
+
+    if (new_rig_num >= m_num_rigs)
+    {
+        my_error("attempt to activate illegal rig number %d",new_rig_num);
+        return;
+    }
+
+    // deactivate previous rig
+
+    if (m_cur_rig_num >= 0)
+    {
+        getCurRig()->end();
+        m_prev_rig_num = m_cur_rig_num;
+    }
+
+	// start the new rig
+
+    m_cur_rig_num = new_rig_num;
+	startWindow(getCurRig(),false);
+
+    // add the system long click handler
+
+	theButtons.getButton(0,THE_SYSTEM_BUTTON)->addLongClickHandler();
+}
+
+
+//----------------------------------------
+// window management
+//----------------------------------------
+
+void theSystem::startWindow(aWindow *win, bool warm)
+{
+	display(dbg_sys,"startWindow(%d,%s)",warm,win->name());
+
+	theButtons.clear();
+	mylcd.fillScreen(TFT_BLACK);
+	if (!(win->m_flags & WIN_FLAG_OWNER_TITLE))
+		setTitle(win->name());
+	else
+		draw_title = 1;
+	if (win->m_flags & WIN_FLAG_SHOW_PEDALS)
+		draw_pedals = 1;
+	win->begin(warm);
+}
+
+
+void theSystem::startModal(aWindow *win)
+{
+	display(dbg_sys,"startModal(%s)",win->name());
+
+	if (m_num_modals >= MAX_MODAL_STACK)
+	{
+		my_error("NUMBER OF MODAL WINDOWS EXCEEDED",m_num_modals);
+		return;
+	}
+
+	if (!m_num_modals)
+		getCurRig()->end();
+
+	m_modal_stack[m_num_modals++] = win;
+
+	startWindow(win,false);
+}
+
+
+
+void theSystem::swapModal(aWindow *win, uint32_t param)
+{
+	display(dbg_sys,"swapModal(%s,0x%08x)",win->name(),param);
+
+	if (!m_num_modals)
+	{
+		startModal(win);
+		return;
+	}
+
+	aWindow *old = getTopModalWindow();
+	old->end();
+
+	m_modal_stack[m_num_modals-1] = win;
+	startWindow(win,true);
+
+	// old->onEndModal(old,param);
+	if (old->m_flags & WIN_FLAG_DELETE_ON_END)
+		delete old;
+
+}
+
+
+
+
+aWindow *theSystem::getTopModalWindow()
+{
+	if (m_num_modals)
+		return m_modal_stack[m_num_modals-1];
+	return 0;
+}
+
+
+void theSystem::endModal(aWindow *win, uint32_t param)
+	// currently always acts on top of stack,
+	// api allows for closing a window in the middle,
+	// though it will not work at this time.
+{
+	display(dbg_sys,"theSystem::endModal(%s,0x%08x)",win->name(),param);
+
+	m_num_modals--;
+	aWindow *new_win = m_num_modals ?
+		getTopModalWindow() :
+		getCurRig();
+
+	startWindow(new_win,true);
+	if (!m_num_modals && m_cur_rig_num)
+	{
+		// reset the system button handler
+		theButtons.getButton(0,THE_SYSTEM_BUTTON)->addLongClickHandler();
+		draw_pedals = 1;
+	}
+
+	new_win->onEndModal(win,param);
+	if (win->m_flags & WIN_FLAG_DELETE_ON_END)
+		delete win;
+}
+
+#endif // 0
 
 
 
@@ -167,6 +439,35 @@ void theSystem::onButton(int row, int col, int event)
 		rig_machine.onButton(row,col,event);
 	}
 
+#if 0
+	int num = row * NUM_BUTTON_COLS + col;
+
+	// modal windows get the event directly
+
+	if (m_num_modals)
+	{
+		getTopModalWindow()->onButtonEvent(row,col,event);
+	}
+
+    // intercept long click on THE_SYSTEM_BUTTON
+	// from rigs to go to the configSystem ...
+
+	else if (num == THE_SYSTEM_BUTTON &&
+ 			 m_cur_rig_num &&
+			 event == BUTTON_EVENT_LONG_CLICK)
+	{
+		setLED(THE_SYSTEM_BUTTON,LED_PURPLE);
+		activateRig(0);
+	}
+
+	// else let the current rig have it
+
+	else
+	{
+		getCurRig()->onButtonEvent(row,col,event);
+	}
+#endif // 0
+
 }
 
 
@@ -174,6 +475,7 @@ void theSystem::onButton(int row, int col, int event)
 //-----------------------------------------
 // timer handlers
 //-----------------------------------------
+
 
 // static
 void theSystem::timer_handler()
@@ -206,7 +508,16 @@ void theSystem::timer_handler()
 
     dequeueProcess();
 
+#if 0
+
+	// call window handler
+	if (the_system.m_num_modals)
+		the_system.getTopModalWindow()->timer_handler();
+	else
+	    the_system.getCurRig()->timer_handler();
+#endif // 0
 }
+
 
 
 
@@ -224,13 +535,16 @@ void theSystem::timer_handler()
 // packet is following (4 bytes for midi, or <cr-lf> for text)
 // and reads the whole packet with blocking and a timeout
 
-
-#define SERIAL_TIMEOUT  200
-
 #define MAX_BASE64_BUF  10240
 	// agreed upon in console.pm
 #define MAX_SERIAL_TEXT_LINE (MAX_BASE64_BUF+32)
 	// allow for "file_command:BASE64 " (13 + 6 + 1)
+
+
+#define SERIAL_TIMEOUT  200		   // ms
+char static_serial_buffer[MAX_SERIAL_TEXT_LINE+1];
+
+volatile int fu = 0;
 
 
 void theSystem::handleSerialData()
@@ -242,9 +556,8 @@ void theSystem::handleSerialData()
 	bool is_midi = false;
 	bool started = false;
 	bool finished = false;
-	bool from_serial3 = 0;
 	elapsedMillis line_timeout = 0;
-	static char static_serial_buffer[MAX_SERIAL_TEXT_LINE+1];
+	bool from_serial3 = 0;
 
 	if (Serial.available())
 	{
@@ -280,7 +593,6 @@ void theSystem::handleSerialData()
 			static_serial_buffer[buf_ptr++] = c;
 			for (int i=0; i<3; i++)
 			{
-				static volatile int fu = 0;
 				while (!Serial3.available()) {fu++;}
 				c = Serial3.read();
 				static_serial_buffer[buf_ptr++] = c;
@@ -330,7 +642,7 @@ void theSystem::handleSerialData()
 	{
 		int save_proc_level = proc_level;
 		proc_level = 0;
-		display_bytes(dbg_midi,"theSystem recv serial midi: ",(uint8_t*)static_serial_buffer,4);
+		display_bytes(dbg_sys-1,"theSystem recv serial midi: ",(uint8_t*)static_serial_buffer,4);
 		proc_level = 1;
 
 		// Note that the looper ONLY sends
@@ -338,6 +650,7 @@ void theSystem::handleSerialData()
 		//   0xb0 - second byte indicating a CC message on channel 1 (0 based second nibble)
 		//   0xYY - the CC number, 0..127
 		//   0xZZ - the value, 0..127
+
 		// Here we correct to 1 based channels during the call to onMidiCC
 
 		rig_machine.onMidiCC(
@@ -378,21 +691,40 @@ void theSystem::handleSerialData()
 //--------------------------------------
 
 
+
 void theSystem::loop()
 	//  called from Arduino loop()
 {
+	// static uint32_t last_update = 0;
+	// uint32_t now = millis();
+	// if (now - last_update < UI_UPDATE_INTERVAL)
+	// 	return;
+	// last_update = now;
+
 	// basics
 
     theButtons.task();
 	thePedals.task();
 	pollRotary();
 
+
 	// initQueryFTP();
 		// query the FTP battery level on a timer
 
 #if 0
+
+	aWindow *win = m_num_modals ?
+		getTopModalWindow() :
+		getCurRig();
+
+	//----------------------------------
+	// PEDALS
+	//----------------------------------
+	// draw the pedal frame and titles if needed
+
 	if (win->m_flags & WIN_FLAG_SHOW_PEDALS)
 #endif	// 0
+
 	{
 		bool draw_pedal_values = false;
 		int pedal_width = pedal_rect.width() / NUM_PEDALS;
@@ -604,4 +936,19 @@ void theSystem::loop()
 
 	rig_machine.updateUI();
 
+	// call the current window's updateUI method
+#if 0
+	win->updateUI();
+#endif // 0
+
 }	// theSystem::loop()
+
+
+
+#if !MIDI_ACTIVITY_INLINE
+	void theSystem::midiActivity(int port_num)
+	{
+		m_midi_activity[port_num] = millis();
+		display(dbg_sys,"midiActivity(%d)",port_num);
+	}
+#endif

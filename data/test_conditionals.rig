@@ -1,0 +1,36 @@
+#--------------------------------------------
+# test.rig
+#--------------------------------------------
+
+BaseRig
+
+define(10, CONSTANT_0, 0);
+define(11, CONSTANT_100, 100);
+define(12, CONSTANT_237, 237);
+
+define(20, _var1,  30);
+define(21, _var2,  32);
+define(23, _var3,  34);
+
+define_string(90, "STRING1" );
+define_string(91, "STRING2" );
+define_string(93, "STRING3" );
+
+BUTTON(0):
+	color:
+		VALUE[_var1] ? LED_BLUE : LED_CYAN;
+    click:
+		# setValue(_var1, CONSTANT_100);
+		# setValue(_var1, VALUE[_var2]);
+		# display(0, YELLOW, VALUE[_var3] ? "TEST" : STRING[_var3]);
+		# setValue(_var1, VALUE[_var3] ? (1 + 2*3) : 4 + 5*7);
+
+		setValue(_var1, VALUE[_var3]==0 ? VALUE[_var3]==1 ? VALUE[_var3]==2 ? 102 : 103 : 101 : 100 );
+		setValue(_var1, VALUE[_var3]==0 ? VALUE[_var3]==1 ? 103 : (VALUE[_var3]==2 ? 102 : 101) : 100 );
+		setValue(_var1, VALUE[_var3]==0 ? 101 : VALUE[_var3]==1 ? 103 : VALUE[_var3]==2 ? 102 : 100 );
+
+
+
+BUTTON(1):  press:  setValue(_var3,0);
+BUTTON(2):  press:  setValue(_var3,1);
+BUTTON(3):  press:  setValue(_var3,2);

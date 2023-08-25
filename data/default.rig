@@ -138,7 +138,7 @@ define(114, _track4_state,	12);	# TRACK4 STATE
 # starting at MULTI_OFFSET (which is one based, and 17 in the
 # SampleTank UI).
 
-define_string(0,	"BASS1" );		# SHORT_NAME[0]
+define_string(0,	"BASS1" );			# PATCH_SHORT_NAME[0]
 define_string(1,	"BASS-F" );
 define_string(2,	"BASS-G" );
 define_string(3,	"SFLUTE" );
@@ -163,9 +163,7 @@ define_string(21,	"CHIME" );
 define_string(22,	"MARIMNA" );
 define_string(23,	"FX" );
 
-# and so on ...
-
-define_string(24,	"MM Bass Finger" );	# PATCH_LONG_NAME{0}
+define_string(24,	"MM Bass Finger" );		# PATCH_LONG_NAME{0}
 define_string(25,	"MM Bass Finger" );
 define_string(26,	"MM Bass Finger" );
 define_string(27,	"Psych Flute" );
@@ -205,25 +203,25 @@ ROTARY(1, SERIAL,	0, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN);
 ROTARY(1, SERIAL,	0, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_THRU_VOLUME);
 ROTARY(1, SERIAL,	0, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME);
 
-
 AREA(AREA_SHORT_NAME,	32,  BOLD, 	LEFT,	 5,   5, 299, 40);		# patch short name indented 5 from client area, 35 pixels high
 AREA(AREA_LONG_NAME,	18,  BOLD,	LEFT,	 5,  43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
 AREA(AREA_MSG,  		32,  NORMAL,  RIGHT, 300, 5, 475, 40);		# General Purpose area in upper right
 
-LISTEN(_dub_mode, SERIAL, 1, LOOP_DUB_STATE_CC);
+
+LISTEN(_dub_mode, SERIAL, 0, LOOP_DUB_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_DUB_STATE_CC=37 messages and stick
 	# their values in the _dub_mode value
 
-LISTEN(_stop_cmd, SERIAL, 1, LOOP_STOP_CMD_STATE_CC);
+LISTEN(_stop_cmd, SERIAL, 0, LOOP_STOP_CMD_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_STOP_CMD_STATE_CC=38 messages and stick
 	# their values in the _stop_cmd value
 
-LISTEN(_track1_state, SERIAL, 1, TRACK_STATE_BASE_CC + 0);
-LISTEN(_track2_state, SERIAL, 1, TRACK_STATE_BASE_CC + 1);
-LISTEN(_track3_state, SERIAL, 1, TRACK_STATE_BASE_CC + 2);
-LISTEN(_track4_state, SERIAL, 1, TRACK_STATE_BASE_CC + 3);
+LISTEN(_track1_state, SERIAL, 0, TRACK_STATE_BASE_CC + 0);
+LISTEN(_track2_state, SERIAL, 0, TRACK_STATE_BASE_CC + 1);
+LISTEN(_track3_state, SERIAL, 0, TRACK_STATE_BASE_CC + 2);
+LISTEN(_track4_state, SERIAL, 0, TRACK_STATE_BASE_CC + 3);
 	# Listen on the Serial Midi Port for
 	# TRACK_STATE_BASE_CC(20..23) messages
 	# and stick their values into the appropriate
@@ -512,8 +510,8 @@ BUTTON(20):				# track1 button
 		VALUE[_track1_state] & 18 ? LED_YELLOW :
 		VALUE[_track1_state] & 36 ? LED_GREEN :
 		LED_BLACK;
-#	blink:
-#		VALUE[_track1_state] & 56;
+	blink:
+		VALUE[_track1_state] & 56;
 	press:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 0);
 		display(AREA_MSG, YELLOW, "TRACK1");
@@ -524,8 +522,8 @@ BUTTON(21):
 		VALUE[_track2_state] & 18 ? LED_YELLOW :
 		VALUE[_track2_state] & 36 ? LED_GREEN :
 		LED_BLACK;
-#	blink:
-#		VALUE[_track2_state] & 56;
+	blink:
+		VALUE[_track2_state] & 56;
 	press:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 1);
 		display(AREA_MSG, YELLOW, "TRACK2");
@@ -536,8 +534,8 @@ BUTTON(22):
 		VALUE[_track3_state] & 18 ? LED_YELLOW :
 		VALUE[_track3_state] & 36 ? LED_GREEN :
 		LED_BLACK;
-#	blink:
-#		VALUE[_track3_state] & 56;
+	blink:
+		VALUE[_track3_state] & 56;
 	press:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 2);
 		display(AREA_MSG, YELLOW, "TRACK3");
@@ -548,8 +546,8 @@ BUTTON(23):
 		VALUE[_track4_state] & 18 ? LED_YELLOW :
 		VALUE[_track4_state] & 36 ? LED_GREEN :
 		LED_BLACK;
-#	blink:
-#		VALUE[_track4_state] & 56;
+	blink:
+		VALUE[_track4_state] & 56;
 	press:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 3);
 		display(AREA_MSG, YELLOW, "TRACK4");

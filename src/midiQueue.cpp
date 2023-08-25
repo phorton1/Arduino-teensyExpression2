@@ -105,7 +105,7 @@ void mySendMidiMessage(uint8_t msg_type, uint8_t channel, uint8_t p1, uint8_t p2
 
     usb_midi_write_packed(msg.i);
     usb_midi_flush_output();
-    theSystem.midiActivity(INDEX_MASK_OUTPUT);
+    the_system.midiActivity(INDEX_MASK_OUTPUT);
     enqueueProcess(msg.i | PORT_MASK_OUTPUT);
 }
 
@@ -122,7 +122,7 @@ void mySendDeviceProgramChange(uint8_t channel, uint8_t prog_num)
             0xC0 | (channel-1),
             prog_num,
             0);
-        theSystem.midiActivity(INDEX_MASK_OUTPUT);   // it IS port #2
+        the_system.midiActivity(INDEX_MASK_OUTPUT);   // it IS port #2
         enqueueProcess(msg.i);
     #endif
 }
@@ -140,7 +140,7 @@ void mySendDeviceControlChange(uint8_t channel, uint8_t cc_num, uint8_t value)
             0xB0 | (channel-1),
             cc_num,
             value);
-        theSystem.midiActivity(INDEX_MASK_OUTPUT);   // it IS port #2
+        the_system.midiActivity(INDEX_MASK_OUTPUT);   // it IS port #2
         enqueueProcess(msg.i);
     #endif
 }
@@ -215,7 +215,7 @@ void mySendFtpSysex(int length, uint8_t *buf)
             //    enqueueProcess(msg.i | PORT_MASK_OUTPUT | PORT_MASK_HOST);
             //}
 
-            theSystem.midiActivity(pindex);
+            the_system.midiActivity(pindex);
         }
 
         if (flush_usb_midi)
@@ -304,7 +304,7 @@ void sendPendingCommand()
             8,
             1);
 
-        theSystem.midiActivity(INDEX_MASK_OUTPUT | INDEX_MASK_CABLE);   // it IS port #3
+        the_system.midiActivity(INDEX_MASK_OUTPUT | INDEX_MASK_CABLE);   // it IS port #3
         enqueueProcess(pending_command | PORT_MASK_OUTPUT);
         enqueueProcess(pending_command_value | PORT_MASK_OUTPUT);
         command_time = 0;

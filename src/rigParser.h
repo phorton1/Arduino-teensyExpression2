@@ -27,11 +27,8 @@
 	// 		will be 0..15 or'd into the sent message.
 	// The special value of 0 is only available for Listens, which means
 	// to listen on any channel.
-	// TBD: Error checking for MIDI_MIN_CHANNEL==1 on sending
-	//      and differentiating between LISTEN and send statements
-
-
 #define MIDI_MAX_VALUE			127
+
 
 // These are fixed by architecture
 
