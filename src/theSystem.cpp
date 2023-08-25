@@ -159,7 +159,7 @@ void theSystem::onButton(int row, int col, int event)
 	}
 	else if (num == THE_SYSTEM_BUTTON && event == BUTTON_EVENT_LONG_CLICK)
 	{
-		if (rig_machine.loadRig("test"))
+		if (rig_machine.loadRig("default"))
 			setTitle(rig_machine.rigName());
 	}
 	else

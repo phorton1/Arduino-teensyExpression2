@@ -352,19 +352,30 @@ bool rigMachine::evalParam(evalResult_t *rslt, int arg_type, const uint8_t *code
 		case PARAM_VALUE :			max = MAX_RIG_VALUE;		break;
 		case PARAM_PEDAL_NUM :		max = NUM_PEDALS - 1;		break;
 		case PARAM_ROTARY_NUM :		max = NUM_ROTARY - 1;		break;
-		case PARAM_MIDI_CHANNEL :	max = MIDI_MAX_CHANNEL;		break;
+		case PARAM_LISTEN_CHANNEL :	max = MIDI_MAX_CHANNEL;		break;
 		case PARAM_MIDI_CC :		max = MIDI_MAX_VALUE;		break;
 		case PARAM_MIDI_VALUE :		max = MIDI_MAX_VALUE;		break;
 	}
 
 	switch (arg_type)
 	{
-		case PARAM_AREA_NUM :
+		case PARAM_MIDI_CHANNEL :
+			ptr16 = (uint16_t *) &code[*offset];
+			ok = evalCodeExpression(rslt,argTypeToString(arg_type),*ptr16);
+			if (ok && (
+				rslt->value > MIDI_MAX_CHANNEL ||
+				rslt->value < MIDI_MIN_CHANNEL))
+			{
+				rig_error("%s must be between %d and %d",what,MIDI_MIN_CHANNEL,MIDI_MAX_CHANNEL);
+				ok = 0;
+			}
+			*offset += 2;
+			break;		case PARAM_AREA_NUM :
 		case PARAM_VALUE_NUM :
 		case PARAM_VALUE :
 		case PARAM_PEDAL_NUM :
 		case PARAM_ROTARY_NUM :
-		case PARAM_MIDI_CHANNEL :
+		case PARAM_LISTEN_CHANNEL :
 		case PARAM_MIDI_CC :
 		case PARAM_MIDI_VALUE :
 			ptr16 = (uint16_t *) &code[*offset];
@@ -506,28 +517,19 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 					m_param_values[3].value);
 				if (m_param_values[0].value == EXP_MIDI_PORT_SERIAL)
 				{
-					// note that the send channel (param1) is currently ignored
-					// as the Looper ALWAYS sends and receives on channel 1 (which is 0 in the byte)
 					sendSerialControlChange(
+						m_param_values[1].value,
 						m_param_values[2].value,
 						m_param_values[3].value);
 				}
 				else if (m_param_values[0].value == EXP_MIDI_PORT_MIDI0)
 				{
-					if (!m_param_values[1].value)
-					{
-						ok = 0;
-						rig_error("cannot sendCC to MIDI0 port on Channel 0 !!!");
-					}
-					else
-					{
-						mySendDeviceControlChange(
-							m_param_values[1].value,
-							m_param_values[2].value,
-							m_param_values[3].value);
-					}
+					sendMidiControlChange(
+						m_param_values[1].value,
+						m_param_values[2].value,
+						m_param_values[3].value);
 				}
-				else // if (m_param_values[0].value == EXP_MIDI_PORT_MIDI1)
+				else // m_param_values[0].value == EXP_MIDI_PORT_MIDI1
 				{
 					ok = 0;
 					rig_error("Sending CC's to MIDI1 port is not currently supported");
@@ -545,14 +547,9 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 					ok = 0;
 					rig_error("sendPgmChange() only supported on MIDI0 port!!!");
 				}
-				else if (!m_param_values[1].value)
-				{
-					ok = 0;
-					rig_error("cannot sendPgmChg to MIDI0 port on Channel 0 !!!");
-				}
 				else
 				{
-					mySendDeviceProgramChange(
+					sendMidiProgramChange(
 						m_param_values[1].value,
 						m_param_values[2].value);
 				}
@@ -619,7 +616,7 @@ void rigMachine::onMidiCC(int port, int channel, int cc_num, int value)
 		if (listen->active &&
 			listen->port == port &&
 			listen->cc == cc_num && (
-			listen->channel == 0 ||
+			listen->channel == MIDI_OMNI_CHANNEL ||		// MIDI_OMNI_CHANNEL == 0
 			listen->channel == channel))
 		{
 			display(dbg_midi,"onMidiCC(%d,%d,%d,%d) --> setting value(%d) to 0x%02x",

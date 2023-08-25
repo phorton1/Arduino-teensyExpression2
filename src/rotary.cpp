@@ -120,12 +120,13 @@ void pollRotary()
             if (rotary_pref->IS_SERIAL)
             {
                 sendSerialControlChange(
+                    rotary_pref->MIDI_CHANNEL,
                     rotary_pref->MIDI_CC,
                     rotary[i].value);
             }
             else
             {
-                mySendDeviceControlChange(
+                sendMidiControlChange(
                     rotary_pref->MIDI_CHANNEL,
                     rotary_pref->MIDI_CC,
                     rotary[i].value);

@@ -57,7 +57,7 @@ const prefs_t default_prefs =
 		{											// pedal 1 = Looper
 			.NAME = {'L','o','o','p', 0},
 			.IS_SERIAL = 1,							// off, on; default depends on the Pedal
-			.MIDI_CHANNEL = 0,						// the midi channel to send on
+			.MIDI_CHANNEL = 1,						// the midi channel to send on
 			.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME,	// the CC number to use
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
@@ -97,22 +97,22 @@ const prefs_t default_prefs =
 	.ROTARY = {
 			{
 				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 0,					// midi_channel default(0)
+				.MIDI_CHANNEL = 1,					// midi_channel default(0)
 				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_INPUT_GAIN,
 			},
 			{
 				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 0,					// midi_channel default(0)
+				.MIDI_CHANNEL = 1,					// midi_channel default(0)
 				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_THRU_VOLUME,
 			},
 			{
 				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 0,					// midi_channel default(0)
+				.MIDI_CHANNEL = 1,					// midi_channel default(0)
 				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME,
 			},
 			{
 				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 0,					// midi_channel default(0)
+				.MIDI_CHANNEL = 1,					// midi_channel default(0)
 				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN,
 			},
 		},

@@ -417,7 +417,7 @@ static int exp(int tt)
 // expression helpers
 //-------------------------------------------
 
-uint16_t inlineExp(const char *what, uint16_t offset, uint8_t max_value)
+static uint16_t inlineExp(const char *what, uint16_t offset, uint8_t max_value, uint8_t min_value)
 {
 	// inline expressions are identified if the length == 3
 	// 2 for the inline expression and one for the EXP_END token
@@ -444,10 +444,10 @@ uint16_t inlineExp(const char *what, uint16_t offset, uint8_t max_value)
 
 		// check for numbers in range
 
-		if (max_value &&
-			value > max_value)
+		if ((max_value && value > max_value) ||
+			(min_value && value < min_value))
 		{
-			rig_error("%s(%d) must be %d or less",what,value,max_value);
+			rig_error("%s(%d) must be between %d and %d",what,value,min_value,max_value);
 			// by commenting this out:
 			// 		offset = 0;
 			// we will show all the errors and then
@@ -465,7 +465,7 @@ uint16_t inlineExp(const char *what, uint16_t offset, uint8_t max_value)
 }
 
 
-static uint16_t genericExpression(const char *what, int expected, int tt, uint8_t max_value=0)
+static uint16_t genericExpression(const char *what, int expected, int tt, uint8_t max_value=0, uint8_t min_value=0)
 {
 	display(dbg_exp + 1,"%s expression",what);
 	uint16_t offset = rig_header.expression_pool_len;
@@ -482,7 +482,7 @@ static uint16_t genericExpression(const char *what, int expected, int tt, uint8_
 	}
 
 	proc_level = save_proc_level;
-	offset = inlineExp(what,offset,max_value);
+	offset = inlineExp(what,offset,max_value,min_value);
 	display(dbg_exp,"%s expression returning 0x%04x",what,offset);
 	return offset;
 
@@ -528,7 +528,11 @@ uint16_t rigValueExpression(int tt)
 }
 uint16_t rigMidiChannelExpression(int tt)
 {
-	return genericExpression("MIDI_CHANNEL",EXP_TYPE_NUMBER,tt,MIDI_MAX_CHANNEL);
+	return genericExpression("MIDI_CHANNEL",EXP_TYPE_NUMBER,tt,MIDI_MAX_CHANNEL,MIDI_MIN_CHANNEL);
+}
+uint16_t rigListenChannelExpression(int tt)
+{
+	return genericExpression("LISTEN_CHANNEL",EXP_TYPE_NUMBER,tt,MIDI_MAX_CHANNEL);
 }
 uint16_t rigMidiValueExpression(int tt)
 {

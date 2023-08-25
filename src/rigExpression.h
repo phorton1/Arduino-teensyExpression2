@@ -99,6 +99,7 @@ extern uint16_t rigValueNumExpression(int tt);
 
 extern uint16_t rigValueExpression(int tt);
 extern uint16_t rigMidiChannelExpression(int tt);
+extern uint16_t rigListenChannelExpression(int tt);
 extern uint16_t rigMidiValueExpression(int tt);
 
 extern uint16_t rigStringExpression(int tt);

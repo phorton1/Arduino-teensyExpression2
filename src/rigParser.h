@@ -135,8 +135,9 @@ typedef struct
 
 #define PARAM_MIDI_PORT      40
 #define PARAM_MIDI_CHANNEL   41
-#define PARAM_MIDI_CC        42
-#define PARAM_MIDI_VALUE	 43
+#define PARAM_LISTEN_CHANNEL 42
+#define PARAM_MIDI_CC        43
+#define PARAM_MIDI_VALUE	 44
 
 #define PARAM_STRING_EXPRESSION			101
 #define PARAM_LED_COLOR_EXPRESSION		102

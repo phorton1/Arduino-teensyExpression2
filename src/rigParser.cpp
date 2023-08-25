@@ -39,32 +39,33 @@ const char *argTypeToString(int i)
 {
 	switch (i)
 	{
-		case PARAM_DEFINE_NUM	: return "DEFINE_NUM";
-		case PARAM_USER_IDENT   : return "IDENTIFIER";
-		case PARAM_DEFINE_VALUE : return "DEFINE_VALUE";
-		case PARAM_STRING_NUM   : return "STRING_NUM";
-		case PARAM_TEXT  		: return "TEXT";
+		case PARAM_DEFINE_NUM		: return "DEFINE_NUM";
+		case PARAM_USER_IDENT   	: return "IDENTIFIER";
+		case PARAM_DEFINE_VALUE 	: return "DEFINE_VALUE";
+		case PARAM_STRING_NUM   	: return "STRING_NUM";
+		case PARAM_TEXT  			: return "TEXT";
 
-		case PARAM_AREA_NUM     : return "AREA_NUM";
-		case PARAM_FONT_SIZE    : return "FONT_SIZE";
-		case PARAM_FONT_TYPE    : return "FONT_TYPE";
-		case PARAM_FONT_JUST    : return "FONT_JUST";
-		case PARAM_START_X      : return "START_X";
-		case PARAM_START_Y      : return "START_Y";
-		case PARAM_END_X        : return "END_X";
-		case PARAM_END_Y        : return "END_Y";
+		case PARAM_AREA_NUM     	: return "AREA_NUM";
+		case PARAM_FONT_SIZE    	: return "FONT_SIZE";
+		case PARAM_FONT_TYPE    	: return "FONT_TYPE";
+		case PARAM_FONT_JUST    	: return "FONT_JUST";
+		case PARAM_START_X      	: return "START_X";
+		case PARAM_START_Y      	: return "START_Y";
+		case PARAM_END_X        	: return "END_X";
+		case PARAM_END_Y        	: return "END_Y";
 
-		case PARAM_PEDAL_NUM 	: return "PEDAL_NUM";
-		case PARAM_PEDAL_NAME   : return "PEDAL_NAME";
-		case PARAM_ROTARY_NUM 	: return "ROTARY_NUM";
+		case PARAM_PEDAL_NUM 		: return "PEDAL_NUM";
+		case PARAM_PEDAL_NAME   	: return "PEDAL_NAME";
+		case PARAM_ROTARY_NUM 		: return "ROTARY_NUM";
 
-		case PARAM_VALUE_NUM    : return "VALUE_NUM";
-		case PARAM_VALUE		: return "VALUE";
+		case PARAM_VALUE_NUM    	: return "VALUE_NUM";
+		case PARAM_VALUE			: return "VALUE";
 
-		case PARAM_MIDI_PORT    : return "MIDI_PORT";
-		case PARAM_MIDI_CHANNEL : return "MIDI_CHANNEL";
-		case PARAM_MIDI_CC      : return "MIDI_CC";
-		case PARAM_MIDI_VALUE	: return "MIDI_VALUE";
+		case PARAM_MIDI_PORT    	: return "MIDI_PORT";
+		case PARAM_MIDI_CHANNEL 	: return "MIDI_CHANNEL";
+		case PARAM_LISTEN_CHANNEL	: return "LISTEN_CHANNEL";
+		case PARAM_MIDI_CC      	: return "MIDI_CC";
+		case PARAM_MIDI_VALUE		: return "MIDI_VALUE";
 
 		case PARAM_STRING_EXPRESSION			: return "STRING_EXPRESSION";
 		case PARAM_LED_COLOR_EXPRESSION			: return "LED_COLOR_EXPRESSION";
@@ -101,10 +102,10 @@ static const int AREA_ARGS[] = {			// AREA(0, 32, BOLD, LEFT, 5, 5, 299, 40);
 	PARAM_END_Y,
 	0
 };
-static const int LISTEN_ARGS[] = {			// LISTEN(37, SERIAL, 1, 20);
+static const int LISTEN_ARGS[] = {			// LISTEN(37, SERIAL, 0, 20);
 	PARAM_VALUE_NUM,
 	PARAM_MIDI_PORT,
-	PARAM_MIDI_CHANNEL,
+	PARAM_LISTEN_CHANNEL,
 	PARAM_MIDI_CC,
 	0
 };
@@ -119,7 +120,7 @@ static const int PEDAL_ARGS[] = {		// PEDAL(0, "Synth", MIDI, 1, 7);
 	PARAM_MIDI_CC,
 	0
 };
-static const int ROTARY_ARGS[] = {		// ROTARY(0, SERIAL, 0, LOOP_CONTROL_BASE + n);
+static const int ROTARY_ARGS[] = {		// ROTARY(0, SERIAL, 1, LOOP_CONTROL_BASE + n);
 	PARAM_ROTARY_NUM,
 	PARAM_MIDI_PORT,
 	PARAM_MIDI_CHANNEL,
@@ -584,6 +585,11 @@ static bool handleArg(int statement_type, int arg_type)
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
+			case PARAM_LISTEN_CHANNEL :
+				value = rigListenChannelExpression(rig_token.id);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
+				break;
 			case PARAM_MIDI_CC :
 			case PARAM_MIDI_VALUE :
 				value = rigMidiValueExpression(rig_token.id);
@@ -780,7 +786,7 @@ static bool handleSubsection(int button_num, int sub_id)
 			rig_header.button_refs[button_num][sub_num] = offset;
 		ok = ok && skip(RIG_TOKEN_SEMICOLON);
 	}
-	else
+	else	// BLINK
 	{
 		uint16_t offset = rigNumericExpression(rig_token.id);
 		ok = offset;

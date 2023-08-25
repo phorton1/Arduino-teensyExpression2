@@ -95,8 +95,15 @@ void _processMessage(uint32_t i);
 // immediate sends as device (cable0)
 //-------------------------------------
 
-void mySendMidiMessage(uint8_t msg_type, uint8_t channel, uint8_t p1, uint8_t p2)
+static void sendMidiMessage(const char *what, uint8_t msg_type, uint8_t channel, uint8_t p1, uint8_t p2)
 {
+    display(dbg_midi_send,"sendMidiMessage(%s, 0x%02x, %d, %d, %d)",what,msg_type,channel,p1,p2);
+    if (channel < 1 || channel > 16)
+    {
+        my_error("sendMidiMessage(%s) channel(%d) must be between 1 and 16",what,channel);
+        return;
+    }
+
     msgUnion msg(
         msg_type,   //  | PORT_MASK_OUTPUT,
         (msg_type<<4) | (channel-1),
@@ -110,118 +117,100 @@ void mySendMidiMessage(uint8_t msg_type, uint8_t channel, uint8_t p1, uint8_t p2
 }
 
 
-void mySendDeviceProgramChange(uint8_t channel, uint8_t prog_num)
+void sendMidiProgramChange(uint8_t channel, uint8_t prog_num)
 {
-    display(dbg_midi_send,"mySendDeviceProgramChange(%d, %d)",channel,prog_num);
-    #if 1
-        mySendMidiMessage(0x0C, channel, prog_num, 0);
-    #else
-        usbMIDI.sendProgramChange(prog_num, channel);
-        msgUnion msg(
-            0x0C | PORT_MASK_OUTPUT,
-            0xC0 | (channel-1),
-            prog_num,
-            0);
-        the_system.midiActivity(INDEX_MASK_OUTPUT);   // it IS port #2
-        enqueueProcess(msg.i);
-    #endif
+    sendMidiMessage("programChange", 0x0C, channel, prog_num, 0);
 }
 
-void mySendDeviceControlChange(uint8_t channel, uint8_t cc_num, uint8_t value)
+void sendMidiControlChange(uint8_t channel, uint8_t cc_num, uint8_t value)
 {
-    display(dbg_midi_send,"mySendDeviceControlChange(%d, %d, %d)",channel,cc_num,value);
-
-    #if 1
-        mySendMidiMessage(0x0B, channel, cc_num, value);
-    #else
-        usbMIDI.sendControlChange(cc_num, value, channel);
-        msgUnion msg(
-            0x0B | PORT_MASK_OUTPUT,
-            0xB0 | (channel-1),
-            cc_num,
-            value);
-        the_system.midiActivity(INDEX_MASK_OUTPUT);   // it IS port #2
-        enqueueProcess(msg.i);
-    #endif
+    sendMidiMessage("controlChange", 0x0B, channel, cc_num, value);
 }
 
 
-
-void sendSerialControlChange(uint8_t cc_num, uint8_t value)
+void sendSerialControlChange(uint8_t channel, uint8_t cc_num, uint8_t value)
+    // note that the looper only accepts channel 1,
+    // but that I have generalized TE's ability to send to other channels
 {
-    display(dbg_midi_send,"sendSerialControlChange(%d, %d)",cc_num,value);
-
+    display(dbg_midi_send,"sendSerialControlChange(%d, %d, %d)",channel,cc_num,value);
+    if (channel < 1 || channel > 16)
+    {
+        my_error("sendSerialControlChange channel(%d) must be between 1 and 16",channel);
+        return;
+    }
     unsigned char midi_buf[4];
-    midi_buf[0] = 0xB;				// controller message
-    midi_buf[1] = 0xB0;				// controller message on channel one
-    midi_buf[2] = cc_num;           // the cc_number
-    midi_buf[3] = value;			// the value
+    midi_buf[0] = 0xB;				    // controller message
+    midi_buf[1] = 0xB0 | (channel-1);	// controller message or'd with channel
+    midi_buf[2] = cc_num;               // the cc_number
+    midi_buf[3] = value;			    // the value
     Serial3.write(midi_buf,4);
 }
 
 
+#if 0       // MIDI_HOST only
 
-void mySendFtpSysex(int length, uint8_t *buf)
-    // called by me: midi_host.sendSysEx(sizeof(ftpRequestPatch),ftpRequestPatch,true);
-    // Pauls API: void sendSysEx(uint32_t length, const uint8_t *data, bool hasTerm=false, uint8_t cable=0)
-{
-    int ftp_output_port = FTP_OUTPUT_PORT;
-    if (!ftp_output_port)
+    void sendFtpSysex(int length, uint8_t *buf)
+        // called by me: midi_host.sendSysEx(sizeof(ftpRequestPatch),ftpRequestPatch,true);
+        // Pauls API: void sendSysEx(uint32_t length, const uint8_t *data, bool hasTerm=false, uint8_t cable=0)
     {
-        warning(0,"FTP_ENABLE pref is off in mySendFtpSysex(%d)",length);
-    }
-    else
-    {
-        int pindex = INDEX_MASK_OUTPUT | INDEX_MASK_CABLE;
-            // (ftp_output_port == 1 ? INDEX_MASK_HOST : 0);
-
-        msgUnion msg(0);
-        int len = length;
-        uint8_t *p = buf;
-        bool started = false;
-
-        msg.b[0] = 0x14;
-            // we are always writing to cable 1 (0x10)
-            // the 4 is the message type
-
-        bool flush_usb_midi = false;
-
-        while (len)
+        int ftp_output_port = FTP_OUTPUT_PORT;
+        if (!ftp_output_port)
         {
-            // create the 32 bit packet
-
-            int take = 3;
-            if (started && len <= 3)
-            {
-                take = len;
-                msg.b[0] = 0x15 + len-1;
-            }
-            for (int i=0; i<3; i++)
-            {
-                msg.b[i+1] = (i<take) ? *p++ : 0;
-            }
-            len -= take;
-            started = 1;
-
-            // if (ftp_output_port == 2)   // Remote
-            // {
-                flush_usb_midi = true;
-                usb_midi_write_packed(msg.i);
-                enqueueProcess(msg.i | PORT_MASK_OUTPUT);
-            //}
-            //else
-            //{
-            //    midi_host.write_packed(msg.i);
-            //    enqueueProcess(msg.i | PORT_MASK_OUTPUT | PORT_MASK_HOST);
-            //}
-
-            the_system.midiActivity(pindex);
+            warning(0,"FTP_ENABLE pref is off in sendFtpSysex(%d)",length);
         }
+        else
+        {
+            int pindex = INDEX_MASK_OUTPUT | INDEX_MASK_CABLE;
+                // (ftp_output_port == 1 ? INDEX_MASK_HOST : 0);
 
-        if (flush_usb_midi)
-            usb_midi_flush_output();
+            msgUnion msg(0);
+            int len = length;
+            uint8_t *p = buf;
+            bool started = false;
+
+            msg.b[0] = 0x14;
+                // we are always writing to cable 1 (0x10)
+                // the 4 is the message type
+
+            bool flush_usb_midi = false;
+
+            while (len)
+            {
+                // create the 32 bit packet
+
+                int take = 3;
+                if (started && len <= 3)
+                {
+                    take = len;
+                    msg.b[0] = 0x15 + len-1;
+                }
+                for (int i=0; i<3; i++)
+                {
+                    msg.b[i+1] = (i<take) ? *p++ : 0;
+                }
+                len -= take;
+                started = 1;
+
+                // if (ftp_output_port == 2)   // Remote
+                // {
+                    flush_usb_midi = true;
+                    usb_midi_write_packed(msg.i);
+                    enqueueProcess(msg.i | PORT_MASK_OUTPUT);
+                //}
+                //else
+                //{
+                //    midi_host.write_packed(msg.i);
+                //    enqueueProcess(msg.i | PORT_MASK_OUTPUT | PORT_MASK_HOST);
+                //}
+
+                the_system.midiActivity(pindex);
+            }
+
+            if (flush_usb_midi)
+                usb_midi_flush_output();
+        }
     }
-}
+#endif
 
 
 

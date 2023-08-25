@@ -2,7 +2,7 @@
 #include "pedals.h"
 #include "prefs.h"
 #include "theSystem.h"
-#include "midiQueue.h"  // for mySendDeviceControlChange()
+#include "midiQueue.h"  // for sendMidiControlChange()
 
 #define DEBUG_PEDALS  0
 
@@ -215,12 +215,13 @@ void pedalManager::pedalEvent(int num, int value)
     if (pedal_pref->IS_SERIAL)
     {
         sendSerialControlChange(
+            pedal_pref->MIDI_CHANNEL,
             pedal_pref->MIDI_CC,
             value);
     }
     else
     {
-        mySendDeviceControlChange(
+        sendMidiControlChange(
             pedal_pref->MIDI_CHANNEL,
             pedal_pref->MIDI_CC,
             value);
