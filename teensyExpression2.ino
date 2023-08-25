@@ -30,14 +30,14 @@
 
 void setup()
 {
-    read_prefs();
+    bool prefs_reset = read_prefs();
 
     // things I might want to do:
     //
-    reset_prefs();
+    // reset_prefs();
     prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
     prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
-    save_prefs();
+    // save_prefs();
 
     //-------------------------------------
     // Start the serial portS
@@ -171,23 +171,35 @@ void setup()
     // with variable delays
 
     int do_delay = 2000;
+    mylcd.setTextColor(TFT_YELLOW);
+
+    if (prefs_reset)
+    {
+        const char *msg = "    PREFS WERE AUTOMATICALLY RESET!!";
+        warning(0,"%s",msg);
+        mylcd.println(msg);
+        do_delay = 5000;
+    }
+
     if (!dbgSerial)
     {
-        mylcd.setTextColor(TFT_YELLOW);
-        mylcd.println("    NO SERIAL PORT IS ACTIVE!!");
-        do_delay = 3000;
+        const char *msg = "    NO SERIAL PORT IS ACTIVE!!";
+        warning(0,"%s",msg);
+        mylcd.println(msg);
+        do_delay = 5000;
     }
     else if (debug_device == OUTPUT_DEVICE_SERIAL)
     {
-        mylcd.setTextColor(TFT_YELLOW);
-        mylcd.println("    DEBUG_OUTPUT to hardware Serial3!");
-        if (!do_delay) do_delay = 1200;
+        const char *msg = "    DEBUG_OUTPUT to hardware Serial3!";
+        warning(0,"%s",msg);
+        mylcd.println(msg);
+        do_delay = 5000;
     }
 
     #if !defined(USB_MIDI_SERIAL)
-        error("PROGRAM IS NOT COMPILED UNDER USB_MIDI_SERIAL teensyDuino type!! Things may not work correctly!!!",0);
-        mylcd.setTextColor(TFT_YELLOW);
-        mylcd.println("    NOT COMPILED WITH USB_MIDI_SERIAL !!");
+        const char *msg = "    NOT COMPILED WITH USB_MIDI_SERIAL !!!";
+        warning(0,"%s",msg);
+        mylcd.println(msg);
         do_delay = 5000;
     #endif
 

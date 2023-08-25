@@ -25,6 +25,14 @@
 
 #include "defines.h"
 
+#define TEENSY_EXPRESSION2_PREF_VERSION   238
+	// EEPROM location 0 is magic
+	// it is 237 for teensyExpression1
+	// and 238 for teensyExpression2
+	// so that we can recognize the difference
+	// and automatically do a factory reset when switching between them
+
+
 // Pref Constants
 
 #define OUTPUT_DEVICE_OFF			0
@@ -151,7 +159,11 @@ extern const prefs_t prefs_max;
 // initialize and reset methods
 
 extern void reset_prefs();
-extern void read_prefs();
+	// does not re-read them
+
+extern bool read_prefs();
+	// returns true if prefs were automatically reset
+
 extern void save_prefs();
 
 // offset based accessors

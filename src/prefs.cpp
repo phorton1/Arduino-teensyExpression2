@@ -10,7 +10,7 @@
 
 #define dbg_prefs	0
 
-#define NUM_EEPROM_USED	(sizeof(prefs_t))
+#define NUM_EEPROM_USED	(sizeof(prefs_t) + 1)
 
 prefs_t prefs;
 	// in memory prefs
@@ -281,30 +281,39 @@ const prefs_t prefs_max =
 //----------------------------------------------
 
 void reset_prefs()
-	// set all prefs to default (255) value
+	// set EEPROM(0) to TEENSY_EXPRESSION2_PREF_VERSION
+	// and EEPROM(1..NUM_EEPROM_USED) to 255
 {
-    display(dbg_prefs,"reset_prefs(%d)",NUM_EEPROM_USED);
-    for (uint16_t i=0; i<NUM_EEPROM_USED; i++)
+    display(dbg_prefs,"reset_prefs()",0);
+	EEPROM.write(0,TEENSY_EXPRESSION2_PREF_VERSION);
+    for (uint16_t i=1; i<NUM_EEPROM_USED; i++)
     {
         EEPROM.write(i,255);
     }
-	read_prefs();
 }
 
 
 
 // extern
-void read_prefs()
+bool read_prefs()
 	// set any non default (!=255) values into in-memory prefs
 {
-    display(dbg_prefs,"read_prefs(%d)",NUM_EEPROM_USED);
-	memcpy(&prefs,&default_prefs,NUM_EEPROM_USED);
+	bool retval = 0;
+    display(dbg_prefs,"read_prefs()",0);
+
+	if (EEPROM.read(0) != TEENSY_EXPRESSION2_PREF_VERSION)
+	{
+		reset_prefs();
+		retval = 1;
+	}
+
+	memcpy(&prefs,&default_prefs,sizeof(prefs_t));
 
 	uint8_t *ptr = (uint8_t*) &prefs;
 	uint8_t *last_ptr = (uint8_t*) &last_prefs;
-    for (uint16_t i=0; i<NUM_EEPROM_USED; i++)
+    for (uint16_t i=0; i<sizeof(prefs_t); i++)
     {
-        uint8_t byte = EEPROM.read(i);
+        uint8_t byte = EEPROM.read(i+1);
 		if (byte != 255)
 		{
 			*ptr = byte;
@@ -314,6 +323,8 @@ void read_prefs()
 		ptr++;
 		last_ptr++;
     }
+
+	return retval;
 }
 
 
@@ -321,22 +332,20 @@ void read_prefs()
 // extern
 void save_prefs()
 	// write to EEPROM and update last_pref members
-	// after the first save, all the 255's will go away in EEPROM
-	// so if you change the defaults, or the structure of the prefs,
-	// you MUST do a factory reset.
+	// writes 255 for prefs that match the default
 {
-    display(dbg_prefs,"save_prefs(%d)",NUM_EEPROM_USED);
+    display(dbg_prefs,"save_prefs()",0);
 	uint8_t *ptr = (uint8_t*) &prefs;
 	uint8_t *last_ptr = (uint8_t*) &last_prefs;
 	const uint8_t *def_ptr = (const uint8_t *) &default_prefs;
 
-    for (uint16_t i=0; i<NUM_EEPROM_USED; i++)
+    for (uint16_t i=0; i<sizeof(prefs_t); i++)
     {
 		uint8_t val = *ptr;
 		*last_ptr = val;
 		if (val == *def_ptr)
 			val = 255;
-        EEPROM.write(i,val);
+        EEPROM.write(i+1,val);
 
 		ptr++;
 		last_ptr++;
@@ -438,7 +447,7 @@ void save_prefs()
 	{
 		uint8_t *ptr = (uint8_t*) &prefs;
 		uint8_t *last_ptr = (uint8_t*) &last_prefs;
-		for (uint16_t i=0; i<NUM_EEPROM_USED; i++)
+		for (uint16_t i=0; i<sizeof(prefs_t); i++)
 			if (last_ptr[i] != ptr[i])
 				return true;
 		return false;
@@ -467,7 +476,7 @@ void save_prefs()
 	{
 		uint8_t *ptr = (uint8_t*) &prefs;
 		uint8_t *last_ptr = (uint8_t*) &last_prefs;
-		last_ptr[off] = ptr[off] = EEPROM.read(off);
+		last_ptr[off] = ptr[off] = EEPROM.read(off+1);
 		display(dbg_prefs + 1,"pref8_restore(%s, %d) to %d", name?name:"", off, ptr[off]);
 		return ptr[off];
 	}
@@ -477,8 +486,8 @@ void save_prefs()
 	{
 		uint8_t *ptr = (uint8_t*) &prefs;
 		uint8_t *last_ptr = (uint8_t*) &last_prefs;
-		last_ptr[off] = ptr[off] = EEPROM.read(off);
-		last_ptr[off+1] = ptr[off+1] = EEPROM.read(off+1);
+		last_ptr[off] = ptr[off] = EEPROM.read(off+1);
+		last_ptr[off+1] = ptr[off+1] = EEPROM.read(off+2);
 		uint16_t *ptr16 = (uint16_t *) &ptr[off];
 		display(dbg_prefs + 1,"pref16_restore(%s, %d) to %d", name?name:"", off, *ptr16);
 		return *ptr16;
