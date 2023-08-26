@@ -34,6 +34,9 @@ void setup()
     reset_prefs();
     prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
     prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
+    prefs.FTP_PORT = 2;     // enum
+    // nprefs.SPOOF_FTP = 1;    // on
+
     // save_prefs();
 
     //-------------------------------------
@@ -67,7 +70,8 @@ void setup()
     ///---------------------------------------
     // optionally call setFTPDescriptors()
 
-    // setFTPDescriptors();
+    if (prefs.SPOOF_FTP)
+        setFTPDescriptors();
     my_usb_init();
     delay(1000);
 
@@ -188,7 +192,13 @@ void setup()
         mylcd.println(msg);
         do_delay = 5000;
     }
-
+    if (prefs.SPOOF_FTP)
+    {
+        const char *msg = "    SPOOFING FTP!!";
+        warning(0,"%s",msg);
+        mylcd.println(msg);
+        do_delay = 5000;
+    }
     if (!dbgSerial)
     {
         const char *msg = "    NO SERIAL PORT IS ACTIVE!!";
@@ -204,12 +214,13 @@ void setup()
         do_delay = 5000;
     }
 
-    #if 0 && !defined(USB_MIDI_SERIAL)
-        const char *msg = "    NOT COMPILED WITH USB_MIDI_SERIAL !!!";
+    #if !defined(USB_MIDI4_SERIAL)
+        const char *msg = "    NOT COMPILED WITH USB_MIDI4_SERIAL !!!";
         warning(0,"%s",msg);
         mylcd.println(msg);
         do_delay = 5000;
     #endif
+
 
     //----------------------------------
     // start the LEDs

@@ -18,6 +18,7 @@ void factoryReset(int i) {}
 
 const char *off_on[]                  = {"Off","On"};
 const char *off_usb_serial[]          = {"Off","USB","Serial"};
+const char *off_usb_host[]            = {"Off","USB","Host"};
 const char *off_on_detail[]           = {"Off","On","Detail"};
 
 const char *curve_types[]             = {"linear","asympt","scurve"};
@@ -60,7 +61,8 @@ D_ROOT( 	d_root, 			"root", 		NULL );
 D_PREF8(	d_brightness,		"Brightness",	&d_root,  		BRIGHTNESS,				setLEDBrightness );
 
 D_SUB_MENU( d_ftp, 				"FTP", 			&d_root );
-D_ENUM(		d_ftp_enable,		"FTP Enable",	&d_ftp,			FTP_ENABLE,				off_on );
+D_ENUM(		d_spoof_ftp,		"Spoof FTP",	&d_ftp,			SPOOF_FTP,			    off_on );
+D_ENUM(		d_ftp_port,			"FTP Port",		&d_ftp,			FTP_PORT,				off_usb_host );
 D_DIALOG(	d_ftp_tuner,		"Tuner",		&d_ftp,			startFtpTuner );
 D_DIALOG(	d_ftp_sense,		"Sensitivty",	&d_ftp,			startFtpSensitivity );
 
@@ -142,7 +144,8 @@ const opt_desc_t all_opts[] =
 	d_root,
 	d_brightness,
 	d_ftp,
-	d_ftp_enable,
+	d_spoof_ftp,
+	d_ftp_port,
 	d_ftp_tuner,
 	d_ftp_sense,
 	d_pedals,

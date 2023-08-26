@@ -238,7 +238,7 @@ static void handleFTP(msgUnion &msg)
 static void enqueueMidi(msgUnion &msg)
 {
 	display(0,"enqueueMidi(0x%08x)",msg.i);
-	if (prefs.FTP_ENABLE && (
+	if (prefs.FTP_PORT && (
 		msg.port() == MIDI_PORT_USB1 ||
 		msg.port() == MIDI_PORT_HOST1 ))
 	{
@@ -388,7 +388,7 @@ void _processMessage(uint32_t i);
         int ftp_output_port = FTP_OUTPUT_PORT;
         if (!ftp_output_port)
         {
-            warning(0,"FTP_ENABLE pref is off in sendFtpSysex(%d)",length);
+            warning(0,"FTP_PORT pref is off in sendFtpSysex(%d)",length);
         }
         else
         {
@@ -481,7 +481,7 @@ void sendFTPCommandAndValue(uint8_t command, uint8_t value)
 {
     if (!FTP_OUTPUT_PORT)
     {
-        warning(0,"FTP_ENABLE pref is Off in sendFTPCommandAndValue(%02x,%02x)",command,value);
+        warning(0,"FTP_PORT pref is Off in sendFTPCommandAndValue(%02x,%02x)",command,value);
         return;
     }
 
@@ -508,7 +508,7 @@ void sendPendingCommand()
     int ftp_output_port = FTP_OUTPUT_PORT;
     if (!ftp_output_port)
     {
-        warning(0,"FTP_ENABLE pref is off in sendPendingCommand(%d) command(%08x) value(%08x)",command_retry_count,pending_command,pending_command_value);
+        warning(0,"FTP_PORT pref is off in sendPendingCommand(%d) command(%08x) value(%08x)",command_retry_count,pending_command,pending_command_value);
     }
     else
     {
@@ -626,7 +626,7 @@ bool isFtpPort(int idx)
     // if messages from the port should be parsed and
     // displayed as ftp specific
 {
-    return prefs.FTP_ENABLE;
+    return prefs.FTP_PORT;
 
     // bool is_spoof = getPref8(PREF_SPOOF_FTP);
     // if (is_spoof) return 1;                             // all ports if spoofing
@@ -646,7 +646,7 @@ bool isFtpController(int idx)
     if (!INDEX_CABLE(idx)) return false;                // only on cable 1
     if (INDEX_IS_OUTPUT(idx)) return false;             // only on input
 
-    if (!prefs.FTP_ENABLE) return false;
+    if (!prefs.FTP_PORT) return false;
 
     // bool is_spoof = getPref8(PREF_SPOOF_FTP);
     // if (is_spoof) return INDEX_IS_HOST(idx);            // if spoofing and on host

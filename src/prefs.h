@@ -44,7 +44,7 @@
 #define PREF_BRIGHTNESS				"BRIGHTNESS"
 #define PREF_DEBUG_DEVICE			"DEBUG_DEVICE"
 #define PREF_FILE_SYSTEM_PORT		"FILE_SYSTEM_PORT"
-#define PREF_FTP_ENABLE				"FTP_ENABLE"
+#define PREF_FTP_ENABLE				"FTP_PORT"
 
 
 //---------------------------------------
@@ -96,7 +96,9 @@ typedef struct
 	uint8_t 		BRIGHTNESS;					// LED brightness, 1..100 - default=30
 	uint8_t			DEBUG_DEVICE;         		// off, USB, Serial - default(2=Serial)
 	uint8_t			FILE_SYS_DEVICE;   			// off, USB, Serial - default(0=off)
-	uint8_t			FTP_ENABLE;         		// off, on - default - default(on)
+	uint8_t			SPOOF_FTP;         			// off, on - on implies FTP_PORT == HOST
+	uint8_t			FTP_PORT;         			// off, USB, HOST
+
 	pref_pedal_t 	PEDAL[NUM_PEDALS];
 	pref_rotary_t	ROTARY[NUM_ROTARY];
 

@@ -361,7 +361,8 @@ int           ftp_init_state = 0;
 
 void initQueryFTP()
 {
-	if (!prefs.FTP_ENABLE)
+	uint8_t ftp_port = FTP_ACTIVE_PORT;
+	if (!ftp_port)
 		return;
 
     uint32_t use_check_time =
@@ -377,11 +378,12 @@ void initQueryFTP()
 		return;
 	s_battery_time = 0;
 
-	display(dbg_init,"initQueryFTP() -----------------",0);
+	display(dbg_init,"initQueryFTP(port=0x%02x) battery=%d init=%d",ftp_port,ftp_battery_level,ftp_init_state);
+
 	if (ftp_battery_level == -1)
     {
         s_num_battery_checks++;
-	    sendFTPCommandAndValue(FTP_CMD_BATTERY_LEVEL, 0, false);
+	    sendFTPCommandAndValue(ftp_port,FTP_CMD_BATTERY_LEVEL, 0, false);
     }
 	else if (!ftp_init_state)
 	{
@@ -390,7 +392,7 @@ void initQueryFTP()
 
         for (int i=0; i<NUM_STRINGS && ok; i++)
         {
-            ok = ok && sendFTPCommandAndValue(FTP_CMD_GET_SENSITIVITY, i, true);
+            ok = ok && sendFTPCommandAndValue(ftp_port,FTP_CMD_GET_SENSITIVITY, i, true);
         }
 
         #define DEFAULT_DYNAMIC_RANGE   20
@@ -398,9 +400,9 @@ void initQueryFTP()
         #define DEFAULT_TOUCH_SENSITIVITY  4
 
         // ok = ok && sendFTPCommandAndValue(FTP_CMD_SPLIT_NUMBER,0x01, true);
-        ok = ok && sendFTPCommandAndValue(FTP_CMD_DYNAMICS_SENSITIVITY,DEFAULT_DYNAMIC_RANGE, true);
-        ok = ok && sendFTPCommandAndValue(FTP_CMD_DYNAMICS_OFFSET,DEFAULT_DYNAMIC_OFFSET, true);
-        ok = ok && sendFTPCommandAndValue(FTP_CMD_TOUCH_SENSITIVITY,DEFAULT_TOUCH_SENSITIVITY, true);
+        ok = ok && sendFTPCommandAndValue(ftp_port,FTP_CMD_DYNAMICS_SENSITIVITY,DEFAULT_DYNAMIC_RANGE, true);
+        ok = ok && sendFTPCommandAndValue(ftp_port,FTP_CMD_DYNAMICS_OFFSET,DEFAULT_DYNAMIC_OFFSET, true);
+        ok = ok && sendFTPCommandAndValue(ftp_port,FTP_CMD_TOUCH_SENSITIVITY,DEFAULT_TOUCH_SENSITIVITY, true);
 
 		if (ok)
 			display(dbg_init,"INITIALIZING FTP FINISHED",0);
@@ -411,6 +413,6 @@ void initQueryFTP()
     }
 	else	// normal case
 	{
-	    sendFTPCommandAndValue(FTP_CMD_BATTERY_LEVEL, 0, false);
+	    sendFTPCommandAndValue(ftp_port,FTP_CMD_BATTERY_LEVEL, 0, false);
 	}
 }

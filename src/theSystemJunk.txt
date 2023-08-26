@@ -498,7 +498,7 @@ void theSystem::timer_handler()
 		// if we are monitoring the input port, or it is the remote FTP
 
 		if (prefs.MONITOR_PORT[pindex] || (  			// if monitoring the port, OR
-			prefs.FTP_ENABLE && INDEX_CABLE(pindex)))	// FTP enabled and cabler == 1
+			prefs.FTP_PORT && INDEX_CABLE(pindex)))	// FTP enabled and cabler == 1
 		{
 	        enqueueProcess(msg);
 		}

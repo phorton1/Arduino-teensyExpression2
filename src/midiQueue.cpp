@@ -244,9 +244,8 @@ static void handleFTP(msgUnion &msg)
 static void enqueueMidi(msgUnion &msg)
 {
 	display(dbg_queue,"enqueueMidi(0x%08x)",msg.i);
-	if (prefs.FTP_ENABLE && (
-		msg.port() == MIDI_PORT_USB1 ||
-		msg.port() == MIDI_PORT_HOST1 ))
+	uint8_t ftp_port = FTP_ACTIVE_PORT;
+	if (ftp_port && msg.port() == ftp_port)
 	{
 		handleFTP(msg);
 	}
@@ -346,14 +345,9 @@ void sendMidiControlChange(uint8_t port, uint8_t channel, uint8_t cc_num, uint8_
 }
 
 
-bool sendFTPCommandAndValue(uint8_t cmd, uint8_t val, bool wait)
+bool sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val, bool wait)
 {
-    display(dbg_ftp+1,"sendFTPCommandAndValue(%02x,%02x) wait=%d",cmd,val,wait);
-    if (!prefs.FTP_ENABLE)
-    {
-        warning(0,"prefs.FTP_ENABLE is Off in sendFTPCommandAndValue(%02x,%02x)",cmd,val);
-        return 0;
-    }
+    display(dbg_ftp+1,"sendFTPCommandAndValue(0x%02x, %02x,%02x) wait=%d",ftp_port,cmd,val,wait);
 
 	// I send a single command pair to the HOST1 port
 	// and get replies from both HOST1 and HOST2.
@@ -365,8 +359,8 @@ bool sendFTPCommandAndValue(uint8_t cmd, uint8_t val, bool wait)
 	proc_entry();
 	pending_command = cmd;
 	pending_command_value = val;
-	sendMidiControlChange(MIDI_PORT_HOST1, 8, FTP_COMMAND_OR_REPLY, cmd);
-	sendMidiControlChange(MIDI_PORT_HOST1, 8, FTP_COMMAND_VALUE, 	val);
+	sendMidiControlChange(ftp_port, 8, FTP_COMMAND_OR_REPLY, cmd);
+	sendMidiControlChange(ftp_port, 8, FTP_COMMAND_VALUE, 	val);
 
 	bool ok = 1;
 	if (wait)

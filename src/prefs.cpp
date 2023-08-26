@@ -38,7 +38,8 @@ const prefs_t default_prefs =
 	.BRIGHTNESS			= 30,				// LED brightness, 1..100 - default=30
 	.DEBUG_DEVICE		= OUTPUT_DEVICE_SERIAL,		// off, USB, Serial - default(2=Serial)
 	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_SERIAL,		// off, USB, Serial - default(0=off)
-	.FTP_ENABLE			= 1,				// off, on - default - default(on)
+	.SPOOF_FTP          = 0,						// off, on
+	.FTP_PORT			= 1,						// off, USB, HOST
 	.PEDAL = {
 		{											// pedal 0 - Synth
 			.NAME 	 = {'s','y','n','t','h', 0},
@@ -162,10 +163,11 @@ const prefs_t prefs_min = {
 
 const prefs_t prefs_max =
 {
-	.BRIGHTNESS			= 100,				// LED brightness, 1..100 - default=30
+	.BRIGHTNESS			= 100,					// LED brightness, 1..100 - default=30
 	.DEBUG_DEVICE		= OUTPUT_DEVICE_SERIAL, // off, USB, Serial - default(2=Serial)
 	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_SERIAL, // off, USB, Serial - default(2=Serial)
-	.FTP_ENABLE			= 1,				// off, on - default - default(on)
+	.SPOOF_FTP			= 1,					// off, on
+	.FTP_PORT			= 2,					// off, USB, HOST
 	.PEDAL = {
 		{									// pedal 0
 			.NAME		= {0},
