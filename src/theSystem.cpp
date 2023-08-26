@@ -142,7 +142,10 @@ void theSystem::begin()
     theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);
 
 	if (rig_machine.loadRig("default"))
+	{
+		draw_pedals = 1;
 		setTitle(rig_machine.rigName());
+	}
 
 	display(dbg_sys,"returning from theSystem::begin()",0);
 }
@@ -159,7 +162,10 @@ void theSystem::onButton(int row, int col, int event)
 	if (num == 9)
 	{
 		if (rig_machine.loadRig("default"))
+		{
+			draw_pedals = 1;
 			setTitle(rig_machine.rigName());
+		}
 	}
 	else if (num == THE_SYSTEM_BUTTON && event == BUTTON_EVENT_LONG_CLICK)
 	{
@@ -406,7 +412,7 @@ void theSystem::loop()
 					TFT_YELLOW,
 					false,
 					"%s",
-					prefs.PEDAL[i].NAME);
+					thePedals.getPedal(i)->getName());
 
 				if (i && i<NUM_PEDALS)
 					mylcd.drawLine(

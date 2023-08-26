@@ -20,16 +20,6 @@
 #include "defines.h"
 #include "rigToken.h"	// for NUM_SUBSECTIONS
 
-#define MIDI_MAX_CHANNEL		16
-#define MIDI_MIN_CHANNEL		1
-#define MIDI_OMNI_CHANNEL		0
-	// Midi messages MUST be sent on a valid midi channel 1-16, which
-	// 		will be 0..15 or'd into the sent message.
-	// The special value of 0 is only available for Listens, which means
-	// to listen on any channel.
-#define MIDI_MAX_VALUE			127
-
-
 // These are fixed by architecture
 
 #define MAX_RIG_VALUE			255		// stored in uint8's

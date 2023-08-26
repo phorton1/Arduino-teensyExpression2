@@ -63,6 +63,9 @@ public:
 	void updateUI();
     void onButton(int row, int col, int event);
 	void onMidiCC(int port, int channel, int cc_num, int value);
+		// port is an enum
+		// channel is one based
+
 
 private:
 

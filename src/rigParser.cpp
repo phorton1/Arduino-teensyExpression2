@@ -554,7 +554,7 @@ static bool handleArg(int statement_type, int arg_type)
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_PEDAL_NAME   :
-				text = getText("PEDAL_NAME",7);
+				text = getText("PEDAL_NAME",MAX_PEDAL_NAME);
 				ok = ok && text;
 				ok = ok && addStatementInt(rig_header.string_pool_len);
 				ok = ok && addStringPool(text);

@@ -17,7 +17,8 @@
 #include "myTFT.h"
 #include "theSystem.h"
 #include "midiQueue.h"	// for send methods
-
+#include "pedals.h"
+#include "rotary.h"
 
 
 #define dbg_rig 	0
@@ -496,8 +497,34 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 				break;
 
 			case RIG_TOKEN_PEDAL:
+				display(dbg_calls,"PEDAL(%d,%s,%d=%s,%d,%d)",
+					m_param_values[0].value,
+					m_param_values[1].text,
+					m_param_values[2].value,
+					rigTokenToText(m_param_values[2].value + RIG_TOKEN_USB1),
+					m_param_values[3].value,
+					m_param_values[4].value);
+				thePedals.setPedal(
+					m_param_values[0].value,			// pedeal num
+					m_param_values[1].text,		// name
+					MIDI_ENUM_TO_PORT(m_param_values[2].value),	// port
+					m_param_values[3].value - 1,		// switch to zero based channel number
+					m_param_values[4].value);			// cc
+				break;
+
 			case RIG_TOKEN_ROTARY:
-				break; // TBD
+				display(dbg_calls,"ROTARY(%d,%d=%s,%d,%d)",
+					m_param_values[0].value,
+					m_param_values[1].value,
+					rigTokenToText(m_param_values[1].value + RIG_TOKEN_USB1),
+					m_param_values[2].value,
+					m_param_values[3].value);
+				setRotary(
+					m_param_values[0].value,			// rotary num
+					MIDI_ENUM_TO_PORT(m_param_values[1].value),	// port
+					m_param_values[2].value - 1,		// switch to zero based channel number
+					m_param_values[3].value);			// cc
+				break;
 
 			case RIG_TOKEN_DISPLAY:
 				display(dbg_calls,"display(%d,%d=%s,\"%s\")",
@@ -586,6 +613,7 @@ bool rigMachine::executeStatementList(int statement_num)
 //--------------------------------------------------
 
 void rigMachine::onMidiCC(int port, int channel, int cc_num, int value)
+	// port is an enum, and channel is one based
 {
 	display(dbg_midi+1,"onMidiCC(%d,%d,%d,%d)",port,channel,cc_num,value);
 

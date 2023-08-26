@@ -26,15 +26,20 @@ void pedalManager::init()
     m_pedals[3].init(3, PIN_EXPR4);
 }
 
-
 void pedalManager::task()
 {
     for (int i=0; i<NUM_PEDALS; i++)
         m_pedals[i].poll();
 }
 
-
-
+void pedalManager::setPedal(int num, const char *name, uint8_t port, uint8_t channel, uint8_t cc)
+{
+    memcpy(m_pedals[num].m_name,name,MAX_PEDAL_NAME);
+    m_pedals[num].m_name[MAX_PEDAL_NAME] = 0;
+    m_pedals[num].m_port = port;
+    m_pedals[num].m_channel = channel;
+    m_pedals[num].m_cc = cc;
+}
 
 
 //------------------------------------
@@ -47,6 +52,12 @@ void expressionPedal::init(
 {
     m_num = num;
     m_pin = pin;
+
+
+    strcpy(m_name,prefs.PEDAL[num].NAME);
+    m_port    = MIDI_ENUM_TO_PORT(prefs.PEDAL[num].PORT);
+    m_channel = prefs.PEDAL[num].CHANNEL;
+    m_cc      = prefs.PEDAL[num].CC;
 
     m_raw_value = -1;         // 0..1023
     m_direction = -1;
@@ -210,10 +221,9 @@ void expressionPedal::poll()
 
 void pedalManager::pedalEvent(int num, int value)
 {
-	pref_pedal_t *pedal_pref = &prefs.PEDAL[num];
-    sendMidiControlChange(
-        pedal_pref->IS_SERIAL ? MIDI_PORT_SERIAL : MIDI_PORT_USB1,
-        pedal_pref->MIDI_CHANNEL,
-        pedal_pref->MIDI_CC,
+	 sendMidiControlChange(
+        m_pedals[num].m_port,
+        m_pedals[num].m_channel + 1,
+        m_pedals[num].m_cc,
         value);
 }

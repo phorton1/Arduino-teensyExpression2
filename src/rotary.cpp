@@ -1,57 +1,50 @@
+//--------------------------------------------------------------------------
+// rotary.cpp
+//-------------------------------------------------------------------------
+// Rotaries are initialized from prefs, but can then be modified,
+// initRotary() can be called more than once
+
 #include <myDebug.h>
 #include "rotary.h"
 #include "prefs.h"
 #include "midiQueue.h"  // for sendCC methods
 
 
-
 #define DEBUG_ROTARY  0
+
+
+#define INCS_PER_REV        40.00
+#define ROTARY_INC_DEC     (128.00 / (0.80 * INCS_PER_REV))
 
 
 typedef struct
 {
-    int pollA;      // the last value polled for the A part of the switch
-    int pinA;       // the pin for A polling
-    int pinB;       // the pin for B polling
+    int pinA;           // the pin for A polling
+    int pinB;           // the pin for B polling
+}   rotaryPin_t;
 
-    int min_range;  // the minimum value
-    int max_range;  // the maximum value
-    float inc_dec;    // the amount to inc or dec per signal
 
-    float value;      // the current value
+typedef struct
+{
+    uint8_t port;
+    uint8_t channel;
+    uint8_t cc;
+    int     pollA;        // the last value polled for the A part of the switch
+    float   value;        // the current value
 }   rotary_t;
 
 
 
-rotary_t rotary[NUM_ROTARY] =
+const rotaryPin_t rotary_pin[NUM_ROTARY] =
 {
-    { 0, ROTARY_1A, ROTARY_1B, 0, 127, DEFAULT_INC_DEC },
-    { 0, ROTARY_2A, ROTARY_2B, 0, 127, DEFAULT_INC_DEC },
-    { 0, ROTARY_3A, ROTARY_3B, 0, 127, DEFAULT_INC_DEC },
-    { 0, ROTARY_4A, ROTARY_4B, 0, 127, DEFAULT_INC_DEC },
+    { ROTARY_1A, ROTARY_1B },
+    { ROTARY_2A, ROTARY_2B },
+    { ROTARY_3A, ROTARY_3B },
+    { ROTARY_4A, ROTARY_4B },
 };
 
 
-
-void setRotaryValue(int num, int value)
-    // note that the stored value is a float
-    // but the returned value is a truncated int
-{
-    if (value > rotary[num].max_range)
-        value = rotary[num].max_range;
-    if (value < rotary[num].min_range)
-        value = rotary[num].min_range;
-    rotary[num].value = value;
-}
-
-
-void setRotary(int num, int min_range, int max_range, float inc_dec)
-{
-    rotary[num].min_range = min_range;
-    rotary[num].max_range = max_range;
-    rotary[num].inc_dec = inc_dec;
-}
-
+rotary_t rotary[NUM_ROTARY];
 
 
 
@@ -59,10 +52,15 @@ void initRotary()
 {
     for (int i=0; i<4; i++)
     {
-        pinMode(rotary[i].pinA,INPUT_PULLDOWN);
-        pinMode(rotary[i].pinB,INPUT_PULLDOWN);
-        // init to current state
-        rotary[i].pollA = digitalRead(rotary[i].pinA);
+        rotary[i].port    = MIDI_ENUM_TO_PORT(prefs.ROTARY[i].PORT);
+        rotary[i].channel = prefs.ROTARY[i].CHANNEL;
+        rotary[i].cc      = prefs.ROTARY[i].CC;
+
+        pinMode(rotary_pin[i].pinA,INPUT_PULLDOWN);
+        pinMode(rotary_pin[i].pinB,INPUT_PULLDOWN);
+
+        rotary[i].value  = 0.0;
+        rotary[i].pollA = digitalRead(rotary_pin[i].pinA);
     }
 }
 
@@ -73,9 +71,30 @@ int getRotaryValue(int i)
 }
 
 
+void setRotaryValue(int num, int value)
+    // note that the stored value is a float
+    // but the returned value is a truncated int
+{
+    if (value > MIDI_MAX_VALUE)
+        value = MIDI_MAX_VALUE;
+    if (value < 0)
+        value = 0;
+    rotary[num].value = value;
+}
+
+
+void setRotary(int num, uint8_t port, uint8_t channel, uint8_t cc)
+{
+    rotary[num].port    = port;
+    rotary[num].channel = channel;
+    rotary[num].cc      = cc;
+}
+
+
+
 bool _pollRotary(int i)
 {
-    int aval = digitalRead(rotary[i].pinA);
+    int aval = digitalRead(rotary_pin[i].pinA);
     if (rotary[i].pollA == aval)
         return false;
 
@@ -83,20 +102,20 @@ bool _pollRotary(int i)
 
     rotary[i].pollA = aval;
 
-    int bval = digitalRead(rotary[i].pinB);
+    int bval = digitalRead(rotary_pin[i].pinB);
     if (aval == bval)
     {
-        if (rotary[i].value + rotary[i].inc_dec > rotary[i].max_range)
-            rotary[i].value = rotary[i].max_range;
+        if (rotary[i].value + ROTARY_INC_DEC > MIDI_MAX_VALUE)
+            rotary[i].value = MIDI_MAX_VALUE;
         else
-            rotary[i].value += rotary[i].inc_dec;
+            rotary[i].value += ROTARY_INC_DEC;
     }
     else
     {
-        if (rotary[i].value - rotary[i].inc_dec < rotary[i].min_range)
-            rotary[i].value = rotary[i].min_range;
+        if (rotary[i].value - ROTARY_INC_DEC < 0)
+            rotary[i].value = 0;
         else
-            rotary[i].value -= rotary[i].inc_dec;
+            rotary[i].value -= ROTARY_INC_DEC;
     }
 
     #if DEBUG_ROTARY
@@ -114,11 +133,10 @@ void pollRotary()
     {
         if (_pollRotary(i))
         {
-            pref_rotary_t *rotary_pref = &prefs.ROTARY[i];
             sendMidiControlChange(
-                rotary_pref->IS_SERIAL ? MIDI_PORT_SERIAL : MIDI_PORT_USB1,
-                rotary_pref->MIDI_CHANNEL,
-                rotary_pref->MIDI_CC,
+                rotary[i].port,
+                rotary[i].channel + 1,
+                rotary[i].cc,
                 rotary[i].value);
         }
     }

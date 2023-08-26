@@ -17,7 +17,7 @@ class expressionPedal
     public:
 
         int getNum()                    { return m_num; }
-        // const char *getName();          { return prefs.PEDAL[m_num].NAME; }
+        const char *getName()           { return m_name; }
 
         int getValue()                  { return m_value; }
         int getRawValue()               { return m_raw_value; }
@@ -50,31 +50,6 @@ class expressionPedal
             m_valid = false;
         }
 
-        // the pedal can
-        // void setPedalMode();
-        // uint8_t getMode()           { return m_mode; }
-        //
-        // void autoCalibrate();
-        // bool inAutoCalibrate()      { return m_in_auto_calibrate; }
-        //
-        // void setAutoRawValue(int i);
-        // int getAutoRawValue()       { return m_auto_value; }
-
-        // midi
-
-        // void setCCs(int channel, int cc_num)
-        // {
-        //     m_cc_channel = channel;
-        //     m_cc_num = cc_num;
-        // }
-        //
-        // int getCCChannel()              { return m_cc_channel; }
-        // int getCCNum()                  { return m_cc_num; }
-
-        // PRIVATE isr handling
-
-        // void teensyReceiveByte();
-        // void teensySendByte(int byte);
 
     protected:
 
@@ -96,12 +71,14 @@ class expressionPedal
         // construction paramaters
 
         int     m_num;
-        int     m_pin;          // defined in pedals.cpp
-        int     m_pedal_num;    // they know this too ...
+        int     m_pin;
 
-        // int     m_cc_channel;
-        // int     m_cc_num;
-        // const char *m_name;
+        // configuration parameters
+
+        char    m_name[MAX_PEDAL_NAME+1];
+        uint8_t m_port;
+        uint8_t m_channel;      // zero based
+        uint8_t m_cc;
 
         // runtime working variables
 
@@ -138,10 +115,11 @@ class pedalManager
 
         void pedalEvent(int num, int value);
 
-        // vestigial kludge for oldRig + quantiloop
-        // void setLoopPedalRelativeVolumeMode(bool b) {m_relative_loop_volume_mode = b; }
-        // int getRelativeLoopVolume(int i)  { return m_relative_loop_volume[i]; }
-        // void setRelativeLoopVolume(int i, int value) { m_relative_loop_volume[i] = value; }
+        void setPedal(int num, const char *name, uint8_t port, uint8_t channel, uint8_t cc);
+            // configure the pedal.
+            // name will be truncated at 7 characters
+            // port is an actual port (not an enum)
+            // channel iz zero based
 
     private:
 

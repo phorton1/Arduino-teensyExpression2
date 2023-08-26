@@ -53,7 +53,7 @@
 
 #define NUM_PEDAL_CURVES		3		// number of curves per pedal
 #define NUM_CURVE_POINTS		4		// number of points per curve
-#define NUM_MIDI_CHANNELS		16		// number of midi channels that can be monitored
+
 
 typedef struct
 {
@@ -68,10 +68,10 @@ typedef struct
 
 typedef struct
 {
-	char			NAME[8];					// 7 character max name
-	uint8_t			IS_SERIAL;					// off, on; default depends on the Pedal
-	uint8_t			MIDI_CHANNEL;				// the midi channel to send on
-	uint8_t			MIDI_CC;					// the CC number to use
+	char			NAME[MAX_PEDAL_NAME+1];		// 7 character max name
+	uint8_t			PORT;						// 0..NUM_MIDI_PORTS-1
+	uint8_t			CHANNEL;					// the midi channel to send on
+	uint8_t			CC;							// the CC number to use
 
 	uint16_t		CALIB_MIN;				 	// 0..1023 - default(0)
 	uint16_t		CALIB_MAX;               	// 0..1023 - default(1023)
@@ -81,9 +81,9 @@ typedef struct
 
 typedef struct
 {
-	uint8_t			IS_SERIAL;					// off, on; default(on)
-	uint8_t			MIDI_CHANNEL;				// default(0),
-	uint8_t			MIDI_CC;					// the CC number to use
+	uint8_t			PORT;						// 0..NUM_MIDI_PORTS-1
+	uint8_t			CHANNEL;					// default(0),
+	uint8_t			CC;							// the CC number to use
 }	pref_rotary_t;
 
 
@@ -110,7 +110,7 @@ typedef struct
 
 	// whether to monitor specific channels
 
-	uint8_t 		MONITOR_CHANNEL[NUM_MIDI_CHANNELS];		// off, on - default(on) for 16 channels
+	uint8_t 		MONITOR_CHANNEL[MIDI_MAX_CHANNEL];		// off, on - default(on) for 16 channels
 
 	// what to monitor
 

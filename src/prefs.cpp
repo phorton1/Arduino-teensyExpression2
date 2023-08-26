@@ -41,10 +41,10 @@ const prefs_t default_prefs =
 	.FTP_ENABLE			= 1,				// off, on - default - default(on)
 	.PEDAL = {
 		{											// pedal 0 - Synth
-			.NAME = {'S','y','n','t','h', 0},
-			.IS_SERIAL = 0,							// off, on; default depends on the Pedal
-			.MIDI_CHANNEL = SYNTH_VOLUME_CHANNEL,	// the midi channel to send on
-			.MIDI_CC = SYNTH_VOLUME_CC,				// the CC number to use
+			.NAME 	 = {'s','y','n','t','h', 0},
+			.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_USB1),
+			.CHANNEL = SYNTH_VOLUME_CHANNEL-1,		// pref is zero based
+			.CC 	 = SYNTH_VOLUME_CC,
 
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
@@ -55,10 +55,10 @@ const prefs_t default_prefs =
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{											// pedal 1 = Looper
-			.NAME = {'L','o','o','p', 0},
-			.IS_SERIAL = 1,							// off, on; default depends on the Pedal
-			.MIDI_CHANNEL = 1,						// the midi channel to send on
-			.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME,	// the CC number to use
+			.NAME 	 = {'l','o','o','p', 0},
+			.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
+			.CHANNEL = 0,							// pref is zero based
+			.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME,
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
 			.CURVE_TYPE	= 0,						// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -68,10 +68,10 @@ const prefs_t default_prefs =
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{											// pedal 2 = WAH
-			.NAME = {'W','a','h', 0},
-			.IS_SERIAL = 0,							// off, on; default depends on the Pedal
-			.MIDI_CHANNEL = GUITAR_EFFECTS_CHANNEL,	// the midi channel to send on
-			.MIDI_CC = GUITAR_WAH_CONTROL_CC,		// the CC number to use
+			.NAME 	 = {'w','a','h', 0},
+			.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_USB1),
+			.CHANNEL = GUITAR_EFFECTS_CHANNEL-1,	// pref is zero based
+			.CC 	 = GUITAR_WAH_CONTROL_CC,
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
 			.CURVE_TYPE	= 0,						// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -81,10 +81,10 @@ const prefs_t default_prefs =
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{											// pedal 3 = Guitar Volume
-			.NAME = {'G','u','i','t','a','r', 0},
-			.IS_SERIAL = 0,							// off, on; default depends on the Pedal
-			.MIDI_CHANNEL = GUITAR_VOLUME_CHANNEL,	// the midi channel to send on
-			.MIDI_CC = GUITAR_VOLUME_CC,			// the CC number to use
+			.NAME 	 = {'g','u','i','t','a','r', 0},
+			.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_USB1),
+			.CHANNEL = GUITAR_VOLUME_CHANNEL-1,		// pref iz zero based
+			.CC 	 = GUITAR_VOLUME_CC,
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
 			.CURVE_TYPE	= 0,						// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -96,24 +96,24 @@ const prefs_t default_prefs =
 
 	.ROTARY = {
 			{
-				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 1,					// midi_channel default(0)
-				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_INPUT_GAIN,
+				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
+				.CHANNEL = 0,					// zero based
+				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_INPUT_GAIN,
 			},
 			{
-				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 1,					// midi_channel default(0)
-				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_THRU_VOLUME,
+				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
+				.CHANNEL = 0,					// zero based
+				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_THRU_VOLUME,
 			},
 			{
-				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 1,					// midi_channel default(0)
-				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME,
+				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
+				.CHANNEL = 0,					// zero based
+				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME,
 			},
 			{
-				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 1,					// midi_channel default(0)
-				.MIDI_CC = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN,
+				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
+				.CHANNEL = 0,					// zero based
+				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN,
 			},
 		},
 
@@ -169,9 +169,9 @@ const prefs_t prefs_max =
 	.PEDAL = {
 		{									// pedal 0
 			.NAME		= {0},
-			.IS_SERIAL 	= 1,				// off, on; default depends on the Pedal
-			.MIDI_CHANNEL = 127,			// the midi channel to send on
-			.MIDI_CC 	= 127,				// the CC number to use
+			.PORT 		= MAX_MIDI_PORT,
+			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
+			.CC 		= MIDI_MAX_VALUE,
 			.CALIB_MIN	= 1023,				// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,				// 0..1023 - default(1023)
 			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -182,9 +182,9 @@ const prefs_t prefs_max =
 		},
 		{									// pedal 1
 			.NAME		= {0},
-			.IS_SERIAL 	= 1,				// off, on; default depends on the Pedal
-			.MIDI_CHANNEL = 127,			// the midi channel to send on
-			.MIDI_CC 	= 127,				// the CC number to use
+			.PORT 		= MAX_MIDI_PORT,
+			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
+			.CC 		= MIDI_MAX_VALUE,
 			.CALIB_MIN	= 1023,				// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,				// 0..1023 - default(1023)
 			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -195,9 +195,9 @@ const prefs_t prefs_max =
 		},
 		{									// pedal 2
 			.NAME		= {0},
-			.IS_SERIAL 	= 1,				// off, on; default depends on the Pedal
-			.MIDI_CHANNEL = 127,			// the midi channel to send on
-			.MIDI_CC 	= 127,				// the CC number to use
+			.PORT 		= MAX_MIDI_PORT,
+			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
+			.CC 		= MIDI_MAX_VALUE,
 			.CALIB_MIN	= 1023,				// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,				// 0..1023 - default(1023)
 			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -208,9 +208,9 @@ const prefs_t prefs_max =
 		},
 		{									// pedal 3
 			.NAME		= {0},
-			.IS_SERIAL 	= 1,				// off, on; default depends on the Pedal
-			.MIDI_CHANNEL = 127,			// the midi channel to send on
-			.MIDI_CC 	= 127,				// the CC number to use
+			.PORT 		= MAX_MIDI_PORT,
+			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
+			.CC 		= MIDI_MAX_VALUE,
 			.CALIB_MIN	= 1023,				// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,				// 0..1023 - default(1023)
 			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -222,24 +222,24 @@ const prefs_t prefs_max =
 
 	.ROTARY = {
 			{
-				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 0,					// midi_channel default(0)
-				.MIDI_CC = 1,
+				.PORT 	 = MAX_MIDI_PORT,
+				.CHANNEL = MIDI_MAX_CHANNEL-1,
+				.CC 	 = MIDI_MAX_VALUE,
 			},
 			{
-				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 0,					// midi_channel default(0)
-				.MIDI_CC = 1,
+				.PORT 	 = MAX_MIDI_PORT,
+				.CHANNEL = MIDI_MAX_CHANNEL-1,
+				.CC 	 = MIDI_MAX_VALUE,
 			},
 			{
-				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 0,					// midi_channel default(0)
-				.MIDI_CC = 1,
+				.PORT 	 = MAX_MIDI_PORT,
+				.CHANNEL = MIDI_MAX_CHANNEL-1,
+				.CC 	 = MIDI_MAX_VALUE,
 			},
 			{
-				.IS_SERIAL = 1,						// on/on, default(on)
-				.MIDI_CHANNEL = 0,					// midi_channel default(0)
-				.MIDI_CC = 1,
+				.PORT 	 = MAX_MIDI_PORT,
+				.CHANNEL = MIDI_MAX_CHANNEL-1,
+				.CC 	 = MIDI_MAX_VALUE,
 			},
 		},
 

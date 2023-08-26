@@ -1,10 +1,14 @@
+//----------------------------------------------
+// midiQueue.cpp
+//----------------------------------------------
 #include "myDebug.h"
 #include "midiQueue.h"
 #include "prefs.h"
 #include "ftp.h"
 #include "ftp_defs.h"
 #include "midiHost.h"
-// #include "theSystem.h"
+#include "midiTypes.h"
+#include "rigMachine.h"
 
 
 #define dbg_midi_send  1
@@ -90,7 +94,7 @@ class msgUnion
         inline bool    isHost()            { return port() >= MIDI_PORT_HOST1 && port() <= MIDI_PORT_HOST2; }
         inline bool    isSerial()          { return port() == MIDI_PORT_SERIAL; }
 
-        inline uint8_t realIndex()     	   { return (i & MIDI_PORT_NUM_MASK) >> 4; }
+        inline uint8_t portEnum()     	   { return (i & MIDI_PORT_NUM_MASK) >> 4; }
         inline uint8_t type()              { return i & 0x0f; }
         inline uint8_t channel()           { return (b[1] & 0xf) + 1; }
 
@@ -116,17 +120,17 @@ static void monitor_msg(bool output, msgUnion &msg)
 static void handleFTP(msgUnion &msg)
 {
 	uint8_t type = msg.type();
-	uint8_t pindex = msg.realIndex();
+	uint8_t pindex = msg.portEnum();
 	uint8_t p1 = msg.param1();
 	uint8_t p2 = msg.param2();
 
-	if (type == 0x08 || type == 0x09)	// Note OFf or ON
+	if (type == MIDI_TYPE_NOTE_OFF || type == MIDI_TYPE_NOTE_ON)	// 0x08 or 0x09
 	{
 		display(dbg_ftp,"FTP(%d) note val=%-3d vel=%d",pindex,msg.b[2],msg.b[3]);
 		most_recent_note_val = msg.b[2];
 		most_recent_note_vel = msg.b[3];
 	}
-	else if (type == 0x0b)				// Control Change
+	else if (type == MIDI_TYPE_CC)				// 0x0b = Control Change
     {
 		if (p1 == FTP_NOTE_INFO)    // 0x1e
 		{
@@ -246,11 +250,19 @@ static void enqueueMidi(msgUnion &msg)
 	{
 		handleFTP(msg);
 	}
-	// rig_machine.onMidiCC(
-	// 		EXP_MIDI_PORT_SERIAL,
-	// 		(static_serial_buffer[1] & 0x0f) + 1,
-	// 		static_serial_buffer[2],
-	// 		static_serial_buffer[3]);
+
+	// this is ok so far, because we are not enqueueing output midi,
+	// however, it may be interesting to let programs listen to their
+	// own pedals and rotaries
+
+	if (msg.type() == MIDI_TYPE_CC)
+	{
+		rig_machine.onMidiCC(
+	 		msg.portEnum(),
+			msg.channel(),
+			msg.param1(),
+			msg.param2());
+	}
 }
 
 
@@ -325,12 +337,12 @@ static void sendMidiMessage(const char *what, uint8_t port, uint8_t type, uint8_
 
 void sendMidiProgramChange(uint8_t port, uint8_t channel, uint8_t prog_num)
 {
-    sendMidiMessage("programChange", port, 0x0C, channel, prog_num, 0);
+    sendMidiMessage("programChange", port, MIDI_TYPE_PGM_CHG, channel, prog_num, 0);	// 0x0c
 }
 
 void sendMidiControlChange(uint8_t port, uint8_t channel, uint8_t cc_num, uint8_t value)
 {
-    sendMidiMessage("controlChange", port, 0x0B, channel, cc_num, value);
+    sendMidiMessage("controlChange", port, MIDI_TYPE_CC, channel, cc_num, value);	// 0x0b
 }
 
 
@@ -353,7 +365,7 @@ bool sendFTPCommandAndValue(uint8_t cmd, uint8_t val, bool wait)
 	proc_entry();
 	pending_command = cmd;
 	pending_command_value = val;
-	sendMidiControlChange(MIDI_PORT_HOST1, 8, FTP_COMMAND_OR_REPLY, 	cmd);
+	sendMidiControlChange(MIDI_PORT_HOST1, 8, FTP_COMMAND_OR_REPLY, cmd);
 	sendMidiControlChange(MIDI_PORT_HOST1, 8, FTP_COMMAND_VALUE, 	val);
 
 	bool ok = 1;

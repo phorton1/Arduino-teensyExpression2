@@ -17,7 +17,37 @@
 #define NUM_PEDALS          4
 #define NUM_ROTARY          4
 
-#define NUM_MIDI_PORTS      7       // ports defined in midiQueue.h
+#define MAX_PEDAL_NAME		7
+#define MIDI_MAX_VALUE		127
+
+// midi ports
+
+#define MIDI_PORT_USB1      0x00
+#define MIDI_PORT_USB2      0x10
+#define MIDI_PORT_USB3      0x20
+#define MIDI_PORT_USB4      0x30
+#define MIDI_PORT_HOST1     0x40
+#define MIDI_PORT_HOST2     0x50
+#define MIDI_PORT_SERIAL    0x60
+
+#define NUM_MIDI_PORTS      7
+#define MAX_MIDI_PORT		(NUM_MIDI_PORTS-1)
+
+#define MIDI_PORT_NUM_MASK    0xf0
+
+#define MIDI_ENUM_TO_PORT(i)  (i) << 4
+#define MIDI_PORT_TO_ENUM(p)  (p) >> 4
+
+// one based definitions of MIDI_CHANNELS
+
+#define MIDI_MAX_CHANNEL		16
+#define MIDI_MIN_CHANNEL		1
+#define MIDI_OMNI_CHANNEL		0
+	// Midi messages MUST be sent on a valid midi channel 1-16, which
+	// 		will be 0..15 or'd into the sent message.
+	// The special value of 0 is only available for Listens, which means
+	// to listen on any channel.
+
 
 #define THE_SYSTEM_BUTTON   4
 
