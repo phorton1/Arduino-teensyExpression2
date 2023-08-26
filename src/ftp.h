@@ -40,6 +40,8 @@ extern note_t *tuning_note;
 // settings), and THEN an initialization of the FTP settings from EEPROM
 
 extern int  ftp_battery_level;                       // -1 == not initialized
+extern float getFTPBatteryPct();
+
 
 // stored on controller
 
@@ -74,12 +76,6 @@ extern void deleteNote(uint8_t string);
 extern const char *noteName(uint8_t note);
 extern const char *getFTPCommandName(uint8_t p2);
 
-
-// in midiQueue.cpp
-
-extern void sendFTPCommandAndValue(uint8_t command, uint8_t value);
-    // send command and value, with with reply processing and
-    // retries in dequeueProcess.
 
 // Only used by midiQueue.cpp
 

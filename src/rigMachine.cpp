@@ -509,51 +509,54 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 				break;
 
 			case RIG_TOKEN_SEND_CC:
+			{
 				display(dbg_calls,"sendCC(%d=%s,%d,%d,%d)",
 					m_param_values[0].value,
 					rigTokenToText(m_param_values[0].value + RIG_TOKEN_MIDI0),
 					m_param_values[1].value,
 					m_param_values[2].value,
 					m_param_values[3].value);
-				if (m_param_values[0].value == EXP_MIDI_PORT_SERIAL)
-				{
-					sendSerialControlChange(
-						m_param_values[1].value,
-						m_param_values[2].value,
-						m_param_values[3].value);
-				}
-				else if (m_param_values[0].value == EXP_MIDI_PORT_MIDI0)
-				{
-					sendMidiControlChange(
-						m_param_values[1].value,
-						m_param_values[2].value,
-						m_param_values[3].value);
-				}
-				else // m_param_values[0].value == EXP_MIDI_PORT_MIDI1
-				{
-					ok = 0;
-					rig_error("Sending CC's to MIDI1 port is not currently supported");
-				}
+
+				uint8_t use_port = m_param_values[0].value;
+
+				if (use_port == EXP_MIDI_PORT_MIDI0)
+					use_port = PORT_USB1;
+				else if (use_port == EXP_MIDI_PORT_MIDI0)
+					use_port = PORT_USB2;
+				else
+					use_port = PORT_SERIAL;
+
+				sendMidiControlChange(
+					use_port,
+					m_param_values[1].value,
+					m_param_values[2].value,
+					m_param_values[3].value);
 				break;
+			}
 
 			case RIG_TOKEN_SEND_PGM_CHG:
+			{
 				display(dbg_calls,"sendPgmChg(%d=%s,%d,%d)",
 					m_param_values[0].value,
 					rigTokenToText(m_param_values[0].value + RIG_TOKEN_MIDI0),
 					m_param_values[1].value,
 					m_param_values[2].value);
-				if (m_param_values[0].value != EXP_MIDI_PORT_MIDI0)
-				{
-					ok = 0;
-					rig_error("sendPgmChange() only supported on MIDI0 port!!!");
-				}
+
+				uint8_t use_port = m_param_values[0].value;
+
+				if (use_port == EXP_MIDI_PORT_MIDI0)
+					use_port = PORT_USB1;
+				else if (use_port == EXP_MIDI_PORT_MIDI0)
+					use_port = PORT_USB2;
 				else
-				{
-					sendMidiProgramChange(
-						m_param_values[1].value,
-						m_param_values[2].value);
-				}
+					use_port = PORT_SERIAL;
+
+				sendMidiProgramChange(
+					use_port,
+					m_param_values[1].value,
+					m_param_values[2].value);
 				break;
+			}
 
 			case RIG_TOKEN_NOTE_ON:
 			case RIG_TOKEN_NOTE_OFF:

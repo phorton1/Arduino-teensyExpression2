@@ -16,11 +16,15 @@
 #include "rigMachine.h"
 #include "rigExpression.h"		// for EXP_MIDI_PORT_SERIAL
 
+#if WITH_MIDI_HOST
+	#include "midiHost.h"
+#endif
+
 
 #define dbg_sys   0
 	// show system startup, etc
-#define dbg_midi  1
-	// show receieved serial midi bytes
+#define dbg_midi 1
+	// show receieved usb and serial midi  bytes
 
 
 #define MIDI_ACTIVITY_TIMEOUT 			90
@@ -48,9 +52,9 @@
 //    the system can become non functional.  The following values
 //    work.
 
-#define EXP_TIMER_INTERVAL 5000
+#define EXP_TIMER_INTERVAL 1000	// 5000
     // 5000 us = 5 ms == 200 times per second
-#define EXP_TIMER_PRIORITY  240                     // lowest priority
+#define EXP_TIMER_PRIORITY  192	// 240                     // lowest priority
     // compared to default priority of 128
 
 
@@ -178,36 +182,23 @@ void theSystem::onButton(int row, int col, int event)
 // static
 void theSystem::timer_handler()
 {
-	the_system.handleSerialData();
-
-	// get and enque midi messages
-	// moved from old critical_timer_handler()
-
 	uint32_t msg = usb_midi_read_message();  // read from device
+	if (msg)
+	{
+		#if WITH_MIDI_HOST
+			midi_host.write_packed(msg);
+		#endif
 
-    if (msg)
-    {
-		int pindex = (msg >> 4) & PORT_INDEX_MASK;
-		the_system.midiActivity(pindex);
-			// the message comes in on port index 0 or 1
-			// PORT_INDEX_DUINO_INPUT0 or PORT_INDEX_DUINO_INPUT1
+		int save_proc_level = proc_level;
+		proc_level = 1;
+		display(dbg_midi,"usb:    0x%08x",msg);
+		proc_level = 2;
+		enqueueMidi(msg & PORT_NUM_MASK, msg);
+		proc_level = save_proc_level;
+	}
 
-        // enqueue it for processing (display from device)
-		// if we are monitoring the input port, or it is the remote FTP
-
-		if (prefs.MONITOR_PORT[pindex] || (  			// if monitoring the port, OR
-			prefs.FTP_ENABLE && INDEX_CABLE(pindex)))	// FTP enabled and cabler == 1
-		{
-	        enqueueProcess(msg);
-		}
-    }
-
-    // process incoming and outgoing midi events
-
-    dequeueProcess();
-
+	the_system.handleSerialData();
 }
-
 
 
 //--------------------------------------------------------
@@ -277,6 +268,7 @@ void theSystem::handleSerialData()
 		if (c == 0x0B)		// ONLY CC commands on channel 0
 		{
 			is_midi = 1;
+			finished = true;
 			static_serial_buffer[buf_ptr++] = c;
 			for (int i=0; i<3; i++)
 			{
@@ -285,7 +277,7 @@ void theSystem::handleSerialData()
 				c = Serial3.read();
 				static_serial_buffer[buf_ptr++] = c;
 			}
-			finished = true;
+
 		}
 		else
 		{
@@ -326,25 +318,14 @@ void theSystem::handleSerialData()
 			line_timeout>SERIAL_TIMEOUT ? "TIMEOUT" : "");
 		display_bytes(0,"BUF",(uint8_t*)static_serial_buffer,buf_ptr);
 	}
-	else if (finished && is_midi)
+	else if (is_midi)		// is_midi invariantly sets finished
 	{
 		int save_proc_level = proc_level;
-		proc_level = 0;
-		display_bytes(dbg_midi,"theSystem recv serial midi: ",(uint8_t*)static_serial_buffer,4);
 		proc_level = 1;
-
-		// Note that the looper ONLY sends
-		// 	 0x0b - header byte indicating a CC message
-		//   0xb0 - second byte indicating a CC message on channel 1 (0 based second nibble)
-		//   0xYY - the CC number, 0..127
-		//   0xZZ - the value, 0..127
-		// Here we correct to 1 based channels during the call to onMidiCC
-
-		rig_machine.onMidiCC(
-				EXP_MIDI_PORT_SERIAL,
-				(static_serial_buffer[1] & 0x0f) + 1,
-				static_serial_buffer[2],
-				static_serial_buffer[3]);
+		uint8_t *p = (uint8_t *) static_serial_buffer;
+		display(dbg_midi,"serial: 0x%02x%02x%02x%02x",p[3],p[2],p[1],p[0]);
+		proc_level = 2;
+		enqueueMidi(PORT_SERIAL,p);
 		proc_level = save_proc_level;
 	}
 	else if (finished)
@@ -387,7 +368,7 @@ void theSystem::loop()
 	thePedals.task();
 	pollRotary();
 
-	// initQueryFTP();
+	initQueryFTP();
 		// query the FTP battery level on a timer
 
 #if 0
@@ -536,9 +517,9 @@ void theSystem::loop()
 			BATTERY_HEIGHT - 2*BATTERY_FRAME,
 			TFT_BLACK);
 
-		float pct = ftp_battery_level == -1 ? 1.0 : (((float)ftp_battery_level)-0x40) / 0x24;
+		float pct = getFTPBatteryPct();
 		int color = ftp_battery_level == -1 ? TFT_LIGHTGREY : (pct <= .15 ? TFT_RED : TFT_DARKGREEN);
-		if (pct > 1) pct = 1.0;
+
 
 		// display(0,"battery_level=%d   pct=%0.2f",ftp_battery_level,pct);
 

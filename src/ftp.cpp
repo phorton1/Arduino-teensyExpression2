@@ -2,10 +2,9 @@
 #include "ftp.h"
 #include "ftp_defs.h"
 #include "prefs.h"
-// #include "myMidiHost.h"
+#include "midiQueue.h"
 
-// #include "midiQueue.h"
-
+#define dbg_init  0
 
 
 note_t *first_note = 0;
@@ -26,6 +25,14 @@ int	ftp_touch_sensitivity = -1; // range 0..9, default 4
 uint8_t ftp_get_sensitivy_command_string_number = 0;
 
 const int  string_base_notes[6] = {0x40, 0x3b, 0x37, 0x32, 0x2d, 0x28};
+
+// extern
+float getFTPBatteryPct()
+{
+	float pct = ftp_battery_level == -1 ? 1.0 : (((float)ftp_battery_level)-0x40) / 0x24;
+	if (pct > 1) pct = 1.0;
+	return pct;
+}
 
 
 const char *getFTPCommandName(uint8_t p2)
@@ -337,9 +344,10 @@ bool showFtpPatch(
 // method called frequently from expSystem.cpp::updateUI()
 // performs FTP initialization and initial readbacks
 
-#define INIT_BATTERY_CHECK_TIME         5000        // try every 5 seconds
+#define INIT_BATTERY_CHECK_TIME         10000        // try every 5 seconds
 #define NUM_INITIAL_BATTERY_CHECKS      6           // for the first 30 seconds
-#define SLOW_INIT_BATTERY_CHECK_TIME    15000       // then try every 15 seconds, forever, until an FTP is found, or not
+#define SLOW_INIT_BATTERY_CHECK_TIME    20000       // then try every 15 seconds, forever, until an FTP is found, or not
+#define REINIT_TIME						10000		// to try for a full re-init
 #define NORMAL_BATTERY_CHECK_TIME       60000       // once found, update the battery level once per minute
 
 // we do NOT monitor if the FTP goes offline
@@ -353,43 +361,56 @@ int           ftp_init_state = 0;
 
 void initQueryFTP()
 {
-    if (!prefs.FTP_ENABLE)
-        return;
+	if (!prefs.FTP_ENABLE)
+		return;
 
-    uint32_t use_check_time = ftp_battery_level == -1 ?
-        s_num_battery_checks < NUM_INITIAL_BATTERY_CHECKS ?
-            INIT_BATTERY_CHECK_TIME :
-            SLOW_INIT_BATTERY_CHECK_TIME :
-            NORMAL_BATTERY_CHECK_TIME;
+    uint32_t use_check_time =
+		ftp_battery_level == -1 ?
+		    s_num_battery_checks < NUM_INITIAL_BATTERY_CHECKS ?
+		        INIT_BATTERY_CHECK_TIME :
+		        SLOW_INIT_BATTERY_CHECK_TIME :
+		!ftp_init_state ?
+			REINIT_TIME :
+			NORMAL_BATTERY_CHECK_TIME;
 
-    if (s_battery_time >= use_check_time)
+    if (s_battery_time < use_check_time)
+		return;
+	s_battery_time = 0;
+
+	display(dbg_init,"initQueryFTP() -----------------",0);
+	if (ftp_battery_level == -1)
     {
         s_num_battery_checks++;
-	    sendFTPCommandAndValue(FTP_CMD_BATTERY_LEVEL, 0);
-		s_battery_time = 0;
+	    sendFTPCommandAndValue(FTP_CMD_BATTERY_LEVEL, 0, false);
     }
+	else if (!ftp_init_state)
+	{
+        display(dbg_init,"INITIALIZING FTP",0);
+		bool ok = 1;
 
-    // one time initialization if FTP is found
-
-    if (ftp_battery_level != -1 &&
-        ftp_init_state == 0)            // not initialized yet
-    {
-        ftp_init_state = 1;
-        display(0,"INITIALIZING FTP",0);
-
-        for (int i=0; i<NUM_STRINGS; i++)
+        for (int i=0; i<NUM_STRINGS && ok; i++)
         {
-            sendFTPCommandAndValue(FTP_CMD_GET_SENSITIVITY, i);
+            ok = ok && sendFTPCommandAndValue(FTP_CMD_GET_SENSITIVITY, i, true);
         }
 
         #define DEFAULT_DYNAMIC_RANGE   20
         #define DEFAULT_DYNAMIC_OFFSET  10
         #define DEFAULT_TOUCH_SENSITIVITY  4
 
-        sendFTPCommandAndValue(FTP_CMD_SPLIT_NUMBER,0x01);
-        sendFTPCommandAndValue(FTP_CMD_DYNAMICS_SENSITIVITY,DEFAULT_DYNAMIC_RANGE);
-        sendFTPCommandAndValue(FTP_CMD_DYNAMICS_OFFSET,DEFAULT_DYNAMIC_OFFSET);
-        sendFTPCommandAndValue(FTP_CMD_TOUCH_SENSITIVITY,DEFAULT_TOUCH_SENSITIVITY);
-    }
+        // ok = ok && sendFTPCommandAndValue(FTP_CMD_SPLIT_NUMBER,0x01, true);
+        ok = ok && sendFTPCommandAndValue(FTP_CMD_DYNAMICS_SENSITIVITY,DEFAULT_DYNAMIC_RANGE, true);
+        ok = ok && sendFTPCommandAndValue(FTP_CMD_DYNAMICS_OFFSET,DEFAULT_DYNAMIC_OFFSET, true);
+        ok = ok && sendFTPCommandAndValue(FTP_CMD_TOUCH_SENSITIVITY,DEFAULT_TOUCH_SENSITIVITY, true);
 
+		if (ok)
+			display(dbg_init,"INITIALIZING FTP FINISHED",0);
+		else
+			warning(dbg_init,"INIT FTP FAILED",0);
+
+		ftp_init_state = ok;
+    }
+	else	// normal case
+	{
+	    sendFTPCommandAndValue(FTP_CMD_BATTERY_LEVEL, 0, false);
+	}
 }

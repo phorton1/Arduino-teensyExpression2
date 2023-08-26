@@ -211,19 +211,9 @@ void expressionPedal::poll()
 void pedalManager::pedalEvent(int num, int value)
 {
 	pref_pedal_t *pedal_pref = &prefs.PEDAL[num];
-
-    if (pedal_pref->IS_SERIAL)
-    {
-        sendSerialControlChange(
-            pedal_pref->MIDI_CHANNEL,
-            pedal_pref->MIDI_CC,
-            value);
-    }
-    else
-    {
-        sendMidiControlChange(
-            pedal_pref->MIDI_CHANNEL,
-            pedal_pref->MIDI_CC,
-            value);
-	}
+    sendMidiControlChange(
+        pedal_pref->IS_SERIAL ? PORT_SERIAL : PORT_USB1,
+        pedal_pref->MIDI_CHANNEL,
+        pedal_pref->MIDI_CC,
+        value);
 }

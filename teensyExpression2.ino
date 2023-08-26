@@ -1,23 +1,6 @@
+//---------------------------------------------------
 // teensyExpression2.ino
-//
-// first files included in new project src/ are my modified
-//     usb_desc_prh.h and usb_desc.c files which setup the
-//     teensyExpression and teensyControl midi ports.
-// It appears as if /src is a special directory where
-//     code will be compiled from.  So other directories
-//     can exist like /obsolete or /test etc, however,
-//     you must do a clean build after moving files out
-//     of /src.
-// I am not including the ability to spoof the FTP in this
-//     version.  Therefore I did NOT move the modified usb_dev.c
-//     from the old teensyExpression project to this one,
-//     and am not calling the externs it provides:
-//     my_usb_init() or setFishmanFTPDescriptor(() which
-//     must be called before my_usb_init() and before
-//     the main Serial port is opened.
-// I am not including the midi_host in teensyExprssion2
-//     do not copying myMidiHost.h or cpp
-
+//---------------------------------------------------
 
 #include <myDebug.h>
 #include "src/defines.h"
@@ -27,6 +10,20 @@
 #include "src/theSystem.h"
 #include "src/fileSystem.h"
 
+#if WITH_MIDI_HOST
+    #include "src/midiHost.h"
+#endif
+
+// Uses slightly modified _usbDev.c that allows me to defer
+// usb_init() call until I am ready, and _usbNames.c that
+// works to allow overrides of teensy USB descriptors.
+
+
+extern "C" {
+    extern void my_usb_init();          // in usb_dev.c
+    extern void setFTPDescriptors();    // _usbNames.c
+}
+
 
 void setup()
 {
@@ -34,7 +31,7 @@ void setup()
 
     // things I might want to do:
     //
-    // reset_prefs();
+    reset_prefs();
     prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
     prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
     // save_prefs();
@@ -65,7 +62,18 @@ void setup()
         dbgSerial = 0;      // turns off output in myDebug.cpp
     }
 
+    //----------------------------------------
+    // start the USB
+    ///---------------------------------------
+    // optionally call setFTPDescriptors()
+
+    setFTPDescriptors();
+    my_usb_init();
+    delay(1000);
+
+    //----------------------------------------
     // initialize the main USB serial port
+    //----------------------------------------
 
     Serial.begin(115200);
     serial_started = 0;
@@ -196,7 +204,7 @@ void setup()
         do_delay = 5000;
     }
 
-    #if !defined(USB_MIDI_SERIAL)
+    #if 0 && !defined(USB_MIDI_SERIAL)
         const char *msg = "    NOT COMPILED WITH USB_MIDI_SERIAL !!!";
         warning(0,"%s",msg);
         mylcd.println(msg);
@@ -231,6 +239,12 @@ void setup()
 
     display(0,"initializing system ...",0);
     the_system.begin();
+
+
+    #if WITH_MIDI_HOST
+        display(0,"initilizing midiHost",0);
+        midi_host.init();
+    #endif
 
     display(0,"teensyExpression.ino setup() completed.",0);
     // mem_check("at end of setup()");

@@ -114,23 +114,12 @@ void pollRotary()
     {
         if (_pollRotary(i))
         {
-            // the_system.rotaryEvent(i,rotary[i].value);
             pref_rotary_t *rotary_pref = &prefs.ROTARY[i];
-
-            if (rotary_pref->IS_SERIAL)
-            {
-                sendSerialControlChange(
-                    rotary_pref->MIDI_CHANNEL,
-                    rotary_pref->MIDI_CC,
-                    rotary[i].value);
-            }
-            else
-            {
-                sendMidiControlChange(
-                    rotary_pref->MIDI_CHANNEL,
-                    rotary_pref->MIDI_CC,
-                    rotary[i].value);
-            }
+            sendMidiControlChange(
+                rotary_pref->IS_SERIAL ? PORT_SERIAL : PORT_USB1,
+                rotary_pref->MIDI_CHANNEL,
+                rotary_pref->MIDI_CC,
+                rotary[i].value);
         }
     }
 }

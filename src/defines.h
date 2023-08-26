@@ -7,6 +7,9 @@
 
 #define TEENSY_EXPRESSION_VERSION  "v2.0"
 
+#define WITH_MIDI_HOST      1
+
+
 #define NUM_BUTTON_COLS     5
 #define NUM_BUTTON_ROWS     5
 #define NUM_BUTTONS         (NUM_BUTTON_COLS * NUM_BUTTON_ROWS)
@@ -14,7 +17,7 @@
 #define NUM_PEDALS          4
 #define NUM_ROTARY          4
 
-#define NUM_MIDI_PORTS      8       // ports defined in midiQueue.h
+#define NUM_MIDI_PORTS      7       // ports defined in midiQueue.h
 
 #define THE_SYSTEM_BUTTON   4
 
