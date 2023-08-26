@@ -64,7 +64,7 @@ class msgUnion
 
         msgUnion(uint8_t port, uint32_t msg)
         {
-            i = (msg & ~PORT_NUM_MASK) | port;
+            i = (msg & ~MIDI_PORT_NUM_MASK) | port;
         }
 
         msgUnion(uint8_t port, uint8_t type, uint8_t channel, uint8_t p1, uint8_t p2)
@@ -77,14 +77,14 @@ class msgUnion
 
 		void setPort(uint8_t port)
 		{
-            i = (i & ~PORT_NUM_MASK) | port;
+            i = (i & ~MIDI_PORT_NUM_MASK) | port;
 		}
 
-        inline uint8_t port()              { return i & PORT_NUM_MASK; }
+        inline uint8_t port()              { return i & MIDI_PORT_NUM_MASK; }
         inline bool    isHost()            { return i & PORT_HOST_MASK; }
-        inline bool    isSerial()          { return i & PORT_SERIAL; }
+        inline bool    isSerial()          { return i & MIDI_PORT_SERIAL; }
 
-        inline uint8_t portIndex()     	   { return (i & PORT_NUM_MASK) >> 4; }
+        inline uint8_t portIndex()     	   { return (i & MIDI_PORT_NUM_MASK) >> 4; }
         inline uint8_t type()              { return i & 0x0f; }
         inline uint8_t channel()           { return (b[1] & 0xf) + 1; }
 
@@ -239,8 +239,8 @@ static void enqueueMidi(msgUnion &msg)
 {
 	display(0,"enqueueMidi(0x%08x)",msg.i);
 	if (prefs.FTP_ENABLE && (
-		msg.port() == PORT_USB1 ||
-		msg.port() == PORT_HOST1 ))
+		msg.port() == MIDI_PORT_USB1 ||
+		msg.port() == MIDI_PORT_HOST1 ))
 	{
 		handleFTP(msg);
 	}
@@ -298,20 +298,20 @@ static void sendMidiMessage(const char *what, uint8_t port, uint8_t type, uint8_
 	// we first create a msgUnion to actually send to the correct subport of the 3 devices
 
 	uint8_t use_port =
-		(port <= PORT_USB4) ? port :
-		(port <= PORT_HOST2) ? port - PORT_HOST1 : 0;
+		(port <= MIDI_PORT_USB4) ? port :
+		(port <= MIDI_PORT_HOST2) ? port - MIDI_PORT_HOST1 : 0;
 	msgUnion msg(use_port, type, channel, p1, p2);
 
-    if (port <= PORT_USB4)
+    if (port <= MIDI_PORT_USB4)
 	{
 		usb_midi_write_packed(msg.i);
 		usb_midi_flush_output();
  	}
-	else if (port <= PORT_HOST2)
+	else if (port <= MIDI_PORT_HOST2)
 	{
 		midi_host.write_packed(msg.i);
 	}
-	else // port == PORT_SERIAL
+	else // port == MIDI_PORT_SERIAL
     {
 	    Serial3.write(msg.b,4);
 	}

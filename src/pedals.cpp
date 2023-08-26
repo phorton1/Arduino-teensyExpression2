@@ -212,7 +212,7 @@ void pedalManager::pedalEvent(int num, int value)
 {
 	pref_pedal_t *pedal_pref = &prefs.PEDAL[num];
     sendMidiControlChange(
-        pedal_pref->IS_SERIAL ? PORT_SERIAL : PORT_USB1,
+        pedal_pref->IS_SERIAL ? MIDI_PORT_SERIAL : MIDI_PORT_USB1,
         pedal_pref->MIDI_CHANNEL,
         pedal_pref->MIDI_CC,
         value);

@@ -241,7 +241,7 @@ static bool dumpParam(bool button_section, int arg_type, bool last, const uint8_
 			break;
 		case PARAM_MIDI_PORT :
 			byte = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_MIDI0));
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_USB1));
 			break;
 
 		case PARAM_FONT_SIZE :

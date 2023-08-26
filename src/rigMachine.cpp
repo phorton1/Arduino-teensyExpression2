@@ -463,6 +463,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 					m_param_values[1].value);
 				m_rig_state.values[m_param_values[0].value] = m_param_values[1].value;
 				break;
+
 			case RIG_TOKEN_AREA:
 				display(dbg_calls,"AREA(%d,%d,%s,%s,%d,%d,%d,%d)",
 					m_param_values[0].value,
@@ -481,10 +482,11 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 				m_rig_state.areas[m_param_values[0].value].xe   	 = m_param_values[6].value;
 				m_rig_state.areas[m_param_values[0].value].ye   	 = m_param_values[7].value;
 				break;
+
 			case RIG_TOKEN_LISTEN:
 				display(dbg_calls,"LISTEN(%d,%s,%d,%d)",
 					m_param_values[0].value,
-					rigTokenToText(m_param_values[1].value + RIG_TOKEN_MIDI0),
+					rigTokenToText(m_param_values[1].value + RIG_TOKEN_USB1),
 					m_param_values[2].value,
 					m_param_values[3].value);
 				m_rig_state.listens[m_param_values[0].value].active  = 1;
@@ -492,6 +494,7 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 				m_rig_state.listens[m_param_values[0].value].channel = m_param_values[2].value;
 				m_rig_state.listens[m_param_values[0].value].cc      = m_param_values[3].value;
 				break;
+
 			case RIG_TOKEN_PEDAL:
 			case RIG_TOKEN_ROTARY:
 				break; // TBD
@@ -509,54 +512,30 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 				break;
 
 			case RIG_TOKEN_SEND_CC:
-			{
 				display(dbg_calls,"sendCC(%d=%s,%d,%d,%d)",
 					m_param_values[0].value,
-					rigTokenToText(m_param_values[0].value + RIG_TOKEN_MIDI0),
+					rigTokenToText(m_param_values[0].value + RIG_TOKEN_USB1),
 					m_param_values[1].value,
 					m_param_values[2].value,
 					m_param_values[3].value);
-
-				uint8_t use_port = m_param_values[0].value;
-
-				if (use_port == EXP_MIDI_PORT_MIDI0)
-					use_port = PORT_USB1;
-				else if (use_port == EXP_MIDI_PORT_MIDI0)
-					use_port = PORT_USB2;
-				else
-					use_port = PORT_SERIAL;
-
 				sendMidiControlChange(
-					use_port,
+					MIDI_ENUM_TO_PORT(m_param_values[0].value),
 					m_param_values[1].value,
 					m_param_values[2].value,
 					m_param_values[3].value);
 				break;
-			}
 
 			case RIG_TOKEN_SEND_PGM_CHG:
-			{
 				display(dbg_calls,"sendPgmChg(%d=%s,%d,%d)",
 					m_param_values[0].value,
-					rigTokenToText(m_param_values[0].value + RIG_TOKEN_MIDI0),
+					rigTokenToText(m_param_values[0].value + RIG_TOKEN_USB1),
 					m_param_values[1].value,
 					m_param_values[2].value);
-
-				uint8_t use_port = m_param_values[0].value;
-
-				if (use_port == EXP_MIDI_PORT_MIDI0)
-					use_port = PORT_USB1;
-				else if (use_port == EXP_MIDI_PORT_MIDI0)
-					use_port = PORT_USB2;
-				else
-					use_port = PORT_SERIAL;
-
 				sendMidiProgramChange(
-					use_port,
+					MIDI_ENUM_TO_PORT(m_param_values[0].value),
 					m_param_values[1].value,
 					m_param_values[2].value);
 				break;
-			}
 
 			case RIG_TOKEN_NOTE_ON:
 			case RIG_TOKEN_NOTE_OFF:

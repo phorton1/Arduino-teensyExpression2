@@ -193,7 +193,7 @@ void theSystem::timer_handler()
 		proc_level = 1;
 		display(dbg_midi,"usb:    0x%08x",msg);
 		proc_level = 2;
-		enqueueMidi(msg & PORT_NUM_MASK, msg);
+		enqueueMidi(msg & MIDI_PORT_NUM_MASK, msg);
 		proc_level = save_proc_level;
 	}
 
@@ -325,7 +325,7 @@ void theSystem::handleSerialData()
 		uint8_t *p = (uint8_t *) static_serial_buffer;
 		display(dbg_midi,"serial: 0x%02x%02x%02x%02x",p[3],p[2],p[1],p[0]);
 		proc_level = 2;
-		enqueueMidi(PORT_SERIAL,p);
+		enqueueMidi(MIDI_PORT_SERIAL,p);
 		proc_level = save_proc_level;
 	}
 	else if (finished)

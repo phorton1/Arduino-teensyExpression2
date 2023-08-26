@@ -116,7 +116,7 @@ void pollRotary()
         {
             pref_rotary_t *rotary_pref = &prefs.ROTARY[i];
             sendMidiControlChange(
-                rotary_pref->IS_SERIAL ? PORT_SERIAL : PORT_USB1,
+                rotary_pref->IS_SERIAL ? MIDI_PORT_SERIAL : MIDI_PORT_USB1,
                 rotary_pref->MIDI_CHANNEL,
                 rotary_pref->MIDI_CC,
                 rotary[i].value);

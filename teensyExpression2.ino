@@ -67,7 +67,7 @@ void setup()
     ///---------------------------------------
     // optionally call setFTPDescriptors()
 
-    setFTPDescriptors();
+    // setFTPDescriptors();
     my_usb_init();
     delay(1000);
 

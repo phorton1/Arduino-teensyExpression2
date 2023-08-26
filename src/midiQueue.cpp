@@ -69,7 +69,7 @@ class msgUnion
 
         msgUnion(uint8_t port, uint32_t msg)
         {
-            i = (msg & ~PORT_NUM_MASK) | port;
+            i = (msg & ~MIDI_PORT_NUM_MASK) | port;
         }
 
         msgUnion(uint8_t port, uint8_t type, uint8_t channel, uint8_t p1, uint8_t p2)
@@ -82,15 +82,15 @@ class msgUnion
 
 		void setPort(uint8_t port)
 		{
-            i = (i & ~PORT_NUM_MASK) | port;
+            i = (i & ~MIDI_PORT_NUM_MASK) | port;
 		}
 
-        inline uint8_t port()              { return i & PORT_NUM_MASK; }
-		inline bool    isUSB()			   { return port() <= PORT_USB4; }
-        inline bool    isHost()            { return port() >= PORT_HOST1 && port() <= PORT_HOST2; }
-        inline bool    isSerial()          { return port() == PORT_SERIAL; }
+        inline uint8_t port()              { return i & MIDI_PORT_NUM_MASK; }
+		inline bool    isUSB()			   { return port() <= MIDI_PORT_USB4; }
+        inline bool    isHost()            { return port() >= MIDI_PORT_HOST1 && port() <= MIDI_PORT_HOST2; }
+        inline bool    isSerial()          { return port() == MIDI_PORT_SERIAL; }
 
-        inline uint8_t realIndex()     	   { return (i & PORT_NUM_MASK) >> 4; }
+        inline uint8_t realIndex()     	   { return (i & MIDI_PORT_NUM_MASK) >> 4; }
         inline uint8_t type()              { return i & 0x0f; }
         inline uint8_t channel()           { return (b[1] & 0xf) + 1; }
 
@@ -241,8 +241,8 @@ static void enqueueMidi(msgUnion &msg)
 {
 	display(dbg_queue,"enqueueMidi(0x%08x)",msg.i);
 	if (prefs.FTP_ENABLE && (
-		msg.port() == PORT_USB1 ||
-		msg.port() == PORT_HOST1 ))
+		msg.port() == MIDI_PORT_USB1 ||
+		msg.port() == MIDI_PORT_HOST1 ))
 	{
 		handleFTP(msg);
 	}
@@ -293,22 +293,22 @@ static void sendMidiMessage(const char *what, uint8_t port, uint8_t type, uint8_
 	// we first create a msgUnion to actually send to the correct subport of the 3 devices
 
 	uint8_t use_port =
-		(port <= PORT_USB4) ? port :
-		(port <= PORT_HOST2) ? port - PORT_HOST1 : 0;
+		(port <= MIDI_PORT_USB4) ? port :
+		(port <= MIDI_PORT_HOST2) ? port - MIDI_PORT_HOST1 : 0;
 	msgUnion msg(use_port, type, channel, p1, p2);
 
-    if (port <= PORT_USB4)
+    if (port <= MIDI_PORT_USB4)
 	{
 	    display(dbg_midi_send,"sendMidiMessageUSB(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x) = 0x%08x",what,port,type,channel,p1,p2,msg.i);
 		usb_midi_write_packed(msg.i);
 		usb_midi_flush_output();
  	}
-	else if (port <= PORT_HOST2)
+	else if (port <= MIDI_PORT_HOST2)
 	{
 	    display(dbg_midi_send,"sendMidiMessageHost(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x)",what,port,type,channel,p1,p2,msg.i);
 		midi_host.write_packed(msg.i);
 	}
-	else // port == PORT_SERIAL
+	else // port == MIDI_PORT_SERIAL
     {
 	    display(dbg_midi_send,"sendMidiMessageSerial(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x)",what,port,type,channel,p1,p2,msg.i);
 	    Serial3.write(msg.b,4);
@@ -353,8 +353,8 @@ bool sendFTPCommandAndValue(uint8_t cmd, uint8_t val, bool wait)
 	proc_entry();
 	pending_command = cmd;
 	pending_command_value = val;
-	sendMidiControlChange(PORT_HOST1, 8, FTP_COMMAND_OR_REPLY, 	cmd);
-	sendMidiControlChange(PORT_HOST1, 8, FTP_COMMAND_VALUE, 	val);
+	sendMidiControlChange(MIDI_PORT_HOST1, 8, FTP_COMMAND_OR_REPLY, 	cmd);
+	sendMidiControlChange(MIDI_PORT_HOST1, 8, FTP_COMMAND_VALUE, 	val);
 
 	bool ok = 1;
 	if (wait)

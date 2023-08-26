@@ -137,8 +137,12 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_DISPLAY_GREENYELLOW	: return "GREENYELLOW";
 		case RIG_TOKEN_DISPLAY_PINK       	: return "PINK";
 
-		case RIG_TOKEN_MIDI0				: return "MIDI0";
-		case RIG_TOKEN_MIDI1				: return "MIDI1";
+		case RIG_TOKEN_USB1					: return "USB1";
+		case RIG_TOKEN_USB2					: return "USB2";
+		case RIG_TOKEN_USB3					: return "USB3";
+		case RIG_TOKEN_USB4					: return "USB4";
+		case RIG_TOKEN_HOST1				: return "HOST1";
+		case RIG_TOKEN_HOST2				: return "HOST2";
 		case RIG_TOKEN_SERIAL				: return "SERIAL";
 
 		case RIG_TOKEN_BOLD					: return "BOLD";

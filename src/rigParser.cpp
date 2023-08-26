@@ -574,7 +574,7 @@ static bool handleArg(int statement_type, int arg_type)
 				}
 				else
 				{
-					uint8_t use_port = rig_token.id - RIG_TOKEN_MIDI0;
+					uint8_t use_port = rig_token.id - RIG_TOKEN_USB1;
 					display(dbg_parse + 1, "MIDI_PORT = %s (%d)",rigTokenToString(rig_token.id),use_port);
 					ok = addStatementByte(use_port);
 					ok = ok && getRigToken();

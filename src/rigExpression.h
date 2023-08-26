@@ -32,11 +32,6 @@
 #define EXP_RIG_TYPE_OVERLAY	1
 
 
-#define EXP_MIDI_PORT_MIDI0		(RIG_TOKEN_MIDI0 - RIG_TOKEN_MIDI0)		// 0
-#define EXP_MIDI_PORT_MIDI1		(RIG_TOKEN_MIDI1 - RIG_TOKEN_MIDI0)		// 1
-#define EXP_MIDI_PORT_SERIAL	(RIG_TOKEN_SERIAL - RIG_TOKEN_MIDI0)	// 2
-
-
 //-------------------------------------------------
 // Inline Expressions
 //-------------------------------------------------

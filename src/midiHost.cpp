@@ -50,11 +50,12 @@ void midiHost::rx_data(const Transfer_t *transfer)
                     proc_level = 1;
                     display(dbg_midi,"host:  0x%08x",msg);
                     proc_level = 2;
-                    // port comes in as 0x00 or 0x10
-                    // we bump it to PORT_HOST1 = 0x40 or
-                    // PORT_HOST2 = 0x50;
 
-                    enqueueMidi(PORT_HOST1 | (msg & PORT_NUM_MASK), msg);
+                    // port comes in as 0x00 or 0x10
+                    // we bump it to MIDI_PORT_HOST1 = 0x40 or
+                    // MIDI_PORT_HOST2 = 0x50;
+
+                    enqueueMidi(MIDI_PORT_HOST1 | (msg & MIDI_PORT_NUM_MASK), msg);
                     proc_level = save_proc_level;
                 }
             }

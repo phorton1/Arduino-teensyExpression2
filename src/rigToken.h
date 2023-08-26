@@ -69,7 +69,7 @@ extern bool rig_error_found;	// true if any rig_errors occured; cleared in parse
 	(id >= RIG_TOKEN_FTP_TUNER && id <= RIG_TOKEN_FTP_SENSITIVITY)
 	// used to limit statements by section in rigToken
 
-#define IS_MIDI_PORT(id)	(id >= RIG_TOKEN_MIDI0 && id <= RIG_TOKEN_SERIAL)
+#define IS_MIDI_PORT(id)	(id >= RIG_TOKEN_USB1 && id <= RIG_TOKEN_SERIAL)
 
 #define IS_LED_COLOR(id)	(id >= RIG_TOKEN_LED_BLACK && id <= RIG_TOKEN_LED_CYAN)
 #define LED_COLOR(id)		(id - RIG_TOKEN_LED_BLACK)
@@ -169,27 +169,31 @@ extern bool rig_error_found;	// true if any rig_errors occured; cleared in parse
 
 // midi ports
 
-#define RIG_TOKEN_MIDI0					54	// in code gen order
-#define RIG_TOKEN_MIDI1					55
-#define RIG_TOKEN_SERIAL				56
+#define RIG_TOKEN_USB1					54	// in code gen order
+#define RIG_TOKEN_USB2					55
+#define RIG_TOKEN_USB3					56
+#define RIG_TOKEN_USB4					57
+#define RIG_TOKEN_HOST1					58
+#define RIG_TOKEN_HOST2					59
+#define RIG_TOKEN_SERIAL				60
 
 // font decoration
 
-#define RIG_TOKEN_NORMAL         		57	// in code gen order
-#define RIG_TOKEN_BOLD         			58
+#define RIG_TOKEN_NORMAL         		61	// in code gen order
+#define RIG_TOKEN_BOLD         			62
 
 // font justification
 
-#define RIG_TOKEN_LEFT					59	// in code gen order
-#define RIG_TOKEN_CENTER				60
-#define RIG_TOKEN_RIGHT					61
+#define RIG_TOKEN_LEFT					63	// in code gen order
+#define RIG_TOKEN_CENTER				64
+#define RIG_TOKEN_RIGHT					65
 
 // Expression Tokens
 
-#define RIG_TOKEN_STRING				62	// "STRING"
-#define RIG_TOKEN_VALUE					63	// "VALUE"
+#define RIG_TOKEN_STRING				66	// "STRING"
+#define RIG_TOKEN_VALUE					67	// "VALUE"
 
-#define LAST_RIG_IDENTIFIER				63	// end of identifier range
+#define LAST_RIG_IDENTIFIER				67	// end of identifier range
 
 // Literal Types
 
