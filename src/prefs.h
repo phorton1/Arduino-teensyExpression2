@@ -20,7 +20,6 @@
 // prefs for dirty, and to restore them, for use
 // in things like cancelling a pedalConfig window.
 
-
 #pragma once
 
 #include "defines.h"
@@ -108,7 +107,7 @@ typedef struct
 
 	// whether to monitor specific ports
 
-	uint8_t			MONITOR_PORT[NUM_MIDI_PORTS + 2];		// off, on, for 4 midi and 2 serial ports; only INPUT0 is off at this time
+	uint8_t			MONITOR_PORT[NUM_MIDI_PORTS];		// off, in, out, both
 
 	// whether to monitor specific channels
 

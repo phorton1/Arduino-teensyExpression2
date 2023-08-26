@@ -20,6 +20,7 @@ const char *off_on[]                  = {"Off","On"};
 const char *off_usb_serial[]          = {"Off","USB","Serial"};
 const char *off_usb_host[]            = {"Off","USB","Host"};
 const char *off_on_detail[]           = {"Off","On","Detail"};
+const char *off_in_out_both[]		  = {"Off", "IN", "OUT", "Both" };
 
 const char *curve_types[]             = {"linear","asympt","scurve"};
 	// not currently used here, will be needed in configPedal() dialog
@@ -76,12 +77,13 @@ D_SUB_MENU(	d_midi_opts,		"MIDI Monitor",	&d_root);
 D_ENUM(		d_midi_monitor,		"Monitor",		&d_midi_opts,	MIDI_MONITOR,			off_usb_serial );
 
 D_SUB_MENU(	d_midi_ports,		"Ports",		&d_midi_opts);
-D_ENUM(		d_mon_in0,			"Input0",		&d_midi_ports,	MONITOR_PORT[0],	off_on );
-D_ENUM(		d_mon_in1,			"Input1",		&d_midi_ports,	MONITOR_PORT[1],	off_on );
-D_ENUM(		d_mon_out0,			"Output0",		&d_midi_ports,	MONITOR_PORT[2],	off_on );
-D_ENUM(		d_mon_out1,			"Output1",		&d_midi_ports,	MONITOR_PORT[3],	off_on );
-D_ENUM(		d_mon_ser_in,		"Serial In",	&d_midi_ports,	MONITOR_PORT[4],	off_on );
-D_ENUM(		d_mon_ser_out,		"Serial Out",	&d_midi_ports,	MONITOR_PORT[5],	off_on );
+D_ENUM(		d_mon_usb1,			"USB1",			&d_midi_ports,	MONITOR_PORT[0],	off_in_out_both );
+D_ENUM(		d_mon_usb2,			"USB2",			&d_midi_ports,	MONITOR_PORT[1],	off_in_out_both );
+D_ENUM(		d_mon_usb3,			"USB3",			&d_midi_ports,	MONITOR_PORT[2],	off_in_out_both );
+D_ENUM(		d_mon_usb4,			"USB4",			&d_midi_ports,	MONITOR_PORT[3],	off_in_out_both );
+D_ENUM(		d_mon_host1,		"HOST1",		&d_midi_ports,	MONITOR_PORT[4],	off_in_out_both );
+D_ENUM(		d_mon_host,			"HOST2",		&d_midi_ports,	MONITOR_PORT[5],	off_in_out_both );
+D_ENUM(		d_mon_serial,		"SERIAL",		&d_midi_ports,	MONITOR_PORT[5],	off_in_out_both );
 
 D_SUB_MENU(	d_midi_chans,		"Channels",		&d_midi_opts);
 D_ENUM(		d_mon_ch1,			"Channel 1",	&d_midi_chans,	MONITOR_CHANNEL[0],		off_on );
@@ -156,12 +158,13 @@ const opt_desc_t all_opts[] =
 	d_midi_opts,
 	d_midi_monitor,
 	d_midi_ports,
-	d_mon_ser_in,
-	d_mon_ser_out,
-	d_mon_in0,
-	d_mon_in1,
-	d_mon_out0,
-	d_mon_out1,
+	d_mon_usb1,
+    d_mon_usb2,
+    d_mon_usb3,
+    d_mon_usb4,
+    d_mon_host1,
+    d_mon_host,
+    d_mon_serial,
 	d_midi_chans,
 	d_mon_ch1,
 	d_mon_ch2,

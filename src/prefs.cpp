@@ -120,7 +120,7 @@ const prefs_t default_prefs =
 
 	.MIDI_MONITOR					= OUTPUT_DEVICE_OFF,	// off, USB, Serial - default(off)
 
-	.MONITOR_PORT = 				{ 1, 1, 1, 1, 1, 1, 1 },							// 7 ports   	off, on - default(on)
+	.MONITOR_PORT = 				{ 3, 3, 3, 3, 3, 3, 3 },							// 7 ports      off, in, out, both
 	.MONITOR_CHANNEL =				{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },	// 16 channels, off, on - default(on)
 
 	.MONITOR_SYSEX					= 1,	// off, on, Detail - default(on)
@@ -246,7 +246,7 @@ const prefs_t prefs_max =
 		},
 
 	.MIDI_MONITOR					= OUTPUT_DEVICE_SERIAL,	// off, USB, Serial - default(off)
-	.MONITOR_PORT 					= { 1, 1, 1, 1, 1, 1, 1 },								// 7 * off/on
+	.MONITOR_PORT 					= { 3, 3, 3, 3, 3, 3, 3 },								// 7 * off, in, out, both
 	.MONITOR_CHANNEL 				= { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },	// 16 * off/on
 
 	.MONITOR_SYSEX					= 2,	// off, on, Detail - default(on)
