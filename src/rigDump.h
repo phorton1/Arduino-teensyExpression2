@@ -4,4 +4,6 @@
 
 #pragma once
 
-extern void dumpRig();
+#include "rigParser.h"
+
+extern void dumpRig(const rig_t *rig);

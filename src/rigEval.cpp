@@ -25,6 +25,9 @@
 #define IS_EXP_OP(op)	(op >= EXP_NOT && op <= EXP_LOGICAL_AND)
 #define OP_TOKEN(op)	(rigTokenToString(op + RIG_TOKEN_LEFT_PAREN - EXP_LEFT_PAREN))
 
+extern const rig_t *cur_rig;
+	// in rigMachine.cpp
+
 
 const char *VAL_DISPLAY(evalResult_t *rslt)
 {
@@ -340,7 +343,7 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 			}
 			else
 			{
-				uint16_t off = rig_header.strings[num];  // one based offset
+				uint16_t off = cur_rig->strings[num];  // one based offset
 				if (!off)
 				{
 					warning(0,"STRING[%d] is not defined; returning empty string",num);
@@ -349,7 +352,7 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 				else
 				{
 					off--;
-					const char *s = &rig_code.string_pool[off];
+					const char *s = &cur_rig->string_pool[off];
 					display(dbg_eval + 2,"STRING[%d] off(%d) = %s",num,off,s);
 					ok = pushValText(s);
 				}
@@ -395,8 +398,8 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 
 		if (byte & EXP_INLINE_ID)
 		{
-			display(dbg_eval + 2,"INLINE ID(%d:%s)",value,&rig_code.define_pool[rig_header.define_ids[value] - 1]);
-			value = rig_header.define_values[value];
+			display(dbg_eval + 2,"INLINE ID(%d:%s)",value,&cur_rig->define_pool[cur_rig->define_ids[value] - 1]);
+			value = cur_rig->define_values[value];
 		}
 
 		if (inline_op == EXP_LED_COLOR)
@@ -410,8 +413,8 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 
 		if (inline_op == EXP_STRING)
 		{
-			uint16_t off = rig_header.strings[value];
-			const char *s = &rig_code.string_pool[off];
+			uint16_t off = cur_rig->strings[value];
+			const char *s = &cur_rig->string_pool[off];
 			display(dbg_eval + 2,"INLINE_STRING[%d] at %d = %s",value,off,s);
 			ok = pushValText(s);
 		}

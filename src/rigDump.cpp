@@ -31,7 +31,7 @@ char 	dump_buf[MAX_DUMP_BUF + 1];
 //------------------------------------
 
 
-static bool dumpNumber(uint8_t value, bool is_id)
+static bool dumpNumber(const rig_t *rig, uint8_t value, bool is_id)
 	// dumps a number or an identifier if is_id
 {
 	if (!is_id)
@@ -42,14 +42,14 @@ static bool dumpNumber(uint8_t value, bool is_id)
 	// which is, in turn, a 1 based offset into the define_pool
 	else
 	{
-		uint16_t def_offset = rig_header.define_ids[value] - 1;
-		sprintf(&dump_buf[strlen(dump_buf)],"%s",&rig_code.define_pool[def_offset]);
+		uint16_t def_offset = rig->define_ids[value] - 1;
+		sprintf(&dump_buf[strlen(dump_buf)],"%s",&rig->define_pool[def_offset]);
 	}
 	return true;
 }
 
 
-static bool dumpInline(const uint8_t *code, uint16_t *offset)
+static bool dumpInline(const rig_t *rig, const uint8_t *code, uint16_t *offset)
 {
 
 	int dbg_offset = *offset;
@@ -68,7 +68,7 @@ static bool dumpInline(const uint8_t *code, uint16_t *offset)
 	{
 		case EXP_DEFINE :
 		case EXP_NUMBER :
-			dumpNumber(value,is_id);
+			dumpNumber(rig, value,is_id);
 			break;
 		case EXP_LED_COLOR :
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(RIG_TOKEN_LED_BLACK + value));
@@ -78,12 +78,12 @@ static bool dumpInline(const uint8_t *code, uint16_t *offset)
 			break;
 		case EXP_VALUE :
 			sprintf(&dump_buf[strlen(dump_buf)],"VALUE[");
-			dumpNumber(value,is_id);
+			dumpNumber(rig, value,is_id);
 			sprintf(&dump_buf[strlen(dump_buf)],"]");
 			break;
 		case EXP_STRING :
 			sprintf(&dump_buf[strlen(dump_buf)],"STRING[");
-			dumpNumber(value,is_id);
+			dumpNumber(rig, value,is_id);
 			sprintf(&dump_buf[strlen(dump_buf)],"]");
 			break;
 		default :
@@ -162,7 +162,7 @@ static bool dumpOp(const uint8_t *code, uint16_t *offset)
 
 
 
-static bool dumpExpression(const char *what, const uint8_t *code, uint16_t *offset)
+static bool dumpExpression(const rig_t *rig, const char *what, const uint8_t *code, uint16_t *offset)
 {
 	display(dbg_dump+2,"# dumpExpression(%s) at offset(%d)",what,*offset);
 
@@ -170,7 +170,7 @@ static bool dumpExpression(const char *what, const uint8_t *code, uint16_t *offs
 	while (ok &&  code[*offset] != EXP_END)
 	{
 		if (code[*offset] & EXP_INLINE)
-			ok = dumpInline(code,offset);
+			ok = dumpInline(rig, code,offset);
 		else
 			ok = dumpOp(code,offset);
 
@@ -181,7 +181,7 @@ static bool dumpExpression(const char *what, const uint8_t *code, uint16_t *offs
 
 
 
-static bool dumpCodeExpression(const char *what, uint16_t offset)
+static bool dumpCodeExpression(const rig_t *rig, const char *what, uint16_t offset)
 {
 	if (offset & (EXP_INLINE << 8))
 	{
@@ -192,21 +192,21 @@ static bool dumpCodeExpression(const char *what, uint16_t offset)
 		display(dbg_dump+2,"# dumpInlineExpression(%s) == 0x%02x%02x",what,byte0,byte1);
 
 		offset = 0;
-		if (!dumpExpression(what,code,&offset))
+		if (!dumpExpression(rig, what,code,&offset))
 			return false;
 	}
 	else	// dumpExpression for real
 	{
 		offset -= 1;		// real expression offset are one based
-		const uint8_t *code = cur_rig_code->expression_pool;
-		if (!dumpExpression(what,code,&offset))
+		const uint8_t *code = rig->expression_pool;
+		if (!dumpExpression(rig, what,code,&offset))
 			return false;
 	}
 	return true;
 }
 
 
-static bool dumpParam(bool button_section, int arg_type, bool last, const uint8_t *code, uint16_t *offset)
+static bool dumpParam(const rig_t *rig, bool button_section, int arg_type, bool last, const uint8_t *code, uint16_t *offset)
 {
 	uint8_t byte;
 	uint16_t *ptr16;
@@ -226,7 +226,7 @@ static bool dumpParam(bool button_section, int arg_type, bool last, const uint8_
 		case PARAM_LED_COLOR_EXPRESSION :
 		case PARAM_DISPLAY_COLOR_EXPRESSION :
 			ptr16 = (uint16_t *) &code[*offset];
-			if (!dumpCodeExpression(argTypeToString(arg_type),*ptr16))
+			if (!dumpCodeExpression(rig,argTypeToString(arg_type),*ptr16))
 				return false;
 			*offset += 2;
 			break;
@@ -259,7 +259,7 @@ static bool dumpParam(bool button_section, int arg_type, bool last, const uint8_
 
 		case PARAM_PEDAL_NAME :
 			ptr16 = (uint16_t *) &code[*offset];
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",&rig_code.string_pool[*ptr16]);
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",&rig->string_pool[*ptr16]);
 			*offset += 2;
 			break;
 
@@ -273,11 +273,11 @@ static bool dumpParam(bool button_section, int arg_type, bool last, const uint8_
 }
 
 
-static bool dumpStatement(bool button_section, uint16_t *offset, uint16_t last_offset)
+static bool dumpStatement(const rig_t *rig, bool button_section, uint16_t *offset, uint16_t last_offset)
 {
 	dump_buf[0] = 0;
 
-	const uint8_t *code = cur_rig_code->statement_pool;
+	const uint8_t *code = rig->statement_pool;
 	uint8_t tt = code[(*offset)++];
 
 	proc_level = button_section ? 2 : 0;
@@ -292,7 +292,7 @@ static bool dumpStatement(bool button_section, uint16_t *offset, uint16_t last_o
 		while (*arg)
 		{
 			const int *args = arg++;
-			if (!dumpParam(button_section,*args,!*arg,code,offset))
+			if (!dumpParam(rig, button_section,*args,!*arg,code,offset))
 			{
 				proc_level = 0;
 				return false;
@@ -306,10 +306,10 @@ static bool dumpStatement(bool button_section, uint16_t *offset, uint16_t last_o
 }
 
 
-static bool dumpStatementList(bool button_section, int statement_num)
+static bool dumpStatementList(const rig_t *rig, bool button_section, int statement_num)
 {
-	uint16_t offset = cur_rig_header->statements[statement_num];
-	uint16_t last_offset  = cur_rig_header->statements[statement_num+1];
+	uint16_t offset = rig->statements[statement_num];
+	uint16_t last_offset  = rig->statements[statement_num+1];
 
 	proc_level = button_section ? 2 : 0;
 	display(dbg_dump+1,"# dumping statments list(%d) from %d to %d (%d bytes)",
@@ -320,7 +320,7 @@ static bool dumpStatementList(bool button_section, int statement_num)
 
 	while (offset < last_offset)
 	{
-		if (!dumpStatement(button_section,&offset,last_offset))
+		if (!dumpStatement(rig, button_section,&offset,last_offset))
 			return false;
 	}
 	return true;
@@ -332,7 +332,7 @@ static bool dumpStatementList(bool button_section, int statement_num)
 //-------------------------------------------------
 
 // extern
-void dumpRig()
+void dumpRig(const rig_t *rig)
 {
 	int save_proc_level = proc_level;
 	proc_level = 0;
@@ -342,18 +342,18 @@ void dumpRig()
 	// display interesting numbers]
 
 	display(dbg_dump-1,"Dumping Rig",0);
-	display(dbg_dump-1,"define_pool_len=%d",cur_rig_header->define_pool_len);
-	display(dbg_dump-1,"string_pool_len=%d",cur_rig_header->string_pool_len);
-	display(dbg_dump-1,"statement_pool_len=%d",cur_rig_header->statement_pool_len);
-	display(dbg_dump-1,"expression_pool_len=%d",cur_rig_header->expression_pool_len);
-	display(dbg_dump-1,"num_statements=%d",cur_rig_header->num_statements);
-	for (int i=0; i<=cur_rig_header->num_statements; i++)
-		display(dbg_dump+2,"statement[%d] = %d",i,cur_rig_header->statements[i]);
+	display(dbg_dump-1,"define_pool_len=%d",rig->define_pool_len);
+	display(dbg_dump-1,"string_pool_len=%d",rig->string_pool_len);
+	display(dbg_dump-1,"statement_pool_len=%d",rig->statement_pool_len);
+	display(dbg_dump-1,"expression_pool_len=%d",rig->expression_pool_len);
+	display(dbg_dump-1,"num_statements=%d",rig->num_statements);
+	for (int i=0; i<=rig->num_statements; i++)
+		display(dbg_dump+2,"statement[%d] = %d",i,rig->statements[i]);
 
 	display(dbg_code,"statements",0);
-	display_bytes_long(dbg_code,0,cur_rig_code->statement_pool,cur_rig_header->statement_pool_len);
+	display_bytes_long(dbg_code,0,rig->statement_pool,rig->statement_pool_len);
 	display(dbg_code,"expressions",0);
-	display_bytes_long(dbg_code,0,cur_rig_code->expression_pool,cur_rig_header->expression_pool_len);
+	display_bytes_long(dbg_code,0,rig->expression_pool,rig->expression_pool_len);
 	// dump the program
 
 	if (dbg_dump > 0)
@@ -364,7 +364,7 @@ void dumpRig()
 
 	display(0,"------------------------------------------------",0);
 	display(0,"",0);
-	display(0,"%s",cur_rig_header->overlay_type?"Overlay":"BaseRig");
+	display(0,"%s",rig->overlay_type?"Overlay":"BaseRig");
 	display(0,"",0);
 
 	bool ok = 1;
@@ -373,7 +373,7 @@ void dumpRig()
 
 	for (int i=0; i<RIG_NUM_DEFINES; i++)
 	{
-		uint16_t idxP1 = rig_header.define_ids[i];
+		uint16_t idxP1 = rig->define_ids[i];
 		if (idxP1)	// definition indicator - they must name em'
 		{
 			any = 1;
@@ -384,8 +384,8 @@ void dumpRig()
 
 			display(0,"define(%d, %s, %d);",
 				i,
-				&rig_code.define_pool[idxP1-1],
-				rig_header.define_values[i]);
+				&rig->define_pool[idxP1-1],
+				rig->define_values[i]);
 			prev_define = i;
 		}
 	}
@@ -396,14 +396,14 @@ void dumpRig()
 	{
 		// the offset is incremented so that we can identify
 		// accesses to string 0 explicitly.
-		uint16_t string_offset = cur_rig_header->strings[i];
+		uint16_t string_offset = rig->strings[i];
 
 		if (string_offset--)	// test and adjust offset
 		{
 			any = 1;
 			display(0,"STRING(%d, \"%s\");",
 				i,
-				&cur_rig_code->string_pool[string_offset]);
+				&rig->string_pool[string_offset]);
 		}
 	}
 
@@ -411,7 +411,7 @@ void dumpRig()
 
 	if (any)
 		display(0,"",0);
-	ok = ok && dumpStatementList(0,0);
+	ok = ok && dumpStatementList(rig,0,0);
 	if (ok)
 		display(0,"",0);
 
@@ -423,7 +423,7 @@ void dumpRig()
 		bool started = 0;
 		for (int j=0; j<NUM_SUBSECTIONS && ok; j++)
 		{
-			if (cur_rig_header->button_refs[i][j])
+			if (rig->button_refs[i][j])
 			{
 				if (!started)
 				{
@@ -437,16 +437,16 @@ void dumpRig()
 				{
 					// statement list num is 1 based
 					// so that we can identify a used statement list
-					ok = dumpStatementList(1,cur_rig_header->button_refs[i][j] - 1);
+					ok = dumpStatementList(rig, 1,rig->button_refs[i][j] - 1);
 				}
 				else
 				{
 					// on the other hand, we only decrement the exprssion
 					// offset if the high order is NOT set
 
-					uint16_t offset = cur_rig_header->button_refs[i][j];
+					uint16_t offset = rig->button_refs[i][j];
 					dump_buf[0] = 0;
-					ok = dumpCodeExpression(rigTokenToText(j + RIG_TOKEN_COLOR),offset);
+					ok = dumpCodeExpression(rig, rigTokenToText(j + RIG_TOKEN_COLOR), offset);
 					proc_level = 2;
 					display(0,"%s;",dump_buf);
 					proc_level = 0;

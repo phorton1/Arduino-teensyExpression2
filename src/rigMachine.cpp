@@ -43,6 +43,9 @@
 
 rigMachine rig_machine;
 
+const rig_t *cur_rig;
+	// need a stack scheme
+
 
 //------------------------------------------------------
 // enumerated types
@@ -105,8 +108,8 @@ bool rigMachine::loadRig(const char *rig_name)
 
 	// load and start the rig
 
-	m_rig_loaded = parseRig(rig_name);
-	m_rig_loaded = m_rig_loaded && startRig();
+	cur_rig = parseRig(rig_name);
+	m_rig_loaded = cur_rig && startRig();
 
 	if (m_rig_loaded)
 		strcpy(m_rig_name,rig_name);
@@ -139,7 +142,7 @@ bool rigMachine::startRig()
 		int mask = (i == THE_SYSTEM_BUTTON) ? BUTTON_EVENT_LONG_CLICK : 0;
 		for (uint16_t j=RIG_TOKEN_PRESS; j<=RIG_TOKEN_REPEAT && ok; j++)
 		{
-			uint16_t ref = rig_header.button_refs[i][j - RIG_TOKEN_COLOR];
+			uint16_t ref = cur_rig->button_refs[i][j - RIG_TOKEN_COLOR];
 			if (ref)
 			{
 				// prh - parser should only allow click on THE_SYSTEM_BUTTON
@@ -151,7 +154,7 @@ bool rigMachine::startRig()
 				if (j == RIG_TOKEN_REPEAT)  mask |= BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT;
 			}
 		}
-		// if (mask || rig_header.overlay_type == EXP_RIG_TYPE_BASERIG)
+		// if (mask || cur_rig->overlay_type == EXP_RIG_TYPE_BASERIG)
 		{
 			display(dbg_rig+1,"setButton(%d,0x%04x)",i,mask);
 			theButtons.setButtonType(i,mask);
@@ -289,8 +292,8 @@ bool rigMachine::evalCodeExpression(evalResult_t *rslt, const char *what, uint16
 
 		if (byte & EXP_INLINE_ID)
 		{
-			display(dbg_param+1,"inline id(%d)=%s",value,&rig_code.define_pool[rig_header.define_ids[value] - 1]);
-			value = rig_header.define_values[value];
+			display(dbg_param+1,"inline id(%d)=%s",value,&cur_rig->define_pool[cur_rig->define_ids[value] - 1]);
+			value = cur_rig->define_values[value];
 		}
 
 		if (inline_op == EXP_LED_COLOR)
@@ -311,8 +314,8 @@ bool rigMachine::evalCodeExpression(evalResult_t *rslt, const char *what, uint16
 		if (inline_op == EXP_STRING)
 		{
 			display(dbg_param+1,"inline STRING[%d]",value);
-			uint16_t off = rig_header.strings[value];
-			rslt->text = &rig_code.string_pool[off];
+			uint16_t off = cur_rig->strings[value];
+			rslt->text = &cur_rig->string_pool[off];
 			rslt->is_string = 1;
 		}
 		else
@@ -323,7 +326,7 @@ bool rigMachine::evalCodeExpression(evalResult_t *rslt, const char *what, uint16
 	else	// dumpExpression for real
 	{
 		offset -= 1;		// real expression offset are one based
-		const uint8_t *code = cur_rig_code->expression_pool;
+		const uint8_t *code = cur_rig->expression_pool;
 		if (!evalExpression(rslt,what,code,&offset))
 			return false;
 	}
@@ -413,7 +416,7 @@ bool rigMachine::evalParam(evalResult_t *rslt, int arg_type, const uint8_t *code
 
 		case PARAM_PEDAL_NAME :
 			ptr16 = (uint16_t *) &code[*offset];
-			rslt->text = &rig_code.string_pool[*ptr16];
+			rslt->text = &cur_rig->string_pool[*ptr16];
 			rslt->is_string = 1;
 			*offset += 2;
 			break;
@@ -438,7 +441,7 @@ bool rigMachine::evalParam(evalResult_t *rslt, int arg_type, const uint8_t *code
 
 bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 {
-	const uint8_t *code = cur_rig_code->statement_pool;
+	const uint8_t *code = cur_rig->statement_pool;
 	uint8_t tt = code[(*offset)++];
 
 	display(dbg_stmt+1,"executeStatement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
@@ -587,8 +590,8 @@ bool rigMachine::executeStatement(uint16_t *offset, uint16_t last_offset)
 bool rigMachine::executeStatementList(int statement_num)
 {
 	bool ok = 1;
-	uint16_t offset = cur_rig_header->statements[statement_num];
-	uint16_t last_offset  = cur_rig_header->statements[statement_num+1];
+	uint16_t offset = cur_rig->statements[statement_num];
+	uint16_t last_offset  = cur_rig->statements[statement_num+1];
 
 	display(dbg_stmt,"executeStatmentList(%d) from %d to %d (%d bytes)",
 		statement_num,
@@ -649,7 +652,7 @@ void rigMachine::onButton(int row, int col, int event)
 	display(dbg_rig,"onButton(%d) 0x%04x proc_level=%d",num,event,proc_level);
 	proc_entry();
 
-	uint16_t *refs = rig_header.button_refs[num];
+	const uint16_t *refs = cur_rig->button_refs[num];
 	uint16_t tt = 0;
 
 	if (event == BUTTON_EVENT_PRESS)
@@ -696,7 +699,7 @@ void rigMachine::updateUI()
 	evalResult_t rslt;
 	for (int num=0; num<NUM_BUTTONS; num++)
 	{
-		uint16_t *refs = rig_header.button_refs[num];
+		const uint16_t *refs = cur_rig->button_refs[num];
 		uint16_t ref = refs[SUBSECTION_NUM(RIG_TOKEN_COLOR)];
 		if (ref)
 		{

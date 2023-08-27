@@ -7,6 +7,9 @@
 
 #pragma once
 
+#include "rigParser.h"
+
+
 #define MAX_EXP_STACK   16
 
 // NumericExpression =
@@ -84,22 +87,22 @@
 // methods
 //-----------------------------------
 
-extern uint16_t rigNumericExpression(int tt);
+extern uint16_t rigNumericExpression(rig_t *rig, int tt);
 
-extern uint16_t rigPedalNumExpression(int tt);
-extern uint16_t rigRotaryNumExpression(int tt);
-extern uint16_t rigListenNumExpression(int tt);
-extern uint16_t rigAreaNumExpression(int tt);
-extern uint16_t rigValueNumExpression(int tt);
+extern uint16_t rigPedalNumExpression(rig_t *rig, int tt);
+extern uint16_t rigRotaryNumExpression(rig_t *rig, int tt);
+extern uint16_t rigListenNumExpression(rig_t *rig, int tt);
+extern uint16_t rigAreaNumExpression(rig_t *rig, int tt);
+extern uint16_t rigValueNumExpression(rig_t *rig, int tt);
 
-extern uint16_t rigValueExpression(int tt);
-extern uint16_t rigMidiChannelExpression(int tt);
-extern uint16_t rigListenChannelExpression(int tt);
-extern uint16_t rigMidiValueExpression(int tt);
+extern uint16_t rigValueExpression(rig_t *rig, int tt);
+extern uint16_t rigMidiChannelExpression(rig_t *rig, int tt);
+extern uint16_t rigListenChannelExpression(rig_t *rig, int tt);
+extern uint16_t rigMidiValueExpression(rig_t *rig, int tt);
 
-extern uint16_t rigStringExpression(int tt);
-extern uint16_t rigLedColorExpression(int tt);
-extern uint16_t rigDisplayColorExpression(int tt);
+extern uint16_t rigStringExpression(rig_t *rig, int tt);
+extern uint16_t rigLedColorExpression(rig_t *rig, int tt);
+extern uint16_t rigDisplayColorExpression(rig_t *rig, int tt);
 
 
 // end of rigExpression.h

@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <Arduino.h>
+
 #define TEENSY_EXPRESSION_VERSION  "v2.0"
 
 #define WITH_MIDI_HOST      1

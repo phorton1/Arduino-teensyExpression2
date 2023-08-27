@@ -16,18 +16,74 @@
 #define AREA_CLIENT_HEIGHT    (client_rect.ye - client_rect.ys + 1)
 
 
-rigHeader_t rig_header;
-rigCode_t   rig_code;
+rig_t *parse_rig;
 
-const rigHeader_t	*cur_rig_header = &rig_header;
-const rigCode_t		*cur_rig_code = &rig_code;
+#define RIG_POOL_SIZE	(MAX_RIG_SIZE * 2)
+uint16_t rig_pool_len;
+uint8_t rig_pool[RIG_POOL_SIZE];
 
 
 static void init_parse()
 {
 	rig_error_found = 0;	 // in rigToken.cpp
-	memset(&rig_header,0,sizeof(rigHeader_t));
-	memset(&rig_code,0,sizeof(rigCode_t));
+
+	display(0,"MAX_RIG_SIZE = %d", MAX_RIG_SIZE);
+
+	uint8_t *bytes = new uint8_t[MAX_RIG_SIZE];
+	memset(bytes,0,MAX_RIG_SIZE);
+
+	parse_rig = (rig_t *) bytes;
+
+	uint16_t offset = sizeof(rig_t);
+	parse_rig->define_pool = (char *) &bytes[offset];
+	offset += MAX_DEFINE_POOL;
+	parse_rig->string_pool = (char *) &bytes[offset];
+	offset += MAX_STRING_POOL;
+	parse_rig->statement_pool = &bytes[offset];
+	offset += MAX_STATEMENT_POOL;
+	parse_rig->expression_pool = &bytes[offset];
+}
+
+
+static rig_t *relocate()
+{
+	uint16_t rig_size = sizeof(rig_t) +
+		parse_rig->define_pool_len +
+		parse_rig->string_pool_len +
+		parse_rig->statement_pool_len +
+		parse_rig->expression_pool_len;
+	display(0,"relocate(bytes=%d) to %d",rig_size,rig_pool_len);
+	if (rig_pool_len + rig_size >= RIG_POOL_SIZE)
+	{
+		rig_error("RIG(%d) to big to fit in remaining POOL(%d)",rig_size,RIG_POOL_SIZE-rig_pool_len);
+		free(parse_rig);
+		parse_rig = 0;
+		return 0;
+	}
+
+	rig_t *new_rig = (rig_t *) &rig_pool[rig_pool_len];
+	memcpy(new_rig,parse_rig,sizeof(rig_t));
+	rig_pool_len += sizeof(rig_t);
+
+	new_rig->define_pool = (char *) &rig_pool[rig_pool_len];
+	memcpy(new_rig->define_pool,parse_rig->define_pool,parse_rig->define_pool_len);
+	rig_pool_len += parse_rig->define_pool_len;
+
+	new_rig->string_pool = (char *) &rig_pool[rig_pool_len];
+	memcpy(new_rig->string_pool,parse_rig->string_pool,parse_rig->string_pool_len);
+	rig_pool_len += parse_rig->string_pool_len;
+
+	new_rig->statement_pool = &rig_pool[rig_pool_len];
+	memcpy(new_rig->statement_pool,parse_rig->statement_pool,parse_rig->statement_pool_len);
+	rig_pool_len += parse_rig->statement_pool_len;
+
+	new_rig->expression_pool = &rig_pool[rig_pool_len];
+	memcpy(new_rig->expression_pool,parse_rig->expression_pool,parse_rig->expression_pool_len);
+	rig_pool_len += parse_rig->expression_pool_len;
+
+	free(parse_rig);
+	parse_rig = 0;
+	return new_rig;
 }
 
 
@@ -221,50 +277,50 @@ const statement_param_t *findParams(int tt)
 static bool addDefinePool(const char *s)
 {
 	int len = strlen(s);
-	if (rig_header.define_pool_len >= MAX_DEFINE_POOL - len - 1)
+	if (parse_rig->define_pool_len >= MAX_DEFINE_POOL - len - 1)
 	{
 		rig_error("DEFINE POOL OVERLFLOW");
 		return false;
 	}
-	strcpy(&rig_code.define_pool[rig_header.define_pool_len],s);
-	rig_header.define_pool_len += len + 1;
+	strcpy(&parse_rig->define_pool[parse_rig->define_pool_len],s);
+	parse_rig->define_pool_len += len + 1;
 	return true;
 }
 
 static bool addStringPool(const char *s)
 {
 	int len = strlen(s);
-	if (rig_header.string_pool_len >= MAX_STRING_POOL - len - 1)
+	if (parse_rig->string_pool_len >= MAX_STRING_POOL - len - 1)
 	{
 		rig_error("STRING POOL OVERLFLOW");
 		return false;
 	}
-	strcpy(&rig_code.string_pool[rig_header.string_pool_len],s);
-	rig_header.string_pool_len += len + 1;
+	strcpy(&parse_rig->string_pool[parse_rig->string_pool_len],s);
+	parse_rig->string_pool_len += len + 1;
 	return true;
 }
 
 static bool addStatementByte(uint8_t byte)
 {
-	if (rig_header.statement_pool_len >= MAX_STATEMENT_POOL)
+	if (parse_rig->statement_pool_len >= MAX_STATEMENT_POOL)
 	{
 		rig_error("STATMENT(BYTE) POOL OVERLFLOW");
 		return false;
 	}
-	rig_code.statement_pool[rig_header.statement_pool_len++] = byte;
+	parse_rig->statement_pool[parse_rig->statement_pool_len++] = byte;
 	return true;
 }
 
 static bool addStatementInt(uint16_t i)
 {
-	if (rig_header.statement_pool_len >= MAX_STATEMENT_POOL - 2)
+	if (parse_rig->statement_pool_len >= MAX_STATEMENT_POOL - 2)
 	{
 		rig_error("STATMENT(INT) POOL OVERLFLOW");
 		return false;
 	}
-	uint16_t *ptr = (uint16_t *) &rig_code.statement_pool[rig_header.statement_pool_len];
+	uint16_t *ptr = (uint16_t *) &parse_rig->statement_pool[parse_rig->statement_pool_len];
 	*ptr = i;
-	rig_header.statement_pool_len += 2;
+	parse_rig->statement_pool_len += 2;
 	return true;
 }
 
@@ -395,7 +451,7 @@ static bool handleArg(int statement_type, int arg_type)
 			case PARAM_DEFINE_NUM :
 				if (!getNumber(&value,"VALUE_NUM",RIG_NUM_DEFINES-1))
 					ok = 0;
-				else if (rig_header.define_ids[value])
+				else if (parse_rig->define_ids[value])
 				{
 					rig_error("define(%d) used more than once",value);
 					ok = 0;
@@ -413,7 +469,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					// the offset is incremented so that we can identify
 					// accesses to string 0 explicitly.
-					rig_header.define_ids[define_num] = rig_header.define_pool_len + 1;
+					parse_rig->define_ids[define_num] = parse_rig->define_pool_len + 1;
 					ok = addDefinePool(text);
 				}
 				break;
@@ -421,12 +477,12 @@ static bool handleArg(int statement_type, int arg_type)
 				if (!getNumber(&value,"DEFINE_VALUE",MAX_DEFINE_VALUE))
 					ok = 0;
 				else
-					rig_header.define_values[define_num] = value;
+					parse_rig->define_values[define_num] = value;
 				break;
 			case PARAM_STRING_NUM   :
 				if (!getNumber(&value,"STRING_NUM",RIG_NUM_STRINGS-1))
 					ok = 0;
-				else if (rig_header.strings[value])
+				else if (parse_rig->strings[value])
 				{
 					rig_error("define_string(%d) used more than once",value);
 					ok = 0;
@@ -442,7 +498,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					// the offset is incremented so that we can identify
 					// accesses to string 0 explicitly.
-					rig_header.strings[string_num] = rig_header.string_pool_len + 1;
+					parse_rig->strings[string_num] = parse_rig->string_pool_len + 1;
 					ok = addStringPool(text);
 				}
 				break;
@@ -460,7 +516,7 @@ static bool handleArg(int statement_type, int arg_type)
 			// AREA(areaExpression, FONT_SIZE, FONT_TYPE, STARTX, STARTY, ENDX, ENDY )
 
 			case PARAM_AREA_NUM :
-				value = rigAreaNumExpression(rig_token.id);
+				value = rigAreaNumExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -536,12 +592,12 @@ static bool handleArg(int statement_type, int arg_type)
 			// LISTEN and setValue
 
 			case PARAM_VALUE_NUM :	// in setValue and LISTEN
-				value = rigValueNumExpression(rig_token.id);
+				value = rigValueNumExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_VALUE :	    // in setValue
-				value = rigValueExpression(rig_token.id);
+				value = rigValueExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -549,18 +605,18 @@ static bool handleArg(int statement_type, int arg_type)
 			// PEDAL
 
 			case PARAM_PEDAL_NUM :
-				value = rigPedalNumExpression(rig_token.id);
+				value = rigPedalNumExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_PEDAL_NAME   :
 				text = getText("PEDAL_NAME",MAX_PEDAL_NAME);
 				ok = ok && text;
-				ok = ok && addStatementInt(rig_header.string_pool_len);
+				ok = ok && addStatementInt(parse_rig->string_pool_len);
 				ok = ok && addStringPool(text);
 				break;
 			case PARAM_ROTARY_NUM :
-				value = rigRotaryNumExpression(rig_token.id);
+				value = rigRotaryNumExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -581,18 +637,18 @@ static bool handleArg(int statement_type, int arg_type)
 				}
 				break;
 			case PARAM_MIDI_CHANNEL :
-				value = rigMidiChannelExpression(rig_token.id);
+				value = rigMidiChannelExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_LISTEN_CHANNEL :
-				value = rigListenChannelExpression(rig_token.id);
+				value = rigListenChannelExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_MIDI_CC :
 			case PARAM_MIDI_VALUE :
-				value = rigMidiValueExpression(rig_token.id);
+				value = rigMidiValueExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -600,17 +656,17 @@ static bool handleArg(int statement_type, int arg_type)
 			// Generic Expression
 
 			case PARAM_STRING_EXPRESSION :
-				value = rigStringExpression(rig_token.id);
+				value = rigStringExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_LED_COLOR_EXPRESSION :
-				value = rigLedColorExpression(rig_token.id);
+				value = rigLedColorExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_DISPLAY_COLOR_EXPRESSION	:
-				value = rigDisplayColorExpression(rig_token.id);
+				value = rigDisplayColorExpression(parse_rig,rig_token.id);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -713,19 +769,19 @@ static bool handleStatement(int tt)
 
 static bool handleStatementList(int tt)
 {
-	display(dbg_parse + 2,"handleStatementList(%d) %s",rig_header.num_statements,rigTokenToString(tt));
+	display(dbg_parse + 2,"handleStatementList(%d) %s",parse_rig->num_statements,rigTokenToString(tt));
 	proc_entry();
 
 	// set pool offset into statements array
 	// allow one for terminating length
 
-	if (rig_header.num_statements >= MAX_STATEMENTS - 1)
+	if (parse_rig->num_statements >= MAX_STATEMENTS - 1)
 	{
 		rig_error("implementation error: too many STATMENTS (lists)");
 		proc_leave();
 		return false;
 	}
-	rig_header.statements[rig_header.num_statements++] = rig_header.statement_pool_len;
+	parse_rig->statements[parse_rig->num_statements++] = parse_rig->statement_pool_len;
 
 	// process statements
 
@@ -770,28 +826,28 @@ static bool handleSubsection(int button_num, int sub_id)
 		// set this button's statement list index for the given subsection
 		// to the next statement list that will be parsed.
 
-		display(dbg_parse + 1,"    uses statement(%d)",rig_header.num_statements);
-		display(dbg_parse + 1,"    button_ref set to %d",rig_header.num_statements+1);
+		display(dbg_parse + 1,"    uses statement(%d)",parse_rig->num_statements);
+		display(dbg_parse + 1,"    button_ref set to %d",parse_rig->num_statements+1);
 
-		rig_header.button_refs[button_num][sub_num] = rig_header.num_statements + 1;
+		parse_rig->button_refs[button_num][sub_num] = parse_rig->num_statements + 1;
 			// 1 based so that we can identify a used statement list
 
 		ok = handleStatementList(rig_token.id);
 	}
 	else if (sub_id == RIG_TOKEN_COLOR)
 	{
-		uint16_t offset = rigLedColorExpression(rig_token.id);
+		uint16_t offset = rigLedColorExpression(parse_rig,rig_token.id);
 		ok = offset;
 		if (ok)
-			rig_header.button_refs[button_num][sub_num] = offset;
+			parse_rig->button_refs[button_num][sub_num] = offset;
 		ok = ok && skip(RIG_TOKEN_SEMICOLON);
 	}
 	else	// BLINK
 	{
-		uint16_t offset = rigNumericExpression(rig_token.id);
+		uint16_t offset = rigNumericExpression(parse_rig,rig_token.id);
 		ok = offset;
 		if (ok)
-			rig_header.button_refs[button_num][sub_num] = offset;
+			parse_rig->button_refs[button_num][sub_num] = offset;
 		ok = ok && skip(RIG_TOKEN_SEMICOLON);
 	}
 
@@ -885,7 +941,7 @@ static bool handleButton()
 
 
 // extern
-bool parseRig(const char *rig_name)
+const rig_t *parseRig(const char *rig_name)
 	// generates the intermediate structure of a
 	// syntactically valid set of bytes that are
 	// RIG_ID's, and with inline TEXT and int_values;
@@ -893,6 +949,7 @@ bool parseRig(const char *rig_name)
 {
 	warning(dbg_parse,"ParseRig(%s.rig)",rig_name);
 	bool ok = 0;
+	rig_t *new_rig = 0;
 	if (openRigFile(rig_name))
 	{
 		ok = 1;
@@ -910,7 +967,7 @@ bool parseRig(const char *rig_name)
 		}
 		else
 		{
-			rig_header.overlay_type = tt - RIG_TOKEN_BASERIG;
+			parse_rig->overlay_type = tt - RIG_TOKEN_BASERIG;
 		}
 
 		tt = getRigToken();
@@ -924,7 +981,7 @@ bool parseRig(const char *rig_name)
 
 		if (ok && IS_INIT_STATEMENT(tt))
 			ok = ok && handleStatementList(tt);
-		rig_header.num_statements = 1;
+		parse_rig->num_statements = 1;
 			// even if empty
 
 		// buttons
@@ -965,13 +1022,22 @@ bool parseRig(const char *rig_name)
 		// so everyone can get the number of statements
 		// by subtracting from the +1 value ..
 
-		rig_header.statements[rig_header.num_statements] = rig_header.statement_pool_len;
+		parse_rig->statements[parse_rig->num_statements] = parse_rig->statement_pool_len;
 
 		ok = ok && !rig_error_found;
 		if (ok)
 		{
 			warning(dbg_parse,"parseRig(%s.rig) finished OK",0);
-			dumpRig();
+			new_rig = relocate();
+			if (new_rig)
+			{
+				dumpRig(new_rig);
+			}
+			else
+			{
+				rig_error("There was an error relocating the rig!");
+			}
+
 		}
 		else
 		{
@@ -980,7 +1046,7 @@ bool parseRig(const char *rig_name)
 
 	}	// file opened
 
-	return ok;
+	return new_rig;
 }	// parseRig()
 
 

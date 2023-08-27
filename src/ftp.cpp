@@ -74,7 +74,7 @@ note_t *addNote(uint8_t val, uint8_t vel, uint8_t string, uint8_t vel2)
     // -1 is an invalid fret
     // zero is an invalid note
 {
-    note_t *note = new note_t;
+    note_t *note = new note_t;			// needs to be changed to use a static sub-allocator
     note->val = val;
     note->vel = vel;
     note->vel2 = vel2;
