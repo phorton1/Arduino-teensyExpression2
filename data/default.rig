@@ -85,24 +85,23 @@ define(23, LOOP_COMMAND_DUB, 		4);				# LOOP_COMMAND_DUB_MODE           = 4  = 0
 # LOOP_COMMAND_SET_LOOP_START     = 6  = 0x09;      # NOT_USED YET - immediatly set the "restart point" for the clips in the track
 # LOOP_COMMAND_CLEAR_LOOP_START   = 6  = 0x0A;      # NOT_USED YET - immediatly set the "restart point" for the clips in the track
 define(24, LOOP_COMMAND_TRACK_BASE,	16);			# LOOP_COMMAND_TRACK_BASE         = 16 = 0x10;     	# the four used "track" buttons are 0x10..0x13 (although the protocol can support upto 8 buttons 0..7)
-# LOOP_COMMAND_ERASE_TRACK_BASE   = 32 = 0x20;      # NOT USED YET - erase the given track (stops it if playing)
-# LOOP_COMMAND_RECORD             = 128 = 0x80;		# FOR LOOPER INTERNAL USE ONLY
-# LOOP_COMMAND_PLAY               = 129 = 0x81;		# FOR LOOPER INTERNAL USE ONLY
+													# LOOP_COMMAND_ERASE_TRACK_BASE   = 32 = 0x20;      # NOT USED YET - erase the given track (stops it if playing)
 
-define(25,	LOOP_CONTROL_BASE_CC,	101 );		# LOOP_CONTROL_BASE_CC   		  = 101 = 0x65      # te_send     looper_recv        for 0..LOOPER_NUM_CONTROLS the value is the volume control (Looper pedal == 0x67)
-define(26,	LOOP_STOP_CMD_STATE_CC,	38 );		# LOOP_STOP_CMD_STATE_CC 		  = 38  = 0x26;		# te_recv     looper_send        the value is 0, LOOP_COMMAND_STOP or STOP_IMMEDIATE
-define(27,	LOOP_DUB_STATE_CC,		37 );		# LOOP_DUB_STATE_CC      		  = 37  = 0x25;		# te_recv     looper_send        value is currently only the DUB state
-define(28,	LOOP_COMMAND_CC,		36 );		# LOOP_COMMAND_CC        		  = 36  = 0x24;		# te_send     looper_recv        the value is the LOOP command
-define(29,	TRACK_STATE_BASE_CC,	20 );		# TRACK_STATE_BASE_CC    		  = 20  = 0x14;		# te_recv     looper_send        for 0..3 tracks, value is track state
-												# CLIP_VOL_BASE_CC       		  = 48  = 0x30;		# te_send     looper_recv        NOT_USED_YET - for 4 tracks * 3 clips - value is volume 0..127
-												# CLIP_MUTE_BASE_CC      		  = 48  = 0x50;		# both    	  both        		 NOT_USED_YET - for 4 tracks * 3 clips - value is mute state
-												# NOTIFY_LOOP            		  = 48  = 0x64;     # te_recv     looper_send        NOT_USED_YET - value=number of pending loop notifies
 
-define(30, LOOPER_CONTROL_INPUT_GAIN,	0);		# LOOPER_CONTROL_INPUT_GAIN       = 0
-define(31, LOOPER_CONTROL_THRU_VOLUME,	1);		# LOOPER_CONTROL_THRU_VOLUME      = 1
-define(32, LOOPER_CONTROL_LOOP_VOLUME,	2);		# LOOPER_CONTROL_LOOP_VOLUME      = 2
-define(33, LOOPER_CONTROL_MIX_VOLUME,	3);		# LOOPER_CONTROL_MIX_VOLUME       = 3
-define(34, LOOPER_CONTROL_OUTPUT_GAIN,	4);		# LOOPER_CONTROL_OUTPUT_GAIN      = 4
+define(30,	LOOP_CONTROL_BASE_CC,	101 );			# LOOP_CONTROL_BASE_CC   		  = 101 = 0x65      # te_send     looper_recv        for 0..LOOPER_NUM_CONTROLS the value is the volume control (Looper pedal == 0x67)
+define(31,	LOOP_STOP_CMD_STATE_CC,	38 );			# LOOP_STOP_CMD_STATE_CC 		  = 38  = 0x26;		# te_recv     looper_send        the value is 0, LOOP_COMMAND_STOP or STOP_IMMEDIATE
+define(32,	LOOP_DUB_STATE_CC,		37 );			# LOOP_DUB_STATE_CC      		  = 37  = 0x25;		# te_recv     looper_send        value is currently only the DUB state
+define(33,	LOOP_COMMAND_CC,		36 );			# LOOP_COMMAND_CC        		  = 36  = 0x24;		# te_send     looper_recv        the value is the LOOP command
+define(34,	TRACK_STATE_BASE_CC,	20 );			# TRACK_STATE_BASE_CC    		  = 20  = 0x14;		# te_recv     looper_send        for 0..3 tracks, value is track state
+define(35,	CLIP_VOL_BASE_CC,		48 );			# CLIP_VOL_BASE_CC       		  = 48  = 0x30;		# te_send     looper_recv        NOT_USED_YET - for 4 tracks * 3 clips - value is volume 0..127
+define(36,	CLIP_MUTE_BASE_CC,		80 );			# CLIP_MUTE_BASE_CC      		  = 80  = 0x50;		# both    	  both        		 NOT_USED_YET - for 4 tracks * 3 clips - value is mute state
+													# NOTIFY_LOOP            		  = 100 = 0x64;     # te_recv     looper_send        NOT_USED_YET - value=number of pending loop notifies
+
+define(40, LOOPER_CONTROL_INPUT_GAIN,	0);			# LOOPER_CONTROL_INPUT_GAIN       = 0
+define(41, LOOPER_CONTROL_THRU_VOLUME,	1);			# LOOPER_CONTROL_THRU_VOLUME      = 1
+define(42, LOOPER_CONTROL_LOOP_VOLUME,	2);			# LOOPER_CONTROL_LOOP_VOLUME      = 2
+define(43, LOOPER_CONTROL_MIX_VOLUME,	3);			# LOOPER_CONTROL_MIX_VOLUME       = 3
+define(44, LOOPER_CONTROL_OUTPUT_GAIN,	4);			# LOOPER_CONTROL_OUTPUT_GAIN      = 4
 
 
 
@@ -130,6 +129,13 @@ define(111, _track1_state,	9);		# TRACK1 STATE
 define(112, _track2_state,	10);	# TRACK2 STATE
 define(113, _track3_state,	11);	# TRACK3 STATE
 define(114, _track4_state,	12);	# TRACK4 STATE
+
+define(115, _clip_vol_base,		20);
+define(116, _clip_mute_base,	40);
+define(117, _selected_track,	60);
+
+define(127, _end_modal_value,	127);
+
 
 #----------------------------
 # String Definition
@@ -227,9 +233,44 @@ LISTEN(_track4_state, SERIAL, 0, TRACK_STATE_BASE_CC + 3);
 	# and stick their values into the appropriate
 	# _track_state values
 
+# LISTEN for the 16 possible clip volumes and mute states
 
+LISTEN(_clip_vol_base + 0,		SERIAL, 0,	CLIP_VOL_BASE_CC + 0);
+LISTEN(_clip_vol_base + 1,		SERIAL, 0,	CLIP_VOL_BASE_CC + 1);
+LISTEN(_clip_vol_base + 2,		SERIAL, 0,	CLIP_VOL_BASE_CC + 2);
+LISTEN(_clip_vol_base + 3,		SERIAL, 0,	CLIP_VOL_BASE_CC + 3);
+LISTEN(_clip_vol_base + 4,		SERIAL, 0,	CLIP_VOL_BASE_CC + 4);
+LISTEN(_clip_vol_base + 5,		SERIAL, 0,	CLIP_VOL_BASE_CC + 5);
+LISTEN(_clip_vol_base + 6,		SERIAL, 0,	CLIP_VOL_BASE_CC + 6);
+LISTEN(_clip_vol_base + 7,		SERIAL, 0,	CLIP_VOL_BASE_CC + 7);
+LISTEN(_clip_vol_base + 8,		SERIAL, 0,	CLIP_VOL_BASE_CC + 8);
+LISTEN(_clip_vol_base + 9,		SERIAL, 0,	CLIP_VOL_BASE_CC + 9);
+LISTEN(_clip_vol_base + 10,		SERIAL, 0,	CLIP_VOL_BASE_CC + 10);
+LISTEN(_clip_vol_base + 11,		SERIAL, 0,	CLIP_VOL_BASE_CC + 11);
+LISTEN(_clip_vol_base + 12,		SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
+LISTEN(_clip_vol_base + 13,		SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
+LISTEN(_clip_vol_base + 14,		SERIAL, 0,	CLIP_VOL_BASE_CC + 14);
+LISTEN(_clip_vol_base + 15,		SERIAL, 0,	CLIP_VOL_BASE_CC + 15);
 
+LISTEN(_clip_mute_base + 0,		SERIAL, 0,	CLIP_VOL_BASE_CC + 0);
+LISTEN(_clip_mute_base + 1,		SERIAL, 0,	CLIP_VOL_BASE_CC + 1);
+LISTEN(_clip_mute_base + 2,		SERIAL, 0,	CLIP_VOL_BASE_CC + 2);
+LISTEN(_clip_mute_base + 3,		SERIAL, 0,	CLIP_VOL_BASE_CC + 3);
+LISTEN(_clip_mute_base + 4,		SERIAL, 0,	CLIP_VOL_BASE_CC + 4);
+LISTEN(_clip_mute_base + 5,		SERIAL, 0,	CLIP_VOL_BASE_CC + 5);
+LISTEN(_clip_mute_base + 6,		SERIAL, 0,	CLIP_VOL_BASE_CC + 6);
+LISTEN(_clip_mute_base + 7,		SERIAL, 0,	CLIP_VOL_BASE_CC + 7);
+LISTEN(_clip_mute_base + 8,		SERIAL, 0,	CLIP_VOL_BASE_CC + 8);
+LISTEN(_clip_mute_base + 9,		SERIAL, 0,	CLIP_VOL_BASE_CC + 9);
+LISTEN(_clip_mute_base + 10,	SERIAL, 0,	CLIP_VOL_BASE_CC + 10);
+LISTEN(_clip_mute_base + 11,	SERIAL, 0,	CLIP_VOL_BASE_CC + 11);
+LISTEN(_clip_mute_base + 12,	SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
+LISTEN(_clip_mute_base + 13,	SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
+LISTEN(_clip_mute_base + 14,	SERIAL, 0,	CLIP_VOL_BASE_CC + 14);
+LISTEN(_clip_mute_base + 15,	SERIAL, 0,	CLIP_VOL_BASE_CC + 15);
 
+display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
+display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
 #=======================================================
 # Buttons
@@ -392,6 +433,16 @@ BUTTON(13):
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
+#-------------------------------------
+# Looper Volume Mode button
+#-------------------------------------
+
+BUTTON(14) :
+	color:	LED_ORANGE;
+	click:
+		display(AREA_MSG,YELLOW,"loadRig");
+		loadRig("modal");
+
 
 #----------------------------------
 # Guitar Effect Buttons
@@ -513,6 +564,7 @@ BUTTON(20):				# track1 button
 	blink:
 		VALUE[_track1_state] & 56;
 	press:
+		setValue(_selected_track, 0);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 0);
 		display(AREA_MSG, YELLOW, "TRACK1");
 
@@ -525,6 +577,7 @@ BUTTON(21):
 	blink:
 		VALUE[_track2_state] & 56;
 	press:
+		setValue(_selected_track, 1);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 1);
 		display(AREA_MSG, YELLOW, "TRACK2");
 
@@ -537,6 +590,7 @@ BUTTON(22):
 	blink:
 		VALUE[_track3_state] & 56;
 	press:
+		setValue(_selected_track, 2);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 2);
 		display(AREA_MSG, YELLOW, "TRACK3");
 
@@ -549,6 +603,7 @@ BUTTON(23):
 	blink:
 		VALUE[_track4_state] & 56;
 	press:
+		setValue(_selected_track, 3);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 3);
 		display(AREA_MSG, YELLOW, "TRACK4");
 
@@ -581,4 +636,4 @@ BUTTON(24):
 		setValue(_track3_state,0);
 		setValue(_track4_state,0);
 
-# end of test.rig
+# end of default.rig

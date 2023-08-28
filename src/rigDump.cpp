@@ -364,7 +364,7 @@ void dumpRig(const rig_t *rig)
 
 	display(0,"------------------------------------------------",0);
 	display(0,"",0);
-	display(0,"%s",rig->overlay_type?"Overlay":"BaseRig");
+	display(0,"%s",rig->modal_rig?"ModalRig":"BaseRig");
 	display(0,"",0);
 
 	bool ok = 1;

@@ -24,7 +24,7 @@ typedef struct
 
 typedef struct
 {
-	uint8_t     active;		// 1 if this is an active listen
+	uint8_t     active;		// the rig_pointer stack_ptr + 1 that owns this (1..16)
 	uint8_t 	port;		// MIDI, SERIAL, etc
 	uint8_t		channel;	// 0..MIDI_MAX_CHANNEL
 	uint8_t		cc;			// 0..MIDI_MAX_VALUE
@@ -76,16 +76,20 @@ private:
 	rigState_t m_rig_state;
 	evalResult_t m_param_values[MAX_PARAMS];
 
-	bool startRig();
-	bool executeStatementList(int statement_num);
-	bool executeStatement(uint16_t *offset, uint16_t last_offset);
-	bool evalParam(evalResult_t *rslt,int arg_type, const uint8_t *code, uint16_t *offset);
-	bool evalCodeExpression(evalResult_t *rslt, const char *what, uint16_t offset);
-	bool evalExpression(evalResult_t *rslt, const char *what, const uint8_t *code, uint16_t *offset);
+	bool pushRig(const rig_t *rig, const char *name);
+	void popRig(bool exec_prev);
 
-	bool expression(evalResult_t *rslt, const uint8_t *code, uint16_t *offset);
-	bool evaluate(const uint8_t *code, uint16_t *offset);
-	bool getAtom(const uint8_t *code, uint16_t *offset);
+	bool startRig(const rig_t *rig, bool cold);
+
+	bool executeStatementList(const rig_t *rig, int statement_num);
+	bool executeStatement(const rig_t *rig, uint16_t *offset, uint16_t last_offset);
+	bool evalParam(const rig_t *rig, evalResult_t *rslt,int arg_type, const uint8_t *code, uint16_t *offset);
+	bool evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const char *what, uint16_t offset);
+	bool evalExpression(const rig_t *rig, evalResult_t *rslt, const char *what, const uint8_t *code, uint16_t *offset);
+
+	bool expression(const rig_t *rig, evalResult_t *rslt, const uint8_t *code, uint16_t *offset);
+	bool evaluate(const rig_t *rig, const uint8_t *code, uint16_t *offset);
+	bool getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset);
 
 	void rigDisplay(uint16_t area_num, uint16_t color, const char *text);
 

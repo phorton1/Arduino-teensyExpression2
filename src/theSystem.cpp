@@ -140,12 +140,9 @@ void theSystem::begin()
 	}
 
     theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);
+	// theButtons.setButtonType(9, BUTTON_EVENT_CLICK, LED_PURPLE);
 
-	if (rig_machine.loadRig("default"))
-	{
-		draw_pedals = 1;
-		setTitle(rig_machine.rigName());
-	}
+	rig_machine.loadRig("default");
 
 	display(dbg_sys,"returning from theSystem::begin()",0);
 }
@@ -159,18 +156,12 @@ void theSystem::begin()
 void theSystem::onButton(int row, int col, int event)
 {
 	int num = row * NUM_BUTTON_COLS + col;
-	if (num == 9)
+	if (num == THE_SYSTEM_BUTTON && event == BUTTON_EVENT_LONG_CLICK)
 	{
 		if (rig_machine.loadRig("default"))
 		{
 			draw_pedals = 1;
-			setTitle(rig_machine.rigName());
 		}
-	}
-	else if (num == THE_SYSTEM_BUTTON && event == BUTTON_EVENT_LONG_CLICK)
-	{
-		if (rig_machine.loadRig("default"))
-			setTitle(rig_machine.rigName());
 	}
 	else
 	{

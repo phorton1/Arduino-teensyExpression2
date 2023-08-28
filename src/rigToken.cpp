@@ -23,6 +23,7 @@ static int rig_text_len;
 static int parse_ptr;
 static int parse_line_num;
 static int parse_char_num;
+static bool modal_rig;
 
 
 
@@ -79,7 +80,7 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_EOF 					: return "EOF";
 
 		case RIG_TOKEN_BASERIG				: return "BASERIG";
-		case RIG_TOKEN_OVERLAY				: return "OVERLAY";
+		case RIG_TOKEN_MODAL				: return "MODALRIG";
 
 		case RIG_TOKEN_DEFINE_DEF			: return "DEFINE";
 		case RIG_TOKEN_STRING_DEF			: return "DEFINE_STRING";
@@ -95,8 +96,8 @@ const char *rigTokenToString(int token_id)
 
 		case RIG_TOKEN_PEDAL				: return "PEDAL";
 		case RIG_TOKEN_ROTARY				: return "ROTARY";
-		case RIG_TOKEN_AREA					: return "AREA";
 		case RIG_TOKEN_LISTEN				: return "LISTEN";
+		case RIG_TOKEN_AREA					: return "AREA";
 		case RIG_TOKEN_SETVALUE				: return "SETVALUE";
 		case RIG_TOKEN_DISPLAY 				: return "DISPLAY";
 		case RIG_TOKEN_SEND_CC 				: return "SENDCC";
@@ -104,6 +105,8 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_NOTE_ON				: return "NOTEON";
 		case RIG_TOKEN_NOTE_OFF				: return "NOTEOFF";
 		case RIG_TOKEN_ALL_NOTES_OFF		: return "ALLNOTESOFF";
+		case RIG_TOKEN_LOAD_RIG				: return "LOADRIG";
+		case RIG_TOKEN_END_MODAL			: return "ENDMODAL";
 		case RIG_TOKEN_FTP_TUNER			: return "FTPTUNER";
 		case RIG_TOKEN_FTP_SENSITIVITY		: return "FTPSENSITIVITY";
 
@@ -155,6 +158,8 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_STRING				: return "STRING";
 		case RIG_TOKEN_VALUE				: return "VALUE";
 
+		case RIG_TOKEN_INHERIT				: return "INHERIT";
+
 		case RIG_TOKEN_TEXT					: return "TEXT";
 		case RIG_TOKEN_NUMBER				: return "NUMBER";
 		case RIG_TOKEN_IDENTIFIER			: return "IDENTIFIER";
@@ -204,7 +209,7 @@ const char *rigTokenToText(int token_id)
 	switch(token_id)
 	{
 		case RIG_TOKEN_BASERIG				: return "BaseRig";
-		case RIG_TOKEN_OVERLAY				: return "Overlay";
+		case RIG_TOKEN_MODAL				: return "ModalRig";
 
 		case RIG_TOKEN_DEFINE_DEF			: return "define";
 		case RIG_TOKEN_STRING_DEF			: return "define_string";
@@ -224,6 +229,8 @@ const char *rigTokenToText(int token_id)
 		case RIG_TOKEN_NOTE_ON				: return "noteOn";
 		case RIG_TOKEN_NOTE_OFF				: return "noteOff";
 		case RIG_TOKEN_ALL_NOTES_OFF		: return "allNotesOff";
+		case RIG_TOKEN_LOAD_RIG				: return "loadRig";
+		case RIG_TOKEN_END_MODAL			: return "endModal";
 		case RIG_TOKEN_FTP_TUNER			: return "ftpTuner";
 		case RIG_TOKEN_FTP_SENSITIVITY		: return "ftpSensitivity";
 
@@ -653,21 +660,22 @@ int getRigToken()
 	if (!parse_section)
 	{
 		if (id != RIG_TOKEN_BASERIG &&
-			id != RIG_TOKEN_OVERLAY)
+			id != RIG_TOKEN_MODAL)
 		{
-			rig_error("Rig must start with BaseRig or Overlay");
+			rig_error("Rig must start with BaseRig or ModalRig");
 			return 0;
 		}
 		else
 		{
+			modal_rig = id == RIG_TOKEN_MODAL;
 			parse_section = 1;
 		}
 	}
 	else if (parse_section && (
 			id == RIG_TOKEN_BASERIG &&
-			id == RIG_TOKEN_OVERLAY))
+			id == RIG_TOKEN_MODAL))
 	{
-		rig_error("BaseRig or Overlay only allowed as first Token");
+		rig_error("BaseRig or ModalRig only allowed as first Token");
 		return 0;
 	}
 	else if (parse_section != 1 && IS_INIT_HEADER_STATEMENT(id))
@@ -688,6 +696,20 @@ int getRigToken()
 	else if (id == RIG_TOKEN_BUTTON)
 	{
 		parse_section = 2;
+	}
+	else if (modal_rig && id == RIG_TOKEN_LISTEN)
+	{
+		rig_error("LISTEN statement only allowed in baseRigs",0);
+		return 0;
+	}
+	else if (!modal_rig && id == RIG_TOKEN_END_MODAL)
+	{
+		rig_error("endModal statement only allowed in modalRigs",0);
+		return 0;
+	}
+	else if (!modal_rig && id == RIG_TOKEN_INHERIT)
+	{
+		rig_error("buttons may only INHERIT in modalRigs",0);
 	}
 
 	// finished
@@ -723,7 +745,7 @@ int getRigToken()
 			return;
 		}
 		if (tt == RIG_TOKEN_BASERIG ||
-			tt == RIG_TOKEN_OVERLAY)
+			tt == RIG_TOKEN_MODAL)
 		{
 			dbgSerial->print(rigTokenToText(tt));
 			dbgSerial->println();
@@ -830,6 +852,7 @@ bool openRigFile(const char *name)
 	parse_char_num = 0;
 	parse_section = 0;
 	rig_text_len = 0;
+	modal_rig = 0;
 
 	#if DUMP_PARSE
 		initDump();

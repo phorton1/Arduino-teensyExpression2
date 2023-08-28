@@ -13,18 +13,29 @@
 	// -1 = show statements and params
 	// -2 = show details
 
-#define AREA_CLIENT_HEIGHT    (client_rect.ye - client_rect.ys + 1)
+#define MAX_RIG_NAME		31
+#define RIG_POOL_SIZE		(MAX_RIG_SIZE * 2)
+#define AREA_CLIENT_HEIGHT  (client_rect.ye - client_rect.ys + 1)
 
 
 rig_t *parse_rig;
+	// extern'd for rigExpression.cpp
 
-#define RIG_POOL_SIZE	(MAX_RIG_SIZE * 2)
-uint16_t rig_pool_len;
-uint8_t rig_pool[RIG_POOL_SIZE];
+static bool any_end_modal;
+
+static uint16_t rig_pool_len;
+static uint8_t rig_pool[RIG_POOL_SIZE];
+
+// extern
+const rig_t *base_rig = (rig_t *) rig_pool;
+	// for use by the rigMachine
+
+
 
 
 static void init_parse()
 {
+	any_end_modal = 0;
 	rig_error_found = 0;	 // in rigToken.cpp
 
 	display(0,"MAX_RIG_SIZE = %d", MAX_RIG_SIZE);
@@ -52,34 +63,45 @@ static rig_t *relocate()
 		parse_rig->string_pool_len +
 		parse_rig->statement_pool_len +
 		parse_rig->expression_pool_len;
-	display(0,"relocate(bytes=%d) to %d",rig_size,rig_pool_len);
-	if (rig_pool_len + rig_size >= RIG_POOL_SIZE)
+
+	uint16_t relocate_to = parse_rig->modal_rig ?
+		rig_pool_len : 0;
+
+	display(0,"relocate(%s, bytes=%d) to %d",
+		parse_rig->modal_rig ? "ModalRig":"BaseRig",
+		rig_size,
+		relocate_to);
+
+
+	if (relocate_to + rig_size >= RIG_POOL_SIZE)
 	{
-		rig_error("RIG(%d) to big to fit in remaining POOL(%d)",rig_size,RIG_POOL_SIZE-rig_pool_len);
+		rig_error("RIG(%d) to big to fit in remaining POOL(%d)",rig_size,RIG_POOL_SIZE-relocate_to);
 		free(parse_rig);
 		parse_rig = 0;
 		return 0;
 	}
 
-	rig_t *new_rig = (rig_t *) &rig_pool[rig_pool_len];
+	rig_t *new_rig = (rig_t *) &rig_pool[relocate_to];
 	memcpy(new_rig,parse_rig,sizeof(rig_t));
-	rig_pool_len += sizeof(rig_t);
+	relocate_to += sizeof(rig_t);
 
-	new_rig->define_pool = (char *) &rig_pool[rig_pool_len];
+	new_rig->define_pool = (char *) &rig_pool[relocate_to];
 	memcpy(new_rig->define_pool,parse_rig->define_pool,parse_rig->define_pool_len);
-	rig_pool_len += parse_rig->define_pool_len;
+	relocate_to += parse_rig->define_pool_len;
 
-	new_rig->string_pool = (char *) &rig_pool[rig_pool_len];
+	new_rig->string_pool = (char *) &rig_pool[relocate_to];
 	memcpy(new_rig->string_pool,parse_rig->string_pool,parse_rig->string_pool_len);
-	rig_pool_len += parse_rig->string_pool_len;
+	relocate_to += parse_rig->string_pool_len;
 
-	new_rig->statement_pool = &rig_pool[rig_pool_len];
+	new_rig->statement_pool = &rig_pool[relocate_to];
 	memcpy(new_rig->statement_pool,parse_rig->statement_pool,parse_rig->statement_pool_len);
-	rig_pool_len += parse_rig->statement_pool_len;
+	relocate_to += parse_rig->statement_pool_len;
 
-	new_rig->expression_pool = &rig_pool[rig_pool_len];
+	new_rig->expression_pool = &rig_pool[relocate_to];
 	memcpy(new_rig->expression_pool,parse_rig->expression_pool,parse_rig->expression_pool_len);
-	rig_pool_len += parse_rig->expression_pool_len;
+	relocate_to += parse_rig->expression_pool_len;
+
+	rig_pool_len = relocate_to;
 
 	free(parse_rig);
 	parse_rig = 0;
@@ -122,6 +144,8 @@ const char *argTypeToString(int i)
 		case PARAM_LISTEN_CHANNEL	: return "LISTEN_CHANNEL";
 		case PARAM_MIDI_CC      	: return "MIDI_CC";
 		case PARAM_MIDI_VALUE		: return "MIDI_VALUE";
+
+		case PARAM_RIG_NAME			: return "RIG_NAME";
 
 		case PARAM_STRING_EXPRESSION			: return "STRING_EXPRESSION";
 		case PARAM_LED_COLOR_EXPRESSION			: return "LED_COLOR_EXPRESSION";
@@ -231,6 +255,17 @@ static const int ALL_NOTE_OFF_ARGS[] = {	// AllNotesOff(MIDI0, 9,);
 	0
 };
 
+static const int LOAD_RIG_ARGS[] = {		// LoadRig("modal")
+	PARAM_RIG_NAME,
+	0
+};
+
+static const int END_MODAL_ARGS[] = {		// LoadRig("modal")
+	PARAM_VALUE_NUM,
+	PARAM_VALUE,
+	0
+};
+
 static const int NO_ARGS[] = {
 	0
 };
@@ -253,6 +288,9 @@ static const statement_param_t statement_params[] = {
 	{ RIG_TOKEN_NOTE_ON,		NOTE_ON_ARGS },
 	{ RIG_TOKEN_NOTE_OFF,		NOTE_OFF_ARGS },
 	{ RIG_TOKEN_ALL_NOTES_OFF,	ALL_NOTE_OFF_ARGS },
+
+	{ RIG_TOKEN_LOAD_RIG,		LOAD_RIG_ARGS },
+	{ RIG_TOKEN_END_MODAL,		END_MODAL_ARGS },
 
 	{ RIG_TOKEN_FTP_TUNER,		NO_ARGS },
 	{ RIG_TOKEN_FTP_SENSITIVITY,NO_ARGS },
@@ -602,6 +640,33 @@ static bool handleArg(int statement_type, int arg_type)
 				ok = ok && addStatementInt(value);
 				break;
 
+
+			case PARAM_RIG_NAME  :
+				text = getText("RIG_NAME",MAX_RIG_NAME);
+				if (!text)
+					ok = 0;
+				else
+				{
+					for (uint16_t i=0; i<strlen(text) && ok; i++)
+					{
+						if (!((text[i] == '-' || text[i] == '.' || text[i] == '_' ) ||
+							  (text[i] >= 'A' && text[i] <= 'Z') ||
+							  (text[i] >= 'a' && text[i] <= 'z') ||
+							  (text[i] >= '0' && text[i] <= '9') ))
+						{
+							rig_error("RIG_NAME(%s) may only contain A-Z,a-z,0-9,dash,period, or underscore characters");
+							ok = 0;
+						}
+					}
+
+					if (ok)
+					{
+						ok = ok && addStatementInt(parse_rig->string_pool_len);
+						ok = ok && addStringPool(text);
+					}
+				}
+				break;
+
 			// PEDAL
 
 			case PARAM_PEDAL_NUM :
@@ -693,11 +758,14 @@ static bool handleStatement(int tt)
 
 	int statement_type = tt;
 
+	// note if we have gotten any endModal statements in this parse
+
+	any_end_modal = (statement_type == RIG_TOKEN_END_MODAL);
+
 	// this parses either statements that actually generate statement rig_code,
 	// or init only statements that store things in the rig_header. If it is
 	// not an init_only statement, we write the token as the first byte
 	// of the statement
-
 
 	if (!IS_INIT_HEADER_STATEMENT(statement_type) && !addStatementByte(tt))
 	{
@@ -912,13 +980,26 @@ static bool handleButton()
 		ok = getRigToken();		// skip the BUTTON number
 		ok = ok && skip(RIG_TOKEN_RIGHT_PAREN);
 		ok = ok && skip(RIG_TOKEN_COLON);
-		if (ok && !IS_SUBSECTION(rig_token.id))
+
+		bool is_inherit = rig_token.id == RIG_TOKEN_INHERIT;
+
+		if (ok && is_inherit)
 		{
-			ok = 0;
-			rig_error("BUTTON subsection expected");
+			display(dbg_parse,"    INHERIT(%d)",button_num);
+			parse_rig->button_refs[button_num][0] = BUTTON_INHERIT_FLAG;
+			ok = getRigToken();							// skip the INHERIT
+			ok = ok && skip(RIG_TOKEN_SEMICOLON, true);	// may end on this
 		}
-		if (ok)
-			ok = handleSubsections(button_num);
+		else
+		{
+			if (ok && !IS_SUBSECTION(rig_token.id))
+			{
+				ok = 0;
+				rig_error("BUTTON subsection expected");
+			}
+			if (ok)
+				ok = handleSubsections(button_num);
+		}
 	}
 
 	proc_leave();
@@ -960,14 +1041,14 @@ const rig_t *parseRig(const char *rig_name)
 		// rig type
 
 		if (tt < RIG_TOKEN_BASERIG ||
-			tt > RIG_TOKEN_OVERLAY)
+			tt > RIG_TOKEN_MODAL)
 		{
 			rig_error("must start with BaseRig or Overlay");
 			ok = 0;
 		}
-		else
+		else if (tt == RIG_TOKEN_MODAL)
 		{
-			parse_rig->overlay_type = tt - RIG_TOKEN_BASERIG;
+			parse_rig->modal_rig = 1;
 		}
 
 		tt = getRigToken();
@@ -1023,6 +1104,12 @@ const rig_t *parseRig(const char *rig_name)
 		// by subtracting from the +1 value ..
 
 		parse_rig->statements[parse_rig->num_statements] = parse_rig->statement_pool_len;
+
+		if (ok && parse_rig->modal_rig && !any_end_modal)
+		{
+			rig_error("A modalRig must contain at least one endModal statement.");
+			ok = 0;
+		}
 
 		ok = ok && !rig_error_found;
 		if (ok)

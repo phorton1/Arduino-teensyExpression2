@@ -3,8 +3,19 @@
 //-------------------------------------------------------
 // Contains the definition of the binary image of a Rig in memory
 // 		Because of the use of uint16_t offsets, a Rig is inherently limited to 64K.
-// 		Only Base Rigs contain Listens and Values
-// 		Loading a Base Rig resets the entire state of the machine.
+// 		Only BaseRigs contain Listens and Values
+//          So, BY CONVENTION, The BaseRig and any child ModalRigs
+//          MUST make sure that variable slots are used correctly
+//          between parents and children.
+//
+//          children will retain value states of any private variables they use
+//
+// 		Loading a BaseRig resets the entire state of the machine.
+//		Returning from a ModalRig resets all the buttons, with inheritance, correctly,
+//         	BUT Areas are not cleared (alhtough they are re-evaluated).
+//          Therefore, Areas are not properly inherited and so, therefore
+//             BY CONVENTION AREA SLOTS SHOULD NOT BE RE-USED and changed IN VARIOUS MODAL RIGS
+//          in the underlying rig.
 // 		Overlays are MODAL and can be stacked upto 16 deep, limited by the
 // 				space in the static rig_pool.
 // 		Strings, StatementLists, Statements and Expressions are stored in pools.
@@ -15,7 +26,7 @@
 //      rig can be as big as the below defines, but when it is relocated
 //      (and packed) into the rig pool, it may not fit, depending on the
 //      other rigs that have been previously loaded.
-// The rig_pools is large enough to hold two max'd out rigs.
+// The rig_pool is large enough to hold two max'd out rigs.
 
 
 #pragma once
@@ -51,9 +62,12 @@
 	// Can only be increased to 32K - 1 as it is both one based
 	// and the high order bit of offsets are used for inline expressions
 
+#define BUTTON_INHERIT_FLAG		0xFFFF
+
+
 typedef struct
 {
-	uint16_t overlay_type;			// BASERIG,OVERLAY
+	uint16_t modal_rig;			// 0=baseRig, 1=modalRig
 	uint16_t num_statements;
 
 	uint16_t define_pool_len;
@@ -112,7 +126,7 @@ typedef struct
 #define PARAM_DEFINE_VALUE	 3
 
 #define PARAM_STRING_NUM     5
-#define PARAM_TEXT    		 6		// also used for pedal name
+#define PARAM_TEXT    		 6		// limited to 79 in length
 
 // area statement
 
@@ -128,10 +142,10 @@ typedef struct
 // general statements
 
 #define PARAM_PEDAL_NUM      20
-#define PARAM_PEDAL_NAME     21
+#define PARAM_PEDAL_NAME     21		// lmited to 7 in length
 #define PARAM_ROTARY_NUM	 22
 
-#define PARAM_VALUE_NUM      30		// LISTEN and setValue
+#define PARAM_VALUE_NUM      30		// LISTEN, setValue, and endModal
 #define PARAM_VALUE			 31		// setValue value
 
 #define PARAM_MIDI_PORT      40
@@ -139,6 +153,8 @@ typedef struct
 #define PARAM_LISTEN_CHANNEL 42
 #define PARAM_MIDI_CC        43
 #define PARAM_MIDI_VALUE	 44
+
+#define PARAM_RIG_NAME		 50		// limited to 31 in length and valid filename characters
 
 #define PARAM_STRING_EXPRESSION			101
 #define PARAM_LED_COLOR_EXPRESSION		102
@@ -185,5 +201,7 @@ extern const rig_t *parseRig(const char *rig_name);
 	// Allocates a temporary rig on the heap, and parses the rig.
 	// if that goes well, the rig is relocated and packed into the
 	// rig pool, and a pointer the rig is returned.
+
+extern const rig_t *base_rig;
 
 // end of rigParser.h

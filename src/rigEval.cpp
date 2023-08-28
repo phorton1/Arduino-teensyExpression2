@@ -25,9 +25,6 @@
 #define IS_EXP_OP(op)	(op >= EXP_NOT && op <= EXP_LOGICAL_AND)
 #define OP_TOKEN(op)	(rigTokenToString(op + RIG_TOKEN_LEFT_PAREN - EXP_LEFT_PAREN))
 
-extern const rig_t *cur_rig;
-	// in rigMachine.cpp
-
 
 const char *VAL_DISPLAY(evalResult_t *rslt)
 {
@@ -305,7 +302,7 @@ bool doOp(int op_start, uint8_t op)
 // getAtom()
 //---------------------------------------------
 
-bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
+bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset)
 	// it's either an inline number, or a
 {
 
@@ -327,7 +324,7 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 	else if (byte == EXP_STRING)
 	{
 		display(dbg_eval + 2,"STRING[sub_exp]",0);
-		ok = evaluate(code, offset);				// RECURSE
+		ok = evaluate(rig, code, offset);				// RECURSE
 		if (ok)
 		{
 			if (code[*offset] == EXP_RIGHT_BRACKET)
@@ -343,7 +340,7 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 			}
 			else
 			{
-				uint16_t off = cur_rig->strings[num];  // one based offset
+				uint16_t off = rig->strings[num];  // one based offset
 				if (!off)
 				{
 					warning(0,"STRING[%d] is not defined; returning empty string",num);
@@ -352,7 +349,7 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 				else
 				{
 					off--;
-					const char *s = &cur_rig->string_pool[off];
+					const char *s = &rig->string_pool[off];
 					display(dbg_eval + 2,"STRING[%d] off(%d) = %s",num,off,s);
 					ok = pushValText(s);
 				}
@@ -362,7 +359,7 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 	else if (byte == EXP_VALUE)
 	{
 		display(dbg_eval + 2,"VALUE[sub_exp]",0);
-		ok = evaluate(code, offset);				// RECURSE
+		ok = evaluate(rig, code, offset);				// RECURSE
 		if (ok)
 		{
 			if (code[*offset] == EXP_RIGHT_BRACKET)
@@ -398,8 +395,8 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 
 		if (byte & EXP_INLINE_ID)
 		{
-			display(dbg_eval + 2,"INLINE ID(%d:%s)",value,&cur_rig->define_pool[cur_rig->define_ids[value] - 1]);
-			value = cur_rig->define_values[value];
+			display(dbg_eval + 2,"INLINE ID(%d:%s)",value,&rig->define_pool[rig->define_ids[value] - 1]);
+			value = rig->define_values[value];
 		}
 
 		if (inline_op == EXP_LED_COLOR)
@@ -413,8 +410,8 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 
 		if (inline_op == EXP_STRING)
 		{
-			uint16_t off = cur_rig->strings[value];
-			const char *s = &cur_rig->string_pool[off];
+			uint16_t off = rig->strings[value];
+			const char *s = &rig->string_pool[off];
 			display(dbg_eval + 2,"INLINE_STRING[%d] at %d = %s",value,off,s);
 			ok = pushValText(s);
 		}
@@ -447,7 +444,7 @@ bool rigMachine::getAtom(const uint8_t *code, uint16_t *offset)
 
 
 
-bool rigMachine::evaluate(const uint8_t *code, uint16_t *offset)
+bool rigMachine::evaluate(const rig_t *rig, const uint8_t *code, uint16_t *offset)
 {
 	int op_start = op_top;
 	int val_start = val_top;
@@ -486,7 +483,7 @@ bool rigMachine::evaluate(const uint8_t *code, uint16_t *offset)
 			ok = ok && popVal(&cond);
 
 			if (ok) display(dbg_eval+2,"? exp",0);
-			if (ok && evaluate(code,offset))
+			if (ok && evaluate(rig,code,offset))
 			{
 				ok = ok && popVal(&val1);
 				if (ok) display(dbg_eval+2,"? exp part = %s",VAL_DISPLAY(&val1));
@@ -498,7 +495,7 @@ bool rigMachine::evaluate(const uint8_t *code, uint16_t *offset)
 				display(dbg_eval+2,": exp part skipping EXP_COLON",0);
 				(*offset)++;
 			}
-			if (ok && evaluate(code,offset))
+			if (ok && evaluate(rig,code,offset))
 			{
 				ok = ok && popVal(&val2);
 				if (ok) display(dbg_eval+2,": exp part = %s",VAL_DISPLAY(&val2));
@@ -562,7 +559,7 @@ bool rigMachine::evaluate(const uint8_t *code, uint16_t *offset)
 
 		else
 		{
-			ok = getAtom(code,offset);	// pushes it on the stack
+			ok = getAtom(rig,code,offset);	// pushes it on the stack
 			// byte = code[(*offset)++];
 		}
 	}
@@ -593,14 +590,14 @@ bool rigMachine::evaluate(const uint8_t *code, uint16_t *offset)
 // entry point
 //-------------------------
 
-bool rigMachine::expression(evalResult_t *rslt, const uint8_t *code, uint16_t *offset)
+bool rigMachine::expression(const rig_t *rig, evalResult_t *rslt, const uint8_t *code, uint16_t *offset)
 {
 	display(dbg_eval,"expression at offset %d",*offset);
 
 	op_top = 0;
 	val_top = 0;
 
-	bool ok = evaluate(code,offset);
+	bool ok = evaluate(rig,code,offset);
 	if (ok)
 		memcpy(rslt,&val_stack[0],sizeof(evalResult_t));
 

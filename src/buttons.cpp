@@ -85,6 +85,7 @@ void buttonArray::setButtonType(int num, uint16_t mask, uint32_t color)
     arrayedButton *pb = &m_buttons[num];
     pb->m_mask = mask;
     pb->m_color = color;
+	setLED(num,color);
 }
 
 

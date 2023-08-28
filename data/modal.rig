@@ -1,0 +1,117 @@
+#--------------------------------------------
+# modal.rig
+#--------------------------------------------
+# A modal rig inherits the VALUES and LISTENS from the base_rig.
+# A modal rig may *inherit* buttons from the previous rig whose behavior
+# 		does not change, and which are interpreted in the context of that rig.
+# A modal rig may *override* the previous rig's PEDAL and ROTARY setups.
+#
+# The following are always evaluated in the context of the current rig
+#
+#		DEFINES
+#		STRING_DEFS and STRING[] expressions
+#		AREAS and METERS
+#
+# Thus, a modal rig will need to redefine any constants, strings,
+#       or areas it wants to use that must agree with the base rig
+
+
+
+ModalRig		 # required initial rig type
+
+
+#------------------------------------------------------
+# Looper Constants (as defined by my Looper program)
+#------------------------------------------------------
+
+# TRACK_STATE_EMPTY               = 0  = 0x00;
+# TRACK_STATE_RECORDING           = 1  = 0x01;
+# TRACK_STATE_PLAYING             = 2  = 0x02;
+# TRACK_STATE_STOPPED             = 4  = 0x04;
+# TRACK_STATE_PENDING_RECORD      = 8  = 0x08;
+# TRACK_STATE_PENDING_PLAY        = 16 = 0x10;
+# TRACK_STATE_PENDING_STOP        = 32 = 0x20;
+# TRACK_STATE_PENDING			  = 56 = 0x38  TRACK_STATE_PENDING_RECORD | TRACK_STATE_PENDING_PLAY | TRACK_STATE_PENDING_STOP;
+#
+# LOOP_COMMAND_NONE               = 0  = 0x00;
+# LOOP_COMMAND_CLEAR_ALL          = 1  = 0x01;
+# LOOP_COMMAND_STOP_IMMEDIATE     = 2  = 0x02;      # stop the looper immediately
+# LOOP_COMMAND_STOP               = 3  = 0x03       # stop at next cycle point
+# LOOP_COMMAND_DUB_MODE           = 4  = 0x04;     	# the dub mode is handled by rPi and modeled here
+# LOOP_COMMAND_ABORT_RECORDING    = 6  = 0x06;      # NOT_USED YET - abort the current recording if any
+# LOOP_COMMAND_LOOP_IMMEDIATE     = 6  = 0x08;      # NOT_USED YET - immediatly loop back to all clip starts ...
+# LOOP_COMMAND_SET_LOOP_START     = 6  = 0x09;      # NOT_USED YET - immediatly set the "restart point" for the clips in the track
+# LOOP_COMMAND_CLEAR_LOOP_START   = 6  = 0x0A;      # NOT_USED YET - immediatly set the "restart point" for the clips in the track
+# LOOP_COMMAND_TRACK_BASE         = 16 = 0x10;     	# the four used "track" buttons are 0x10..0x13 (although the protocol can support upto 8 buttons 0..7)
+define(1, LOOP_COMMAND_ERASE_TRACK_BASE,	32);	# LOOP_COMMAND_ERASE_TRACK_BASE   = 32 = 0x20;      # NOT USED YET - erase the given track (stops it if playing)
+
+													# LOOP_CONTROL_BASE_CC   		  = 101 = 0x65      # te_send     looper_recv        for 0..LOOPER_NUM_CONTROLS the value is the volume control (Looper pedal == 0x67)
+													# LOOP_STOP_CMD_STATE_CC 		  = 38  = 0x26;		# te_recv     looper_send        the value is 0, LOOP_COMMAND_STOP or STOP_IMMEDIATE
+													# LOOP_DUB_STATE_CC      		  = 37  = 0x25;		# te_recv     looper_send        value is currently only the DUB state
+define(2,	LOOP_COMMAND_CC,		36 );			# LOOP_COMMAND_CC        		  = 36  = 0x24;		# te_send     looper_recv        the value is the LOOP command
+													# TRACK_STATE_BASE_CC    		  = 20  = 0x14;		# te_recv     looper_send        for 0..3 tracks, value is track state
+define(3,	CLIP_VOL_BASE_CC,		48 );			# CLIP_VOL_BASE_CC       		  = 48  = 0x30;		# te_send     looper_recv        NOT_USED_YET - for 4 tracks * 3 clips - value is volume 0..127
+define(4,	CLIP_MUTE_BASE_CC,		20 );			# CLIP_MUTE_BASE_CC      		  = 80  = 0x50;		# both    	  both        		 NOT_USED_YET - for 4 tracks * 3 clips - value is mute state												# NOTIFY_LOOP            		  = 48  = 0x64;     # te_recv     looper_send        NOT_USED_YET - value=number of pending loop notifies
+													# NOTIFY_LOOP            		  = 100 = 0x64;     # te_recv     looper_send        NOT_USED_YET - value=number of pending loop notifies
+
+# LOOPER_CONTROL_INPUT_GAIN       = 0
+# LOOPER_CONTROL_THRU_VOLUME      = 1
+# LOOPER_CONTROL_LOOP_VOLUME      = 2
+# LOOPER_CONTROL_MIX_VOLUME       = 3
+# LOOPER_CONTROL_OUTPUT_GAIN      = 4
+
+
+
+#----------------------------------------
+# Variable Slot Defines
+#----------------------------------------
+# The value slots defined by these MUST agree with those in the base rig
+
+define(10, _track1_state,	9);		# TRACK1 STATE
+define(11, _track2_state,	10);	# TRACK2 STATE
+define(12, _track3_state,	11);	# TRACK3 STATE
+define(13, _track4_state,	12);	# TRACK4 STATE
+
+define(14, _test_var,		15);
+
+define(15, _clip_vol_base,	20);
+define(16, _clip_mute_base,	40);
+define(17, _selected_track,	60);
+
+define(127, _end_modal_value,	127);
+
+#----------------------------------------
+# Rig initialization section
+#----------------------------------------
+
+AREA(0,  32,  NORMAL,  RIGHT, 300, 5, 475, 40);		# General Purpose area in upper right
+
+BUTTON(4):
+	color: LED_PURPLE;
+	click: display(0,YELLOW,"NADA");
+
+BUTTON(12) :
+	color:	VALUE[_test_var] ? LED_RED : LED_GREEN;
+	click:
+		setValue(_test_var,!VALUE[_test_var]);
+		display(0,YELLOW,VALUE[_test_var] ? "RED" : "GREEN");
+
+BUTTON(14) :
+	color:	LED_ORANGE;
+	click:
+		display(0,YELLOW,"endModal");
+		endModal(_end_modal_value,0);
+
+
+
+# inherit the looper control buttons
+
+BUTTON(19): INHERIT;
+BUTTON(20): INHERIT;
+BUTTON(21): INHERIT;
+BUTTON(22): INHERIT;
+BUTTON(23): INHERIT;
+BUTTON(24): INHERIT;
+
+
+# end of modal.rig
