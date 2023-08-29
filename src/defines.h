@@ -11,10 +11,15 @@
 
 #define WITH_MIDI_HOST      1
 
+extern void mem_check(const char *where = 0);
+
+// basics
 
 #define NUM_BUTTON_COLS     5
 #define NUM_BUTTON_ROWS     5
 #define NUM_BUTTONS         (NUM_BUTTON_COLS * NUM_BUTTON_ROWS)
+
+#define THE_SYSTEM_BUTTON   4
 
 #define NUM_PEDALS          4
 #define NUM_ROTARY          4
@@ -51,9 +56,8 @@
 	// to listen on any channel.
 
 
-#define THE_SYSTEM_BUTTON   4
 
-extern void mem_check(const char *where = 0);
+
 
 
 

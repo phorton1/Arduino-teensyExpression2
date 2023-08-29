@@ -755,6 +755,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 int enc_len = base64_encode(b64_buf,(char *)buf,bytes_to_read);
                 b64_buf[enc_len] = 0;
 
+				delay(20);
                 s_Serial->print("file_reply:");
                 s_Serial->print(b64_buf);
                 s_Serial->print("\r\n");

@@ -17,14 +17,12 @@
 #define RIG_POOL_SIZE		(MAX_RIG_SIZE * 2)
 #define AREA_CLIENT_HEIGHT  (client_rect.ye - client_rect.ys + 1)
 
-
-rig_t *parse_rig;
-	// extern'd for rigExpression.cpp
+static rig_t *parse_rig;
 
 static bool any_end_modal;
 
-static uint16_t rig_pool_len;
-static uint8_t rig_pool[RIG_POOL_SIZE];
+uint16_t rig_pool_len;
+uint8_t rig_pool[RIG_POOL_SIZE];
 
 // extern
 const rig_t *base_rig = (rig_t *) rig_pool;
@@ -85,20 +83,20 @@ static rig_t *relocate()
 	memcpy(new_rig,parse_rig,sizeof(rig_t));
 	relocate_to += sizeof(rig_t);
 
-	new_rig->define_pool = (char *) &rig_pool[relocate_to];
-	memcpy(new_rig->define_pool,parse_rig->define_pool,parse_rig->define_pool_len);
+	new_rig->define_pool =(char *) &rig_pool[relocate_to];;
+	memcpy(&rig_pool[relocate_to],parse_rig->define_pool,parse_rig->define_pool_len);
 	relocate_to += parse_rig->define_pool_len;
 
 	new_rig->string_pool = (char *) &rig_pool[relocate_to];
-	memcpy(new_rig->string_pool,parse_rig->string_pool,parse_rig->string_pool_len);
+	memcpy(&rig_pool[relocate_to],parse_rig->string_pool,parse_rig->string_pool_len);
 	relocate_to += parse_rig->string_pool_len;
 
 	new_rig->statement_pool = &rig_pool[relocate_to];
-	memcpy(new_rig->statement_pool,parse_rig->statement_pool,parse_rig->statement_pool_len);
+	memcpy(&rig_pool[relocate_to],parse_rig->statement_pool,parse_rig->statement_pool_len);
 	relocate_to += parse_rig->statement_pool_len;
 
 	new_rig->expression_pool = &rig_pool[relocate_to];
-	memcpy(new_rig->expression_pool,parse_rig->expression_pool,parse_rig->expression_pool_len);
+	memcpy(&rig_pool[relocate_to],parse_rig->expression_pool,parse_rig->expression_pool_len);
 	relocate_to += parse_rig->expression_pool_len;
 
 	rig_pool_len = relocate_to;
@@ -1119,6 +1117,7 @@ const rig_t *parseRig(const char *rig_name)
 			if (new_rig)
 			{
 				dumpRig(new_rig);
+				dumpRigCode(new_rig,rig_name);
 			}
 			else
 			{

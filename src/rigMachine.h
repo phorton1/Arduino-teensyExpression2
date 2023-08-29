@@ -55,6 +55,7 @@ class rigMachine
 {
 public:
 
+	void loadDefaultRig();
 	bool loadRig(const char *name);
 
 	bool loaded()		{ return m_rig_loaded; }

@@ -160,7 +160,6 @@ typedef struct
 #define PARAM_LED_COLOR_EXPRESSION		102
 #define PARAM_DISPLAY_COLOR_EXPRESSION	103
 
-
 //----------------------------------------
 // memory map
 //----------------------------------------

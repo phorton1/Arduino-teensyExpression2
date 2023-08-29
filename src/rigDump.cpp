@@ -22,8 +22,7 @@
 
 #define MAX_DUMP_BUF 255
 
-int 	dump_buf_ptr = 0;
-char 	dump_buf[MAX_DUMP_BUF + 1];
+static char dump_buf[MAX_DUMP_BUF + 1];
 
 
 //------------------------------------
@@ -173,7 +172,6 @@ static bool dumpExpression(const rig_t *rig, const char *what, const uint8_t *co
 			ok = dumpInline(rig, code,offset);
 		else
 			ok = dumpOp(code,offset);
-
 	}
 
 	return ok;
@@ -220,6 +218,7 @@ static bool dumpParam(const rig_t *rig, bool button_section, int arg_type, bool 
 		case PARAM_PEDAL_NUM :
 		case PARAM_ROTARY_NUM :
 		case PARAM_MIDI_CHANNEL :
+		case PARAM_LISTEN_CHANNEL :
 		case PARAM_MIDI_CC :
 		case PARAM_MIDI_VALUE :
 		case PARAM_STRING_EXPRESSION :
@@ -257,11 +256,13 @@ static bool dumpParam(const rig_t *rig, bool button_section, int arg_type, bool 
 			*offset += 2;
 			break;
 
+		case PARAM_RIG_NAME :
 		case PARAM_PEDAL_NAME :
 			ptr16 = (uint16_t *) &code[*offset];
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",&rig->string_pool[*ptr16]);
 			*offset += 2;
 			break;
+
 
 		default:
 			rig_error("unknown parameter arg type(%d)",arg_type);
@@ -347,13 +348,30 @@ void dumpRig(const rig_t *rig)
 	display(dbg_dump-1,"statement_pool_len=%d",rig->statement_pool_len);
 	display(dbg_dump-1,"expression_pool_len=%d",rig->expression_pool_len);
 	display(dbg_dump-1,"num_statements=%d",rig->num_statements);
+
 	for (int i=0; i<=rig->num_statements; i++)
-		display(dbg_dump+2,"statement[%d] = %d",i,rig->statements[i]);
+		display(dbg_code,"    statement[%d] = %d",i,rig->statements[i]);
+
+	display(dbg_code,"button_refs",0);
+	for (int i=0; i<=NUM_BUTTONS; i++)
+	{
+		const uint16_t *refs = rig->button_refs[i];
+		display(dbg_code,"    refs(%d)  0x%04x  0x%04x  0x%04x  0x%04x  0x%04x  0x%04x  0x%04x ",
+			i,
+			refs[0],
+			refs[1],
+			refs[2],
+			refs[3],
+			refs[4],
+			refs[5],
+			refs[6]);
+	}
 
 	display(dbg_code,"statements",0);
 	display_bytes_long(dbg_code,0,rig->statement_pool,rig->statement_pool_len);
 	display(dbg_code,"expressions",0);
 	display_bytes_long(dbg_code,0,rig->expression_pool,rig->expression_pool_len);
+
 	// dump the program
 
 	if (dbg_dump > 0)

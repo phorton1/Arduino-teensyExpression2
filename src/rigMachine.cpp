@@ -48,6 +48,10 @@ typedef struct
 {
 	const rig_t *rig;
 	char name[MAX_RIG_NAME + 1];
+	const char *define_pool;
+	const char *string_pool;
+	const uint8_t *statement_pool;
+	const uint8_t *expression_pool;
 } rigStack_t;
 
 int rig_stack_ptr = 0;
@@ -182,6 +186,79 @@ static const uint16_t *inheritButtonRefs(int num, const rig_t **ret_context)
 //------------------------------------------------------
 // methods
 //-------------------------------------------------------
+
+#if 0
+	void rigMachine::loadDefaultRig()  {}
+#else
+
+	#define WITH_DEFAULT_RIG  1
+
+	#if WITH_DEFAULT_RIG
+		#include "default.rig.h"
+		#include "rigDump.h"
+	#endif
+
+	extern uint16_t rig_pool_len;
+	extern uint8_t rig_pool[];
+
+	// Sketch uses 210244 bytes (20%) of program storage space. Maximum is 1048576 bytes.
+	// Global variables use 78216 bytes (29%) of dynamic memory, leaving 183928 bytes for local variables. Maximum is 262144 bytes.
+
+	void rigMachine::loadDefaultRig()
+	{
+
+		display(dbg_rig,"loadDefaultRig()",0);
+		proc_entry();
+		bool ok = 1;
+
+		#if WITH_DEFAULT_RIG
+			const char *rig_name = "rpiLooper";
+
+			rig_t *rig = (rig_t *) rig_pool;
+			memcpy(rig_pool,&default_rig,sizeof(rig_t));
+
+			uint16_t offset = sizeof(rig_t);
+			uint16_t size = default_rig.define_pool_len;
+			memcpy(&rig_pool[offset],default_rig_define_pool,size);
+			rig->define_pool = (char *) &rig_pool[offset];
+			offset += size;
+
+			size = default_rig.string_pool_len;
+			memcpy(&rig_pool[offset],default_rig_string_pool,size);
+			rig->string_pool = (char *) &rig_pool[offset];
+			offset += size;
+
+			size = default_rig.statement_pool_len;
+			memcpy(&rig_pool[offset],default_rig_statement_pool,size);
+			rig->statement_pool = &rig_pool[offset];
+			offset += size;
+
+			size = default_rig.expression_pool_len;
+			memcpy(&rig_pool[offset],default_rig_expression_pool,size);
+			rig->expression_pool = &rig_pool[offset];
+			offset += size;
+
+			rig_pool_len = offset;
+
+			// dumpRig(rig);
+			// return;
+
+			rig_stack_ptr = 0;
+			ok = pushRig(rig,rig_name);
+			ok = ok && startRig(rig,true);
+			if (ok)
+			{
+				m_rig_loaded = 1;
+				the_system.setTitle(rig_name);
+			}
+		#endif
+
+		proc_leave();
+		display(dbg_rig,"loadDefaultRig() finished with %d",ok);
+	}
+#endif
+
+
 
 bool rigMachine::loadRig(const char *rig_name)
 {

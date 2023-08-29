@@ -21,24 +21,6 @@
 #define EXP_TYPE_LED_COLOR 		2
 #define EXP_TYPE_DISPLAY_COLOR 	3
 
-static int exp_len;
-static int exp_level;
-
-
-// static const char *expTypeToString(int i)
-// {
-// 	switch (i)
-// 	{
-// 		case EXP_TYPE_NUMBER 		: return("NUMERIC");
-// 		case EXP_TYPE_STRING 		: return("STRING");
-// 		case EXP_TYPE_LED_COLOR 	: return("LED_COLOR");
-// 		case EXP_TYPE_DISPLAY_COLOR : return("DISPLAY_COLR");
-// 	}
-// 	rig_error("unknown expType: %d",i);
-// 	return  "unknown expType";
-// }
-
-
 
 static bool addExpByte(rig_t *rig, uint8_t byte)
 {
@@ -56,13 +38,6 @@ static bool addExpByte(rig_t *rig, uint8_t byte)
 
 	rig->expression_pool[rig->expression_pool_len++] = byte;
 	return true;
-}
-
-
-static void init_exp()
-{
-	exp_len = 0;
-	exp_level = 0;
 }
 
 
@@ -357,10 +332,8 @@ static int term(rig_t *rig, int tt)
 
 static int exp(rig_t *rig, int tt)
 {
-	display(dbg_exp + 1 + (exp_level ? 1 : 0),"exp(%s)",rigTokenToString(tt));
+	display(dbg_exp + 1,"exp(%s)",rigTokenToString(tt));
 	proc_entry();
-
-	exp_level++;
 
 	bool ok = 1;
 	int type = term(rig, tt);
@@ -401,14 +374,11 @@ static int exp(rig_t *rig, int tt)
 		}
 	}
 
-	exp_level--;
-	if (ok && type != EXP_TYPE_ILLEGAL && !exp_level)
-		ok = addExpByte(rig, EXP_END);
 	if (!ok)
 		type = EXP_TYPE_ILLEGAL;
 
 	proc_leave();
-	display(dbg_exp + 1 + (exp_level ? 1 : 0),"exp() returning %d on %s",type,rigTokenToString(rig_token.id));
+	display(dbg_exp + 1,"exp() returning %d on %s",type,rigTokenToString(rig_token.id));
 	return type;
 }
 
@@ -472,13 +442,17 @@ static uint16_t genericExpression(rig_t *rig, const char *what, int expected, in
 	int save_proc_level = proc_level;
 	proc_level = 0;
 
-	init_exp();
 	int type = exp(rig, tt);
 	if (type != expected)
 	{
 		rig_error("%s expression expected",what);
 		proc_level = save_proc_level;
-		return false;
+		return 0;
+	}
+	if (!addExpByte(rig, EXP_END))
+	{
+		proc_level = save_proc_level;
+		return 0;
 	}
 
 	proc_level = save_proc_level;
