@@ -441,7 +441,7 @@ BUTTON(14) :
 	color:	LED_ORANGE;
 	click:
 		display(AREA_MSG,YELLOW,"loadRig");
-		loadRig("modal");
+		loadRig("default_modal");
 
 
 #----------------------------------

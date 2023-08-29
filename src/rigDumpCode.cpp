@@ -11,7 +11,7 @@
 
 static myFileType_t rig_file;
 
-
+static int print_level = 0;
 
 //-------------------------------------
 // display primitives
@@ -19,7 +19,7 @@ static myFileType_t rig_file;
 
 static void displayIndent()
 {
-	for (int i=0; i<proc_level; i++)
+	for (int i=0; i<print_level; i++)
 		rig_file.print("    ");
 }
 static void displayNum(const char *name,uint16_t value)
@@ -29,6 +29,18 @@ static void displayNum(const char *name,uint16_t value)
 	rig_file.print(name);
 	rig_file.print(" = ");
 	rig_file.print(value);
+	rig_file.println(",");
+}
+static void displayAssign(const char *name,const char *prefix)
+{
+	dbgSerial->print(".");
+	displayIndent();
+	rig_file.print(".");
+	rig_file.print(name);
+	rig_file.print(" = ");
+	rig_file.print(prefix);
+	rig_file.print("_");
+	rig_file.print(name);
 	rig_file.println(",");
 }
 static void dumpDisplay(const char *line)
@@ -55,9 +67,8 @@ static void dumpArray16(const rig_t *rig, const char *name, const uint16_t *ptr,
 	// numB must be less than 8 due to line_buf size
 {
 	displayNameHeader(name);
-	proc_level++;
+	print_level++;
 	char dump_buf[MAX_DUMP_BUF];
-
 	for (int i=0; i<numA; i++)
 	{
 		sprintf(dump_buf,"{ ");
@@ -68,7 +79,7 @@ static void dumpArray16(const rig_t *rig, const char *name, const uint16_t *ptr,
 		sprintf(&dump_buf[strlen(dump_buf)]," },");
 		dumpDisplay(dump_buf);
 	}
-	proc_level--;
+	print_level--;
 	dumpDisplay("},");
 }
 
@@ -84,7 +95,7 @@ static void dumpCharStrings(const char *rig_name, const char *name, const char *
 	rig_file.print(name);
 	rig_file.println(" = ");
 
-	proc_level++;
+	print_level++;
 	uint16_t offset = 0;
 	while (offset < pool_len)
 	{
@@ -101,7 +112,7 @@ static void dumpCharStrings(const char *rig_name, const char *name, const char *
 			sprintf(&dump_buf[strlen(dump_buf)],"\";");
 		dumpDisplay(dump_buf);
 	}
-	proc_level--;
+	print_level--;
 }
 
 
@@ -117,7 +128,7 @@ static void dumpListNum(
 {
 	char dump_buf[MAX_DUMP_BUF];
 	displayNameHeader(name);
-	proc_level++;
+	print_level++;
 
 	bool more = 1;
 	dump_buf[0] = 0;
@@ -160,7 +171,7 @@ static void dumpListNum(
 	}
 	if (dump_buf[0])
 		dumpDisplay(dump_buf);
-	proc_level--;
+	print_level--;
 
 	if (end_with_semi_colon)
 		dumpDisplay("};");
@@ -176,31 +187,16 @@ static void dumpPool(const char *rig_name, const char *pool_name, const void *pt
 	dumpListNum(0,1,1,name_buf,ptr,num);
 }
 
-
-void dumpHeader(const char *name)
-{
-	rig_file.println("//------------------------------------------------------------------------------");
-	rig_file.print("// ");
-	rig_file.print(name);
-	rig_file.println(".rig.h");
-	rig_file.println("//------------------------------------------------------------------------------");
-	rig_file.println("#pragma once ");
-	rig_file.println();
-	rig_file.print("const rig_t ");
-	rig_file.print(name);
-	rig_file.println("_rig = { ");
-}
-
 //------------------------------------------------
 // main
 //-------------------------------------------------
 
 // extern
-void dumpRigCode(const rig_t *rig, const char *name)
+void dumpRigCode(const rig_t *rig, const char *prefix)
 {
 	char filename[80];
-	sprintf(filename,"%s.rig.h",name);
-	display(0,"dumpRigCode(%s)",filename);
+	sprintf(filename,"%s.rig.h",prefix);
+	display(0,"dumpRigCode(%s) = %s",prefix,filename);
 
     SD.remove(filename);
 	rig_file = SD.open(filename, FILE_WRITE);
@@ -210,16 +206,40 @@ void dumpRigCode(const rig_t *rig, const char *name)
 		return;
 	}
 
-	int save_proc_level = proc_level;
-	proc_level = 0;
+	print_level = 0;
 
-	dumpHeader(name);
+	rig_file.println("//------------------------------------------------------------------------------");
+	rig_file.print("// ");
+	rig_file.print(prefix);
+	rig_file.println(".rig.h");
+	rig_file.println("//------------------------------------------------------------------------------");
+	rig_file.println();
+	rig_file.println("#pragma once ");
+	rig_file.println();
+	rig_file.println();
 
-	proc_level = 1;
+	dumpCharStrings(prefix,"_define_pool",rig->define_pool,rig->define_pool_len);
+	rig_file.println();
+	rig_file.println();
+	dumpCharStrings(prefix,"_string_pool",rig->string_pool,rig->string_pool_len);
+	rig_file.println();
+	rig_file.println();
+	dumpPool(prefix,"_statement_pool",rig->statement_pool,rig->statement_pool_len);
+	rig_file.println();
+	rig_file.println();
+	dumpPool(prefix,"_expression_pool",rig->expression_pool,rig->expression_pool_len);
+	rig_file.println();
+	rig_file.println();
+	rig_file.println();
 
-	displayNum(".modal_rig",rig->modal_rig);
+	rig_file.print("const rig_t ");
+	rig_file.print(prefix);
+	rig_file.println("_rig = { ");
+
+	print_level = 1;
+
+	displayNum(".rig_type", rig->rig_type | RIG_TYPE_SYSTEM);
 	displayNum(".num_statements",rig->num_statements);
-
 	displayNum(".define_pool_len",rig->define_pool_len);
 	displayNum(".string_pool_len",rig->string_pool_len);
 	displayNum(".statement_pool_len",rig->statement_pool_len);
@@ -231,33 +251,23 @@ void dumpRigCode(const rig_t *rig, const char *name)
 	dumpArray16(rig,".button_refs",(const uint16_t *)rig->button_refs,NUM_BUTTONS,NUM_SUBSECTIONS);
 	dumpListNum(1,0,0,".strings",rig->strings,RIG_NUM_STRINGS);
 
-	proc_level = 0;
+	displayAssign("define_pool",prefix);
+	displayAssign("string_pool",prefix);
+	displayAssign("statement_pool",prefix);
+	displayAssign("expression_pool",prefix);
+
+	print_level = 0;
 
 	dumpDisplay("};");	// end the rig_t
 	rig_file.println();
 	rig_file.println();
 
-	dumpCharStrings(name,"_define_pool",rig->define_pool,rig->define_pool_len);
-	rig_file.println();
-	rig_file.println();
-	dumpCharStrings(name,"_string_pool",rig->string_pool,rig->string_pool_len);
-	rig_file.println();
-	rig_file.println();
-	dumpPool(name,"_statement_pool",rig->statement_pool,rig->statement_pool_len);
-	rig_file.println();
-	rig_file.println();
-	dumpPool(name,"_expression_pool",rig->expression_pool,rig->expression_pool_len);
-	rig_file.println();
-	rig_file.println();
-
 	rig_file.print("// end of ");
-	rig_file.print(name);
+	rig_file.print(prefix);
 	rig_file.println("_rig.h");
 	rig_file.println();
 	rig_file.println();
 	rig_file.close();
-
-	proc_level = save_proc_level;
 
 	dbgSerial->println();
 	display(0,"dumpRigCode(%s) finished",filename);

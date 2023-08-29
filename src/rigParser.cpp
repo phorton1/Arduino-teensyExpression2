@@ -1,11 +1,19 @@
 //-------------------------------------------------------
 // rigParser.cpp
 //-------------------------------------------------------
+
+#define WITH_DEFAULT_RIG  1
+
 #include <myDebug.h>
 #include "rigParser.h"
 #include "myTFT.h"		// for TFT sizes
 #include "theSystem.h"	// for client rect
 #include "rigExpression.h"
+#include "rigDump.h"
+#if WITH_DEFAULT_RIG
+	#include "default.rig.h"
+	#include "default_modal.rig.h"
+#endif
 
 
 #define dbg_parse 	0
@@ -13,21 +21,18 @@
 	// -1 = show statements and params
 	// -2 = show details
 
+
 #define MAX_RIG_NAME		31
 #define RIG_POOL_SIZE		(MAX_RIG_SIZE * 2)
 #define AREA_CLIENT_HEIGHT  (client_rect.ye - client_rect.ys + 1)
 
+
+
 static rig_t *parse_rig;
-
 static bool any_end_modal;
-
-uint16_t rig_pool_len;
-uint8_t rig_pool[RIG_POOL_SIZE];
-
-// extern
-const rig_t *base_rig = (rig_t *) rig_pool;
-	// for use by the rigMachine
-
+static uint16_t rig_pool_len;
+static uint8_t  rig_pool[RIG_POOL_SIZE];
+static const rig_t *base_rig = (const rig_t *) rig_pool;
 
 
 
@@ -62,11 +67,11 @@ static rig_t *relocate()
 		parse_rig->statement_pool_len +
 		parse_rig->expression_pool_len;
 
-	uint16_t relocate_to = parse_rig->modal_rig ?
+	uint16_t relocate_to = (parse_rig->rig_type & RIG_TYPE_MODAL) ?
 		rig_pool_len : 0;
 
 	display(0,"relocate(%s, bytes=%d) to %d",
-		parse_rig->modal_rig ? "ModalRig":"BaseRig",
+		parse_rig->rig_type & RIG_TYPE_MODAL ? "ModalRig":"BaseRig",
 		rig_size,
 		relocate_to);
 
@@ -318,7 +323,8 @@ static bool addDefinePool(const char *s)
 		rig_error("DEFINE POOL OVERLFLOW");
 		return false;
 	}
-	strcpy(&parse_rig->define_pool[parse_rig->define_pool_len],s);
+	char *pool = (char *) parse_rig->define_pool;
+	strcpy(&pool[parse_rig->define_pool_len],s);
 	parse_rig->define_pool_len += len + 1;
 	return true;
 }
@@ -331,7 +337,8 @@ static bool addStringPool(const char *s)
 		rig_error("STRING POOL OVERLFLOW");
 		return false;
 	}
-	strcpy(&parse_rig->string_pool[parse_rig->string_pool_len],s);
+	char *pool = (char *) parse_rig->string_pool;
+	strcpy(&pool[parse_rig->string_pool_len],s);
 	parse_rig->string_pool_len += len + 1;
 	return true;
 }
@@ -343,7 +350,8 @@ static bool addStatementByte(uint8_t byte)
 		rig_error("STATMENT(BYTE) POOL OVERLFLOW");
 		return false;
 	}
-	parse_rig->statement_pool[parse_rig->statement_pool_len++] = byte;
+	uint8_t *pool = (uint8_t *) parse_rig->statement_pool;
+	pool[parse_rig->statement_pool_len++] = byte;
 	return true;
 }
 
@@ -354,7 +362,8 @@ static bool addStatementInt(uint16_t i)
 		rig_error("STATMENT(INT) POOL OVERLFLOW");
 		return false;
 	}
-	uint16_t *ptr = (uint16_t *) &parse_rig->statement_pool[parse_rig->statement_pool_len];
+	uint8_t *pool = (uint8_t *) parse_rig->statement_pool;
+	uint16_t *ptr = (uint16_t *) &pool[parse_rig->statement_pool_len];
 	*ptr = i;
 	parse_rig->statement_pool_len += 2;
 	return true;
@@ -1009,14 +1018,59 @@ static bool handleButton()
 
 
 
+//---------------------------------------
+// loadDefaultRig()
+//---------------------------------------
+
+#if WITH_DEFAULT_RIG
+
+	const rig_t *loadDefaultRig(const char *rig_name)
+	{
+		display(dbg_parse,"loadDefaultRig(%s)",rig_name);
+
+		bool is_base_rig = !strcmp(rig_name,DEFAULT_RIG_NAME);
+		uint16_t offset = is_base_rig ? 0 : rig_pool_len;
+
+		const rig_t *src_rig = is_base_rig ?
+			&default_rig : &default_modal_rig;
+
+		rig_t *rig = (rig_t *) &rig_pool[offset];
+		memcpy(&rig_pool[offset],src_rig,sizeof(rig_t));
+		offset += sizeof(rig_t);
+
+		uint16_t size = src_rig->define_pool_len;
+		memcpy(&rig_pool[offset],src_rig->define_pool,size);
+		rig->define_pool = (char *) &rig_pool[offset];
+		offset += size;
+
+		size = src_rig->string_pool_len;
+		memcpy(&rig_pool[offset],src_rig->string_pool,size);
+		rig->string_pool = (char *) &rig_pool[offset];
+		offset += size;
+
+		size = src_rig->statement_pool_len;
+		memcpy(&rig_pool[offset],src_rig->statement_pool,size);
+		rig->statement_pool = &rig_pool[offset];
+		offset += size;
+
+		size = src_rig->expression_pool_len;
+		memcpy(&rig_pool[offset],src_rig->expression_pool,size);
+		rig->expression_pool = &rig_pool[offset];
+		offset += size;
+
+		rig_pool_len = offset;
+
+		proc_leave();
+		return rig;
+	}
+#endif
+
+
 
 
 //--------------------------------------------------------
 // parseRig
 //--------------------------------------------------------
-
-#include "rigDump.h"
-
 
 
 // extern
@@ -1027,6 +1081,17 @@ const rig_t *parseRig(const char *rig_name)
 
 {
 	warning(dbg_parse,"ParseRig(%s.rig)",rig_name);
+
+	#if WITH_DEFAULT_RIG
+		if (!strcmp(rig_name,DEFAULT_RIG_NAME) || (
+			rig_pool_len &&
+			(base_rig->rig_type & RIG_TYPE_SYSTEM) &&
+			!strcmp(rig_name,DEFAULT_MODAL_NAME)))
+		{
+			return loadDefaultRig(rig_name);
+		}
+	#endif
+
 	bool ok = 0;
 	rig_t *new_rig = 0;
 	if (openRigFile(rig_name))
@@ -1046,7 +1111,7 @@ const rig_t *parseRig(const char *rig_name)
 		}
 		else if (tt == RIG_TOKEN_MODAL)
 		{
-			parse_rig->modal_rig = 1;
+			parse_rig->rig_type |= RIG_TYPE_MODAL;
 		}
 
 		tt = getRigToken();
@@ -1103,7 +1168,7 @@ const rig_t *parseRig(const char *rig_name)
 
 		parse_rig->statements[parse_rig->num_statements] = parse_rig->statement_pool_len;
 
-		if (ok && parse_rig->modal_rig && !any_end_modal)
+		if (ok && (parse_rig->rig_type & RIG_TYPE_MODAL) && !any_end_modal)
 		{
 			rig_error("A modalRig must contain at least one endModal statement.");
 			ok = 0;
@@ -1117,7 +1182,11 @@ const rig_t *parseRig(const char *rig_name)
 			if (new_rig)
 			{
 				dumpRig(new_rig);
-				dumpRigCode(new_rig,rig_name);
+				if (!strcmp(rig_name,"default") ||
+					!strcmp(rig_name,"default_modal"))
+				{
+					dumpRigCode(new_rig,rig_name);
+				}
 			}
 			else
 			{

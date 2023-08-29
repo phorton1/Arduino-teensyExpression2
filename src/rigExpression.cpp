@@ -36,7 +36,8 @@ static bool addExpByte(rig_t *rig, uint8_t byte)
 		dbgSerial->print("}");
 	#endif
 
-	rig->expression_pool[rig->expression_pool_len++] = byte;
+	uint8_t *pool = (uint8_t *) rig->expression_pool;
+	pool[rig->expression_pool_len++] = byte;
 	return true;
 }
 
@@ -194,8 +195,9 @@ static int atom(rig_t *rig, int tt)
 					// thus the client (dumpOp) must look at the high order bits
 					// to determine how to evaulate the complicated op code
 
-					rig->expression_pool[where-1] = OP_TYPE | bits_inline;
-					rig->expression_pool[where] = byte1;
+					uint8_t *pool = (uint8_t *) rig->expression_pool;
+					pool[where-1] = OP_TYPE | bits_inline;
+					pool[where] = byte1;
 					rig->expression_pool_len = where + 1;
 					dbg_ret = ((OP_TYPE | bits_inline) << 8) | byte1;;
 				}

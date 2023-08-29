@@ -142,7 +142,7 @@ void theSystem::begin()
     theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);
 	// theButtons.setButtonType(9, BUTTON_EVENT_CLICK, LED_PURPLE);
 
-	rig_machine.loadDefaultRig();
+	rig_machine.loadRig(DEFAULT_RIG_NAME);
 
 	display(dbg_sys,"returning from theSystem::begin()",0);
 }
