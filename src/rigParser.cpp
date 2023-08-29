@@ -1030,15 +1030,21 @@ static bool handleButton()
 
 		bool is_base_rig = !strcmp(rig_name,DEFAULT_RIG_NAME);
 		uint16_t offset = is_base_rig ? 0 : rig_pool_len;
-
 		const rig_t *src_rig = is_base_rig ?
 			&default_rig : &default_modal_rig;
+
+		uint16_t size = sizeof(rig_t) +
+			src_rig->define_pool_len +
+			src_rig->string_pool_len +
+			src_rig->statement_pool_len +
+			src_rig->expression_pool_len;
+		memset(&rig_pool[offset],0,size);
 
 		rig_t *rig = (rig_t *) &rig_pool[offset];
 		memcpy(&rig_pool[offset],src_rig,sizeof(rig_t));
 		offset += sizeof(rig_t);
 
-		uint16_t size = src_rig->define_pool_len;
+		size = src_rig->define_pool_len;
 		memcpy(&rig_pool[offset],src_rig->define_pool,size);
 		rig->define_pool = (char *) &rig_pool[offset];
 		offset += size;
@@ -1196,6 +1202,7 @@ const rig_t *parseRig(const char *rig_name)
 		}
 		else
 		{
+			free(parse_rig);
 			rig_error("There was an error parsing the rig!");
 		}
 
