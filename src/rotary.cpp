@@ -10,7 +10,7 @@
 #include "midiQueue.h"  // for sendCC methods
 
 
-#define DEBUG_ROTARY  0
+#define dbg_rotary 1
 
 
 #define INCS_PER_REV        40.00
@@ -27,7 +27,7 @@ typedef struct
 typedef struct
 {
     uint8_t port;
-    uint8_t channel;
+    uint8_t channel;      // zero based
     uint8_t cc;
     int     pollA;        // the last value polled for the A part of the switch
     float   value;        // the current value
@@ -85,6 +85,7 @@ void setRotaryValue(int num, int value)
 
 void setRotary(int num, uint8_t port, uint8_t channel, uint8_t cc)
 {
+    display(dbg_rotary,"setRotary(%d)(0x%02x,%d,0x%02x)",num,port,channel,cc);
     rotary[num].port    = port;
     rotary[num].channel = channel;
     rotary[num].cc      = cc;
@@ -118,11 +119,8 @@ bool _pollRotary(int i)
             rotary[i].value -= ROTARY_INC_DEC;
     }
 
-    #if DEBUG_ROTARY
-        int show_val = rotary[i].value;
-        display(0,"rotary(%d) aval=%d bval=%d   value=%d",i,aval,bval,show_val);
-    #endif
-
+    if (dbg_rotary <= -2) delay(50);
+    display(dbg_rotary+2,"rotary(%d) aval=%d bval=%d   value=%3.1f",i,aval,bval,rotary[i].value);
     return true;
 }
 
@@ -133,6 +131,13 @@ void pollRotary()
     {
         if (_pollRotary(i))
         {
+            display(dbg_rotary+1,"rotary(%d) sending(0x%02x,%d,0x%02x,%d)",
+                i,
+                rotary[i].port,
+                rotary[i].channel+1,
+                rotary[i].cc,
+                rotary[i].value);
+
             sendMidiControlChange(
                 rotary[i].port,
                 rotary[i].channel + 1,
