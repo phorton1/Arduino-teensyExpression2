@@ -12,7 +12,8 @@
 #define LED_WHITE  0xFFFFFF
 #define LED_CYAN   0x0088FF
 
-// #define LED_RGB(r,g,b)  (((r)<<16) | ((g)<<8) | (b))
+#define LED_RGB(r,g,b)  (((r)<<16) | ((g)<<8) | (b))
+
 
 extern void initLEDs();
 extern void clearLEDs();

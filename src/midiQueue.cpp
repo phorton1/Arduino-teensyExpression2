@@ -17,7 +17,8 @@
 #define dbg_ftp		   0
 	// 0 = show set values
 	// =1 = show sendFTPCommandAndValue()
-
+#define dbg_ftp_notes  1
+	// a separate define for just showing FTP note stuff
 
 #define MAX_QUEUE       	8192
 #define MAX_OUTGOING_QUEUE  1024
@@ -314,7 +315,7 @@ static void _handleFTP(msgUnion &msg)
 
 	if (type == MIDI_TYPE_NOTE_OFF || type == MIDI_TYPE_NOTE_ON)	// 0x08 or 0x09
 	{
-		display_level(dbg_ftp,2,"FTP(%d) note val=%-3d vel=%d",pindex,msg.b[2],msg.b[3]);
+		display_level(dbg_ftp_notes,2,"FTP(%d) note val=%-3d vel=%d",pindex,msg.b[2],msg.b[3]);
 		most_recent_note_val = msg.b[2];
 		most_recent_note_vel = msg.b[3];
 	}
@@ -322,16 +323,22 @@ static void _handleFTP(msgUnion &msg)
     {
 		if (p1 == FTP_NOTE_INFO)    // 0x1e
 		{
+			// note that we keep calling addNote and deleteNote
+			// even when we are not in tuner mode, which theoretically
+			// might slow host mode down a bit ... we *could* make the
+			// add a midiQueue::setFTPTunerMode(bool) to only add and
+			// delete notes when we are actually in the tuner.
+
 			uint8_t string = p2>>4;
 			uint8_t vel = p2 & 0x0f;
 			if (most_recent_note_vel)
 			{
-				display_level(dbg_ftp,2,"FTP(%d) addNote(%d,%d,%d,%d)",pindex,most_recent_note_val,most_recent_note_vel,string,vel);
+				display_level(dbg_ftp_notes,2,"FTP(%d) addNote(%d,%d,%d,%d)",pindex,most_recent_note_val,most_recent_note_vel,string,vel);
 				addNote(most_recent_note_val,most_recent_note_vel,string,vel);
 			}
 			else
 			{
-				display_level(dbg_ftp,2,"FTP(%d) deleteNote(%d)",pindex,string);
+				display_level(dbg_ftp_notes,2,"FTP(%d) deleteNote(%d)",pindex,string);
 				deleteNote(string);
 			}
 			most_recent_note_vel = 0;
@@ -341,12 +348,12 @@ static void _handleFTP(msgUnion &msg)
 		{
 			if (p1 == FTP_SET_TUNING)   // 0x1D
 			{
-				display_level(dbg_ftp,2,"FTP(%d) tuning_note1 = most_recent_note",pindex);
+				display_level(dbg_ftp_notes,2,"FTP(%d) tuning_note1 = most_recent_note",pindex);
 				tuning_note = most_recent_note;
 			}
 			else if (!tuning_note)
 			{
-				display_level(dbg_ftp,2,"FTP(%d) tuning_note2 = most_recent_note",pindex);
+				display_level(dbg_ftp_notes,2,"FTP(%d) tuning_note2 = most_recent_note",pindex);
 				tuning_note = most_recent_note;
 			}
 
@@ -354,7 +361,7 @@ static void _handleFTP(msgUnion &msg)
 			int tuning = ((int) p2) - 0x40;      // 40 == 0,  0==-
 			if (tuning_note)
 			{
-				display_level(dbg_ftp,2,"FTP(%d) tuning_note->tuning = %d",pindex,tuning);
+				display_level(dbg_ftp_notes,2,"FTP(%d) tuning_note->tuning = %d",pindex,tuning);
 				tuning_note->tuning = tuning;
 			}
 		}

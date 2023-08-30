@@ -1,0 +1,420 @@
+#include <myDebug.h>
+#include "winFtpTuner.h"
+#include "myTFT.h"
+#include "myLeds.h"
+#include "buttons.h"
+#include "ftp.h"
+#include "ftp_defs.h"
+#include "midiQueue.h"
+
+// #include "winFtpSensitivity.h"
+
+#define TUNER_LED_BASE 11
+#define BUTTON_END_FTP_WINDOW	24
+
+winFtpTuner ftp_tuner;
+
+
+//------------------------------------------------------------
+// life cycle
+//------------------------------------------------------------
+
+winFtpTuner::winFtpTuner()
+	: sysWindow()
+{
+	init();
+}
+
+
+void winFtpTuner::init()
+{
+	m_draw_needed = 1;
+	m_tuner_note = -1;
+	m_tuner_value = 0;
+	for (int i=0; i<NUM_STRINGS; i++)
+		m_string_pressed[i] = -1;
+}
+
+
+// virtual
+void winFtpTuner::end()
+{
+	uint8_t ftp_port = FTP_ACTIVE_PORT;
+	if (ftp_port)
+		sendFTPCommandAndValue(ftp_port, FTP_CMD_EDITOR_MODE, 0x00);
+}
+
+// virtual
+void winFtpTuner::begin(bool warm)
+{
+	uint8_t ftp_port = FTP_ACTIVE_PORT;
+	if (ftp_port)
+		sendFTPCommandAndValue(ftp_port, FTP_CMD_EDITOR_MODE, 0x02);
+			// I think this should be called FTP_COMMAND_TUNER
+			// as the only value that seems to work is the 2/0 bit
+
+	init();
+
+	sysWindow::begin(warm);
+
+	if (m_swap_modal)
+		theButtons.setButtonType(BUTTON_END_FTP_WINDOW, BUTTON_EVENT_CLICK, LED_GREEN);
+	theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_CLICK | BUTTON_EVENT_LONG_CLICK,LED_PURPLE);
+}
+
+
+// virtual
+void winFtpTuner::onButton(int row, int col, int event)
+{
+	int num = row * NUM_BUTTON_ROWS + col;
+	if (num == THE_SYSTEM_BUTTON && m_swap_modal)
+	{
+		// theSystem.swapModal(new winFtpSensitivity(true),0);
+	}
+	else
+	{
+		endWindow(0);
+	}
+}
+
+
+
+
+//------------------------------------------------------------
+// updateUI (draw)
+//------------------------------------------------------------
+// fretboard
+
+#define FRETBOARD_X     	10
+#define FRETBOARD_Y     	210
+#define FRETBOARD_WIDTH 	460
+#define FRETBOARD_HEIGHT    100
+#define BRIDGE_WIDTH        10
+#define FRET_WIDTH          2
+#define STRING_WIDTH        1
+#define CIRCLE_DIAMETER     10
+
+#define PRESSED_COLOR       TFT_YELLOW		// TFT_RED
+#define FRET_COLOR 			TFT_RGB_COLOR(0x30,0x30,0x30)	// TFT_DARKGREY
+#define FRETBOARD_COLOR 	TFT_RGB_COLOR(0x00,0x00,0x30)	// TFT_NAVY
+#define STRING_COLOR 		TFT_RGB_COLOR(0x60,0x60,0x60)	// TFT_LIGHTGREY
+
+#define NUM_INTERVALS       14
+#define INTERVAL_WIDTH      ((FRETBOARD_WIDTH - 2*BRIDGE_WIDTH) / NUM_INTERVALS)
+#define STRING_SPACING      (FRETBOARD_HEIGHT / NUM_STRINGS)
+
+// tuner
+
+#define TUNER_NOTE_X   		50
+#define TUNER_NOTE_Y   		90
+#define TUNER_NOTE_WIDTH    100
+#define TUNER_NOTE_HEIGHT   60
+
+#define TUNER_FRAME_X       160
+#define TUNER_FRAME_Y       60
+#define TUNER_FRAME_WIDTH   300
+#define TUNER_FRAME_HEIGHT  120
+#define TUNER_FRAME_MARGIN  10
+#define TUNER_RANGE         (TUNER_FRAME_WIDTH - 2*TUNER_FRAME_MARGIN)
+#define TUNER_MID_X   		(TUNER_FRAME_X + TUNER_FRAME_MARGIN + TUNER_RANGE/2)
+#define TUNER_MID_Y   		(TUNER_FRAME_Y + TUNER_FRAME_MARGIN + (TUNER_FRAME_HEIGHT-TUNER_FRAME_MARGIN*2)/2)
+#define TUNER_VALUE_X(v)	(TUNER_FRAME_X + TUNER_FRAME_MARGIN + ((float)(((float)(v) + 64)/128.0) * TUNER_RANGE))
+
+#define TUNER_DISABLED_COLOR  TFT_RGB_COLOR(0x50,0x50,0x50)
+
+
+void winFtpTuner::fretsToInts(int *ints)
+{
+	for (int i=0; i<NUM_STRINGS; i++)
+	{
+		ints[i] = -1;
+	}
+
+	__disable_irq();
+	note_t *note = first_note;
+	while (note)
+	{
+		if (note->string != -1 && note->fret != -1)
+		{
+			int i = note->fret;
+			ints[note->string] = i > NUM_INTERVALS ? NUM_INTERVALS + 1 : i;
+				// show everything else higher on the right
+		}
+		note = note->next;
+	}
+	__enable_irq();
+}
+
+
+
+
+void winFtpTuner::drawCircle(int string, int fret, bool pressed)
+{
+	if (fret > NUM_INTERVALS + 1)
+		return;
+
+	int center_x = fret == 0 ?
+		BRIDGE_WIDTH/2 :
+		BRIDGE_WIDTH + (INTERVAL_WIDTH/2) + (fret-1)*INTERVAL_WIDTH;
+
+	if (fret > NUM_INTERVALS)
+		center_x -= INTERVAL_WIDTH/2 - BRIDGE_WIDTH;
+
+	int center_y = (STRING_SPACING/2) + STRING_SPACING * string;
+	center_x += FRETBOARD_X;
+	center_y += FRETBOARD_Y;
+
+	// display(0,"drawCircle(%d,%d,%d)",string,fret,pressed);
+	mylcd.setDrawColor(pressed ? PRESSED_COLOR : ((fret == 0 || fret > NUM_INTERVALS) ? FRET_COLOR : FRETBOARD_COLOR));
+	mylcd.fillCircle(center_x,center_y,CIRCLE_DIAMETER / 2);
+
+	if (!pressed)
+	{
+		mylcd.fillRect(
+			center_x - CIRCLE_DIAMETER/2,
+			center_y,
+			CIRCLE_DIAMETER + 1,
+			STRING_WIDTH,
+			STRING_COLOR);
+	}
+}
+
+
+void winFtpTuner::drawTunerPointer(int tuner_x, int color)
+{
+	mylcd.setDrawColor(color);
+
+	#define TRIANGLE_WIDTH 4
+
+	// mylcd.drawLine(
+	// 	tuner_x,
+	// 	TUNER_FRAME_Y + TUNER_FRAME_MARGIN,
+	// 	TUNER_MID_X,
+	// 	TUNER_FRAME_Y + TUNER_FRAME_HEIGHT - 1 - TUNER_FRAME_MARGIN);
+
+	int mid_x = tuner_x + (TUNER_MID_X - tuner_x) / 2;
+
+	mylcd.fillTriangle(
+		tuner_x,
+		TUNER_FRAME_Y + TUNER_FRAME_MARGIN,
+		mid_x - TRIANGLE_WIDTH,
+		TUNER_MID_Y,
+		mid_x + TRIANGLE_WIDTH,
+		TUNER_MID_Y);
+	mylcd.fillTriangle(
+		TUNER_MID_X,
+		TUNER_FRAME_Y + TUNER_FRAME_HEIGHT - TUNER_FRAME_MARGIN,
+		mid_x - TRIANGLE_WIDTH,
+		TUNER_MID_Y,
+		mid_x + TRIANGLE_WIDTH,
+		TUNER_MID_Y);
+
+
+	#if 0
+		mylcd.drawLine(
+			tuner_x-1,
+			TUNER_FRAME_Y + TUNER_FRAME_MARGIN * 2,
+			TUNER_MID_X-1,
+			TUNER_FRAME_Y + TUNER_FRAME_HEIGHT - 1 - TUNER_FRAME_MARGIN);
+		mylcd.drawLine(
+			tuner_x+1,
+			TUNER_FRAME_Y + TUNER_FRAME_MARGIN * 2,
+			TUNER_MID_X+1,
+			TUNER_FRAME_Y + TUNER_FRAME_HEIGHT - 1 - TUNER_FRAME_MARGIN);
+	#endif
+}
+
+
+// virtual
+void winFtpTuner::updateUI()	// draw
+{
+	bool full_draw = 0;
+	if (m_draw_needed)
+	{
+		full_draw = 1;
+		m_draw_needed = 0;
+
+		//----------------------------------
+		// fretboard
+		//----------------------------------
+
+		mylcd.fillRect(		// board
+			FRETBOARD_X,
+			FRETBOARD_Y,
+			FRETBOARD_WIDTH,
+			FRETBOARD_HEIGHT,
+			FRETBOARD_COLOR);
+		mylcd.fillRect(		// left bridge
+			FRETBOARD_X,
+			FRETBOARD_Y,
+			BRIDGE_WIDTH,
+			FRETBOARD_HEIGHT,
+			FRET_COLOR);
+		mylcd.fillRect(		// right bridge
+			FRETBOARD_X + FRETBOARD_WIDTH - 1 - BRIDGE_WIDTH,
+			FRETBOARD_Y,
+			BRIDGE_WIDTH,
+			FRETBOARD_HEIGHT,
+			FRET_COLOR);
+
+		// frets
+
+		int x = FRETBOARD_X + BRIDGE_WIDTH + INTERVAL_WIDTH - FRET_WIDTH/2;
+		for (int i=0; i<NUM_INTERVALS-1; i++)
+		{
+			mylcd.fillRect(
+				x,
+				FRETBOARD_Y,
+				FRET_WIDTH,
+				FRETBOARD_HEIGHT,
+				FRET_COLOR);
+			x += INTERVAL_WIDTH;
+		}
+
+		// strings
+
+		int y = FRETBOARD_Y + (STRING_SPACING/2);
+		for (int i=0; i<NUM_STRINGS; i++)
+		{
+			mylcd.fillRect(
+				FRETBOARD_X,
+				y,
+				FRETBOARD_WIDTH,
+				STRING_WIDTH,
+				STRING_COLOR);
+			y += STRING_SPACING;
+		}
+
+		// tuner frame
+
+		mylcd.setDrawColor(TFT_WHITE);
+		mylcd.drawBorder(
+			TUNER_FRAME_X,
+			TUNER_FRAME_Y,
+			TUNER_FRAME_WIDTH,
+			TUNER_FRAME_HEIGHT,
+			2,
+			TFT_WHITE);
+		// zero tick
+		mylcd.drawLine(
+			TUNER_MID_X,
+			TUNER_FRAME_Y,
+			TUNER_MID_X,
+			TUNER_FRAME_Y + TUNER_FRAME_MARGIN - 1);
+
+		#define NUM_TICKS_PER_SIDE  5
+		#define TICK_SPACE   (((TUNER_FRAME_WIDTH-TUNER_FRAME_MARGIN*2)/2) / NUM_TICKS_PER_SIDE)
+		for (int i=0; i<NUM_TICKS_PER_SIDE; i++)
+		{
+			mylcd.drawLine(
+				TUNER_MID_X - TICK_SPACE*i,
+				TUNER_FRAME_Y,
+				TUNER_MID_X - TICK_SPACE*i,
+				TUNER_FRAME_Y + TUNER_FRAME_MARGIN - 1);
+			mylcd.drawLine(
+				TUNER_MID_X + TICK_SPACE*i,
+				TUNER_FRAME_Y,
+				TUNER_MID_X + TICK_SPACE*i,
+				TUNER_FRAME_Y + TUNER_FRAME_MARGIN - 1);
+		}
+	}
+
+	//------------------------------
+	// fretboard pressed notes
+	//------------------------------
+
+	int pressed[6];
+	fretsToInts(pressed);
+	for (int i=0; i<NUM_STRINGS; i++)
+	{
+		if (full_draw || pressed[i] != m_string_pressed[i])
+		{
+			if (m_string_pressed[i] != -1)
+				drawCircle(i,m_string_pressed[i],false);
+			if (pressed[i] != -1)
+				drawCircle(i,pressed[i],true);
+			m_string_pressed[i] = pressed[i];
+		}
+	}
+
+
+	//------------------------------
+	// tuner
+	//------------------------------
+	// note
+
+	int t_note = tuning_note ? tuning_note->val : -1;
+	int t_value = tuning_note ? tuning_note->tuning : 0;
+	int l_note = m_tuner_note;
+
+	if (full_draw || t_note != m_tuner_note)
+	{
+		if (m_tuner_note != -1)
+			mylcd.fillRect(TUNER_NOTE_X,TUNER_NOTE_Y,TUNER_NOTE_WIDTH,TUNER_NOTE_HEIGHT,0);
+		if (t_note != -1)
+		{
+	        mylcd.setFont(Arial_48);
+			mylcd.setCursor(TUNER_NOTE_X + 5,TUNER_NOTE_Y + 5);
+			mylcd.setTextColor(TFT_WHITE);
+            mylcd.print(noteName(t_note));
+		}
+		m_tuner_note = t_note;
+	}
+
+	// tuner value (slow movement by only moving one per loop)
+
+	if (t_value > m_tuner_value)
+		t_value = m_tuner_value + 1;
+	if (t_value < m_tuner_value)
+		t_value = m_tuner_value - 1;
+
+	if (full_draw || t_note != l_note || t_value != m_tuner_value)
+	{
+		int tuner_value_x = TUNER_VALUE_X(t_value);
+		int last_tuner_value_x = TUNER_VALUE_X(m_tuner_value);
+		m_tuner_value = t_value;
+
+		drawTunerPointer(last_tuner_value_x,0);
+		int color = tuning_note ? (abs(t_value)<=2) ? TFT_GREEN : TFT_WHITE : TUNER_DISABLED_COLOR;
+		drawTunerPointer(tuner_value_x,color);
+		last_tuner_value_x = tuner_value_x;
+
+		// TUNER LEDS
+
+		float pct;
+		#define BRIGHT_PCT(p)   (((unsigned)(255.0*(p))) & 0xff)
+
+		pct = (1-((float)-t_value)/32.0);	// pct good
+
+		// prh - these will get wiped out by current button scheme
+
+		setLED(TUNER_LED_BASE + 0,
+			tuning_note ?
+				(t_value <= -2 && t_value >= -32) ?
+					LED_RGB(BRIGHT_PCT(1-pct),BRIGHT_PCT(pct),0) :
+				(t_value < -32) ?
+					LED_RGB(0xff,0,0) :
+					LED_RGB(0,0,0xff) :
+				LED_RGB(0,0,0xff));
+
+		// pct = ((float)abs(t_value))/4.0;
+		setLED(TUNER_LED_BASE + 1,
+			tuning_note ? (t_value >= -4 && t_value <= 2) ?
+			LED_RGB(0,0xff,0) : // BRIGHT_PCT(1.0-pct),0) :
+			LED_RGB(0,0,0xff) :
+			LED_RGB(0,0,0xff));
+
+		pct = (1-((float)t_value)/32.0);	// pct good
+		setLED(TUNER_LED_BASE + 2,
+			tuning_note ?
+				(t_value >= 2 && t_value <= 32) ?
+					LED_RGB(BRIGHT_PCT(1-pct),BRIGHT_PCT(pct),0) :
+				(t_value > 32) ?
+					LED_RGB(0xff,0,0) :
+					LED_RGB(0,0,0xff) :
+				LED_RGB(0,0,0xff));
+
+		showLEDs();
+	}
+
+}

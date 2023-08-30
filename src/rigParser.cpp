@@ -37,6 +37,12 @@ static const rig_t *base_rig = (const rig_t *) rig_pool;
 
 
 static void init_parse()
+	// currently there is a risk of heap fragmentation
+	// in ftp::addNote(), which is the only other thing
+	// in the system currently using the heap. There is
+	// enough RAM available that we could statically allowcate
+	// a parse buffer of MAX_RIG_SIZE (17K) without too much
+	// impact (there are about 150K free as of this writing)
 {
 	any_end_modal = 0;
 	rig_error_found = 0;	 // in rigToken.cpp
@@ -808,22 +814,16 @@ static bool handleStatement(int tt)
 			proc_leave();
 			return false;
 		}
-		if (*arg)
+		if (*arg && !skip(RIG_TOKEN_COMMA))
 		{
-			if (!skip(RIG_TOKEN_COMMA))
-			{
-				proc_leave();
-				return false;
-			}
+			proc_leave();
+			return false;
 		}
-		else
-		{
-			if (!skip(RIG_TOKEN_RIGHT_PAREN))
-			{
-				proc_leave();
-				return false;
-			}
-		}
+	}
+	if (!skip(RIG_TOKEN_RIGHT_PAREN))
+	{
+		proc_leave();
+		return false;
 	}
 
 	// the parse WILL end on an eof in the button section

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "defines.h"
+#include "prefs.h"
 
 #define FTP_ACTIVE_PORT (   \
     prefs.SPOOF_FTP ? MIDI_PORT_HOST1 : \

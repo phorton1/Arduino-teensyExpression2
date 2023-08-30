@@ -60,16 +60,16 @@ public:
 	void loadDefaultRig();
 	bool loadRig(const char *name);
 
-	bool loaded()		{ return m_rig_loaded; }
+	bool loaded()			{ return m_rig_loaded; }
 	const char *rigName()	{ return m_rig_name; }
 
 	void updateUI();
     void onButton(int row, int col, int event);
 	void onMidiCC(const msgUnion &msg);
 
+	void restartRig();
 
 private:
-
 
 	bool m_rig_loaded;
 	char m_rig_name[MAX_RIG_NAME + 1];

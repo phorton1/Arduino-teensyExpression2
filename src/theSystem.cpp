@@ -23,6 +23,8 @@
 	// show system startup, etc
 #define dbg_raw_midi 1
 	// show receieved usb and serial midi
+#define dbg_win	  0
+	// debug the window stack
 
 
 #define MIDI_ACTIVITY_TIMEOUT 			150
@@ -81,16 +83,38 @@ int_rect pedal_rect(0,235,479,319);			// 89 high, starting at 230
 
 
 //----------------------------------------
+// sysWindow (base class)
+//----------------------------------------
+
+// virtual
+void sysWindow::endWindow(uint32_t param)
+{
+	the_system.endWindow(this,param);
+}
+
+// virtual
+void sysWindow::begin(bool cold)
+	// windows are responsible for setting the system button
+{
+	fillRect(m_flags & WIN_FLAG_SHOW_PEDALS ?
+		client_rect : full_client_rect,
+		TFT_BLACK);
+	for (int i=0; i<NUM_BUTTONS; i++)
+		theButtons.setButtonType(i,0);
+}
+
+
+//----------------------------------------
 // theSystem
 //----------------------------------------
 
 
 theSystem::theSystem()
 {
-	last_battery_level = 0;
+	m_battery_level = 0;
 
-	draw_pedals = 1;
-	draw_title = 1;
+	m_draw_pedals = 1;
+	m_draw_title = 1;
 	m_title = 0;
 }
 
@@ -98,7 +122,7 @@ theSystem::theSystem()
 void theSystem::setTitle(const char *title)
 {
 	m_title = title;
-	draw_title = 1;
+	m_draw_title = 1;
 }
 
 
@@ -335,6 +359,80 @@ void theSystem::handleSerialData()
 }
 
 
+//-----------------------------------------
+// windows
+//-----------------------------------------
+
+sysWindow *theSystem::getTopWindow()
+{
+	if (m_num_windows)
+		return m_window_stack[m_num_windows-1];
+	return 0;
+}
+
+
+void theSystem::startWindow(sysWindow *win)
+{
+	display(dbg_win,"startWindow(%s)",win->name());
+	if (m_num_windows >= MAX_WINDOW_STACK)
+	{
+		my_error("WINDOW STACK OVERFLOW!!!",0);
+		return;
+	}
+	m_window_stack[m_num_windows++] = win;
+	win->begin(true);
+}
+
+
+void theSystem::swapWindow(sysWindow *win, uint32_t param)
+{
+	display(dbg_win,"swapWindow(%s,0x%08x)",win->name(),param);
+	if (!m_num_windows)		// hmmmm ... who would call this
+	{
+		warning(0,"swapWindow(%s,0x%04x) called with no windows on stack!",win->name(),param);
+		startWindow(win);
+		return;
+	}
+	sysWindow *old = getTopWindow();
+	old->end();
+	m_window_stack[m_num_windows++] = win;
+	win->begin(true);
+}
+
+
+void theSystem::endWindow(sysWindow *cur, uint32_t param)
+	// cur is currently only to verify caller's correctness
+	// as windows typically end themselves.  It *could*
+	// eventually be used to exit known subwindows.
+{
+	display(dbg_win,"endWindow(%s,0x%08x)",cur->name(),param);
+	if (!m_num_windows)
+	{
+		my_error("WINDOW STACK UNDERFLOW!!!",0);
+		return;
+	}
+
+	sysWindow *old = getTopWindow();
+	if (old != cur)
+	{
+		my_error("Attempt to endWindow(%s) when TOS is win(%s)!",cur->name(), old->name());
+		return;
+	}
+	old->end();
+
+	m_num_windows--;
+	sysWindow *win = getTopWindow();
+
+	if (win)
+		win->begin(false);
+	else
+	{
+		m_draw_pedals = !(old->m_flags & WIN_FLAG_SHOW_PEDALS);
+		fillRect(m_draw_pedals ? full_client_rect : client_rect, TFT_BLACK);
+		rig_machine.restartRig();
+	}
+}
+
 
 //-----------------------------------------
 // events
@@ -347,8 +445,12 @@ void theSystem::onButton(int row, int col, int event)
 	{
 		if (rig_machine.loadRig("default"))
 		{
-			draw_pedals = 1;
+			m_draw_pedals = 1;
 		}
+	}
+	else if (m_num_windows)
+	{
+		getTopWindow()->onButton(row,col,event);
 	}
 	else
 	{
@@ -370,16 +472,14 @@ void theSystem::loop()
 	initQueryFTP();
 		// query the FTP battery level on a timer
 
-#if 0
-	if (win->m_flags & WIN_FLAG_SHOW_PEDALS)
-#endif	// 0
+	if (!m_num_windows || getTopWindow()->m_flags & WIN_FLAG_SHOW_PEDALS)
 	{
 		bool draw_pedal_values = false;
 		int pedal_width = pedal_rect.width() / NUM_PEDALS;
 
-		if (draw_pedals)
+		if (m_draw_pedals)
 		{
-			draw_pedals = false;
+			m_draw_pedals = false;
 			draw_pedal_values = true;
 
 			mylcd.fillRect(
@@ -452,16 +552,15 @@ void theSystem::loop()
 	// Top Title Frame
 	//---------------------------
 
-	bool draw_title_frame = draw_title;
+	bool draw_title_frame = m_draw_title;
 
-	if (draw_title)
+	if (m_draw_title)
 	{
-		draw_title = false;
+		m_draw_title = false;
 		fillRect(title_rect,TFT_BLACK);
 
 		// title text
 
-		draw_title = false;
         mylcd.setFont(Arial_16_Bold);
         mylcd.setCursor(5,10);
         mylcd.setTextColor(TFT_YELLOW);
@@ -488,7 +587,7 @@ void theSystem::loop()
 	// battery indicator frame and value
 	//----------------------------------------
 
-	if (draw_title_frame || last_battery_level != ftp_battery_level)
+	if (draw_title_frame || m_battery_level != ftp_battery_level)
 	{
 		//  battery indicator frame
 
@@ -540,7 +639,7 @@ void theSystem::loop()
 				BATTERY_HEIGHT - 2*BATTERY_FRAME,
 				TFT_BLACK);
 
-		last_battery_level = ftp_battery_level;
+		m_battery_level = ftp_battery_level;
 	}
 
 
@@ -568,7 +667,9 @@ void theSystem::loop()
 		}
 	}
 
-
-	rig_machine.updateUI();
+	if (m_num_windows)
+		getTopWindow()->updateUI();
+	else
+		rig_machine.updateUI();
 
 }	// theSystem::loop()

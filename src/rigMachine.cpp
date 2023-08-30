@@ -18,6 +18,7 @@
 #include "theSystem.h"
 #include "pedals.h"
 #include "rotary.h"
+#include "winFtpTuner.h"
 
 
 #define dbg_rig 	0
@@ -241,6 +242,22 @@ bool rigMachine::loadRig(const char *rig_name)
 //-----------------------------------------------
 // rig execution
 //-----------------------------------------------
+
+void rigMachine::restartRig()
+{
+	if (!rig_stack_ptr)
+	{
+		warning(0,"attempt to start rig when non on stack!",0);
+		return;
+	}
+	if (!m_rig_loaded)
+	{
+		warning(0,"attempt to start rig when none loaded!",0);
+		return;
+	}
+	startRig(rig_stack[rig_stack_ptr-1].rig,0);
+}
+
 
 bool rigMachine::startRig(const rig_t *rig, bool cold)
 {
@@ -706,8 +723,12 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 			case RIG_TOKEN_NOTE_ON:
 			case RIG_TOKEN_NOTE_OFF:
 			case RIG_TOKEN_ALL_NOTES_OFF:
-			case RIG_TOKEN_FTP_TUNER:
 			case RIG_TOKEN_FTP_SENSITIVITY:
+				break;
+
+			case RIG_TOKEN_FTP_TUNER:
+				display(dbg_calls,"ftpTuner()",0);
+				the_system.startWindow(&ftp_tuner);
 				break;
 
 			case RIG_TOKEN_LOAD_RIG:
