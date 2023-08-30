@@ -38,24 +38,24 @@ void midiHost::rx_data(const Transfer_t *transfer)
         bool any = 0;
         for (uint32_t i=0; i < len; i++)
         {
-            uint32_t msg = rx_buffer[i];
-            if (msg)
+            uint32_t msg32 = rx_buffer[i];
+            if (msg32)
             {
                 any = 1;
-                usb_midi_write_packed(msg);
+                usb_midi_write_packed(msg32);
 
-                if (msg !=  0x0000fe1f)     // for now
+                if (msg32 !=  0x0000fe1f)     // for now
                 {
                     int save_proc_level = proc_level;
                     proc_level = 1;
-                    display(dbg_midi,"host:  0x%08x",msg);
+                    display(dbg_midi,"host:  0x%08x",msg32);
                     proc_level = 2;
 
                     // port comes in as 0x00 or 0x10
                     // we bump it to MIDI_PORT_HOST1 = 0x40 or
                     // MIDI_PORT_HOST2 = 0x50;
 
-                    enqueueMidi(MIDI_PORT_HOST1 | (msg & MIDI_PORT_NUM_MASK), msg);
+                    enqueueMidi(false, MIDI_PORT_HOST1 | (msg32 & MIDI_PORT_NUM_MASK), msg32);
                     proc_level = save_proc_level;
                 }
             }

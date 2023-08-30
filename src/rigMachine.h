@@ -5,6 +5,8 @@
 #pragma once
 
 #include "rigParser.h"
+#include "midiQueue.h"
+
 
 #define MAX_RIG_NAME   		31
 #define MAX_PARAMS			8		// from AREA statement
@@ -63,9 +65,7 @@ public:
 
 	void updateUI();
     void onButton(int row, int col, int event);
-	void onMidiCC(int port, int channel, int cc_num, int value);
-		// port is an enum
-		// channel is one based
+	void onMidiCC(const msgUnion &msg);
 
 
 private:

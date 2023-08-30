@@ -16,7 +16,6 @@
 #include "myLeds.h"
 #include "myTFT.h"
 #include "theSystem.h"
-#include "midiQueue.h"	// for send methods
 #include "pedals.h"
 #include "rotary.h"
 
@@ -57,6 +56,9 @@ typedef struct
 int rig_stack_ptr = 0;
 rigStack_t rig_stack[MAX_RIG_STACK];
 rigMachine rig_machine;
+
+uint16_t listen_mask;
+	// 7 bits for each port for more rapid processing
 
 
 //------------------------------------------------------
@@ -246,11 +248,16 @@ bool rigMachine::startRig(const rig_t *rig, bool cold)
 	proc_entry();
 
 	if (cold)
+	{
+		listen_mask = 0;
 		memset(&m_rig_state,0,sizeof(rigState_t));
+	}
 
 	// clear the client area
 
 	fillRect(client_rect,TFT_BLACK);
+
+	// process the init section statements
 
 	bool ok = executeStatementList(rig,0);
 
@@ -625,6 +632,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				m_rig_state.listens[idx].port    = m_param_values[1].value;
 				m_rig_state.listens[idx].channel = m_param_values[2].value;
 				m_rig_state.listens[idx].cc      = m_param_values[3].value;
+				listen_mask |= (1 << m_param_values[1].value);
 				break;
 
 			case RIG_TOKEN_PEDAL:
@@ -758,13 +766,22 @@ bool rigMachine::executeStatementList(const rig_t *rig, int statement_num)
 // rig events
 //--------------------------------------------------
 
-void rigMachine::onMidiCC(int port, int channel, int cc_num, int value)
-	// port is an enum, and channel is one based
+void rigMachine::onMidiCC(const msgUnion &msg)
+	// for now, within the language, we will allow
+	// output or th given port set the value, thus
+	// allowing programs to monitor their own pedals, etc.
 {
 	if (!m_rig_loaded)
 		return;
+	uint16_t mask = 1 << msg.port();
+	if (!(listen_mask && mask))
+		return;
 
-	display(dbg_midi+1,"onMidiCC(%d,%d,%d,%d)",port,channel,cc_num,value);
+	display(dbg_midi+1,"onMidiCC(0x%02x,%d,0x%02x,0x%02x)",
+			msg.port(),
+			msg.channel(),
+			msg.param1(),
+			msg.param2());
 
 	// set the value into any SERIAL Listens for the given CC number
 	// with the convention that listening to channel 0 accepts all channels
@@ -773,19 +790,18 @@ void rigMachine::onMidiCC(int port, int channel, int cc_num, int value)
 	{
 		rigListen_t *listen = &m_rig_state.listens[num];
 		if (listen->active &&
-			listen->port == port &&
-			listen->cc == cc_num && (
+			listen->port == msg.port() &&
+			listen->cc == msg.param1() && (
 			listen->channel == MIDI_OMNI_CHANNEL ||		// MIDI_OMNI_CHANNEL == 0
-			listen->channel == channel))
+			listen->channel == msg.channel()))
 		{
-			display(dbg_midi,"onMidiCC(%d,%d,%d,%d) --> setting value(%d) to 0x%02x",
-				port,
-				channel,
-				cc_num,
-				value,
+			display(dbg_midi,"onMidiCC(0x%02x,%d,0x%02x) --> setting value(%d) to 0x%02x",
+				msg.port(),
+				msg.channel(),
+				msg.param1(),
 				num,
-				value);
-			m_rig_state.values[num] = value;
+				msg.param2());
+			m_rig_state.values[num] = msg.param2();
 		}
 	}
 }

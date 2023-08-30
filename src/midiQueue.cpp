@@ -9,112 +9,228 @@
 #include "midiHost.h"
 #include "midiTypes.h"
 #include "rigMachine.h"
+#include "theSystem.h"
 
 
-#define dbg_midi_send  1
+#define dbg_midi_send  0
+#define dbg_queue	   0
 #define dbg_ftp		   -1
 	// 0 = show set values
 	// =1 = show sendFTPCommandAndValue()
-#define dbg_queue	   1
-
 
 
 #define MAX_QUEUE       8192
 #define MAX_SYSEX       1024
 
 
-#define PORT_HOST_MASK  0x40
+//---------------------------------------
+// vars
+//---------------------------------------
 
-#define NUM_REAL_PORTS  6
-    // only real input ports can process sysex messages into buffers
-    // or be monitored for FTP stuff
+static int queue_head = 0;
+static int queue_tail = 0;
+static uint32_t midi_queue[MAX_QUEUE];
 
-#define GET_COMMAND_VALUE(w)    ((w)>>24)
-    // outgoing pending commands are full 32bit midi messages
-    // so we use this to compare them to the incomming_command,
-    // which is just a uint8_t
 
-uint8_t last_command[NUM_REAL_PORTS]  = {0,0,0,0,0,0};
+// Stuff for handling FTP ...
+// although the command and reply scheme *may* be general
+
+static uint8_t last_command[NUM_MIDI_PORTS * 2]  = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
     // as we are processing messages, we keep track of the most recent
-    // B7 1F "command or reply" (i.e. 07==FTP_CMD_BATTERY_LEVEL),
-    // to be able to hook it up to the following "command_or_reply" value
-    // message (B7 1F "value") for processing and display purposes.
+    // B7 1F XX "FTP_COMMAND_OR_REPLY" (XX) that was processed, (i.e.
+	// 07 == FTP_CMD_BATTERY_LEVEL), so that when we get the
+	// B7 3F YY "FTP_COMMAND_VALUE" message we know what YY is.
 
-uint8_t pending_command        = 0;
-uint8_t pending_command_value  = 0;
+static uint8_t pending_command        = 0;
+static uint8_t pending_command_value  = 0;
+// static int command_retry_count         = 0;
+// static elapsedMillis command_time      = 0;
+    // These four variables are used to implement an asynychronous command
+    // and reply conversation with the FTP with retries and timeouts.
+	// When we send a command and value, we save them here, and in processing,
+    // (if and) when the FTP replies with the correct command reply and
+	// subsequent value, we know the message was received, and so we can
+	// clear the pending command and allow another to be sent.
 
-
-//int command_retry_count         = 0;
-// elapsedMillis command_time      = 0;
-    // These four variables are used to implement an asynychronous
-    // command and reply conversation with the FTP.  When we send
-    // a command (and value), we save them here, and in processing
-    // (if and) when the FTP replies with the correct values, we
-    // clear them, which allows for the next command to be sent.
-
-
-uint8_t most_recent_note_val = 0;
-uint8_t most_recent_note_vel = 0;
+static uint8_t most_recent_note_val = 0;
+static uint8_t most_recent_note_vel = 0;
     // these values are cached from the most recent NoteOn/NoteOff
-    // messages and used to create (or delete) my note_t's upon 1E
-    // NoteInfo messages.
+    // messages and used to create (or delete) my note_t's in ftp.cpp
+	// upon subsequent NoteInfo messages.
 
 
+//-------------------------------------
+// immediate sends as device (cable0)
+//-------------------------------------
 
-
-
-class msgUnion
+static void sendMidiMessage(const char *what, uint8_t port, uint8_t type, uint8_t channel, uint8_t p1, uint8_t p2)
 {
-    public:
+    if (channel < 1 || channel > 16)
+    {
+        my_error("sendMidiMessage(%s) channel(%d) must be between 1 and 16",what,channel);
+        return;
+    }
 
-        // msgUnion()              { i = 0; }      // default constructor
+	// we first create a msgUnion to actually send to the correct subport of the 3 devices
 
-        msgUnion(uint32_t msg)  { i = msg; }        // from the queue
+	uint8_t use_port =
+		(port <= MIDI_PORT_USB4) ? port :
+		(port <= MIDI_PORT_HOST2) ? port - MIDI_PORT_HOST1 : 0;
+	msgUnion msg(use_port, type, channel, p1, p2);
 
-        msgUnion(uint8_t port, uint32_t msg)
-        {
-            i = (msg & ~MIDI_PORT_NUM_MASK) | port;
-        }
+    if (port <= MIDI_PORT_USB4)
+	{
+	    display(dbg_midi_send,"sendMidiMessageUSB(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x) = 0x%08x",what,port,type,channel,p1,p2,msg.i);
+		usb_midi_write_packed(msg.i);
+		usb_midi_flush_output();
+ 	}
+	else if (port <= MIDI_PORT_HOST2)
+	{
+	    display(dbg_midi_send,"sendMidiMessageHost(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x)",what,port,type,channel,p1,p2,msg.i);
+		midi_host.write_packed(msg.i);
+	}
+	else // port == MIDI_PORT_SERIAL
+    {
+	    display(dbg_midi_send,"sendMidiMessageSerial(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x)",what,port,type,channel,p1,p2,msg.i);
+	    Serial3.write(msg.b,4);
+	}
 
-        msgUnion(uint8_t port, uint8_t type, uint8_t channel, uint8_t p1, uint8_t p2)
-        {
-            b[0] = type | port;
-            b[1] = (type<<4) | (channel - 1);
-            b[2] = p1;
-            b[3] = p2;
-        }
+	// then we set our port into the msg, and pass it to
+	// enqueueMidi as output for monitoring display
 
-		void setPort(uint8_t port)
-		{
-            i = (i & ~MIDI_PORT_NUM_MASK) | port;
-		}
-
-        inline uint8_t port()              { return i & MIDI_PORT_NUM_MASK; }
-		inline bool    isUSB()			   { return port() <= MIDI_PORT_USB4; }
-        inline bool    isHost()            { return port() >= MIDI_PORT_HOST1 && port() <= MIDI_PORT_HOST2; }
-        inline bool    isSerial()          { return port() == MIDI_PORT_SERIAL; }
-
-        inline uint8_t portEnum()     	   { return (i & MIDI_PORT_NUM_MASK) >> 4; }
-        inline uint8_t type()              { return i & 0x0f; }
-        inline uint8_t channel()           { return (b[1] & 0xf) + 1; }
-
-        inline uint8_t param1()            { return b[2]; }
-        inline uint8_t param2()            { return b[3]; }
-
-        bool isActiveSense()        { return (i & 0xff0f) == 0xfe0f; }
-
-    union {
-        uint32_t i;
-        uint8_t b[4];
-    };
-};
-
-
-
-
-static void monitor_msg(bool output, msgUnion &msg)
-{
+	msg.setOutput();
+	msg.setPort(port);
+	enqueueMidi(msg);
 }
+
+
+void sendMidiProgramChange(uint8_t port, uint8_t channel, uint8_t prog_num)
+{
+    sendMidiMessage("programChange", port, MIDI_TYPE_PGM_CHG, channel, prog_num, 0);	// 0x0c
+}
+
+void sendMidiControlChange(uint8_t port, uint8_t channel, uint8_t cc_num, uint8_t value)
+{
+    sendMidiMessage("controlChange", port, MIDI_TYPE_CC, channel, cc_num, value);	// 0x0b
+}
+
+
+bool sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val, bool wait)
+{
+    display(dbg_ftp+1,"sendFTPCommandAndValue(0x%02x, %02x,%02x) wait=%d",ftp_port,cmd,val,wait);
+
+	// I send a single command pair to the HOST1 port
+	// and get replies from both HOST1 and HOST2.
+	// Since HOST1 typically finishes first, that's the
+	// one that gets used to set FTP values.
+
+	#define FTP_TIMEOUT    6000
+
+	proc_entry();
+	pending_command = cmd;
+	pending_command_value = val;
+	sendMidiControlChange(ftp_port, 8, FTP_COMMAND_OR_REPLY, cmd);
+	sendMidiControlChange(ftp_port, 8, FTP_COMMAND_VALUE, 	val);
+
+	bool ok = 1;
+	if (wait)
+	{
+		uint32_t start = millis();
+		while (pending_command && millis() - start < FTP_TIMEOUT)
+		{
+			delay(1);
+		}
+		if (pending_command)
+		{
+			ok = 0;
+			my_error("FTP TIMEOUT waiting for pending_command(0x%04x)",pending_command);
+		}
+	}
+	proc_leave();
+	return ok;
+}
+
+
+//----------------------------------------------------------------
+// Enqueuing
+//----------------------------------------------------------------
+
+void enqueueMidi(msgUnion &msg)
+{
+	display(dbg_queue + 1,"_enqueueMidi(0x%08x)",msg.i);
+
+	// Set the activity bit for the message
+
+	the_system.midiActivity(msg.activityIndex());
+
+	// Rig machine uses a port mask quick return if the port doesn't match
+
+	if (msg.type() == MIDI_TYPE_CC)
+	{
+		rig_machine.onMidiCC(msg);
+	}
+
+	// determine whether to enqueue it for processing
+
+	bool enqueue_it = false;
+
+	uint8_t ftp_port = FTP_ACTIVE_PORT;
+	if (ftp_port && msg.port() == ftp_port)
+	{
+		enqueue_it = 1;
+	}
+	else if (prefs.MIDI_MONITOR)
+	{
+		int p = msg.portEnum();
+		enqueue_it = msg.isOutput() ?
+			prefs.MONITOR_OUTPUT[p] :
+			prefs.MONITOR_INPUT[p];
+		enqueue_it = enqueue_it &&
+			prefs.MONITOR_CHANNEL[msg.channel()-1];
+	}
+
+	if (enqueue_it)
+	{
+		display(dbg_queue,"_enqueueMidi(0x%08x)",msg.i);
+		__disable_irq();
+		midi_queue[queue_head++] = msg.i;
+		if (queue_head == MAX_QUEUE)
+			queue_head = 0;
+		if (queue_head == queue_tail)
+			my_error("enqueueProcess() overflow at %d",queue_head);
+		__enable_irq();
+	}
+}
+
+
+void enqueueMidi(bool output, uint8_t port, uint32_t msg32)
+	// from theSystem::timer_handler() for usb or
+	// midiHost::rx_data() for host
+{
+	msgUnion msg(port,msg32);
+	if (output) msg.setOutput();
+	enqueueMidi(msg);
+}
+
+// extern
+void enqueueMidi(bool output, uint8_t port, const uint8_t *bytes)
+	// from theSystem::handleSerialData()
+{
+	msgUnion msg(port,
+		(bytes[0] & 0x0f),
+		(bytes[1] & 0x0f) + 1,
+		bytes[2],
+		bytes[3]);
+	if (output) msg.setOutput();
+	enqueueMidi(msg);
+}
+
+
+
+
+//-------------------------------------------------------------
+// deQueue messages and Handle FTP
+//-------------------------------------------------------------
 
 
 static void handleFTP(msgUnion &msg)
@@ -240,145 +356,31 @@ static void handleFTP(msgUnion &msg)
 
 
 
-
-static void enqueueMidi(msgUnion &msg)
+static void _processMessage(uint32_t msg32)
 {
-	display(dbg_queue,"enqueueMidi(0x%08x)",msg.i);
+	msgUnion msg(msg32);
+
+	display(dbg_queue,"processMessage(0x%08x)",msg32);
+
 	uint8_t ftp_port = FTP_ACTIVE_PORT;
 	if (ftp_port && msg.port() == ftp_port)
 	{
 		handleFTP(msg);
 	}
-
-	// this is ok so far, because we are not enqueueing output midi,
-	// however, it may be interesting to let programs listen to their
-	// own pedals and rotaries
-
-	if (msg.type() == MIDI_TYPE_CC)
-	{
-		rig_machine.onMidiCC(
-	 		msg.portEnum(),
-			msg.channel(),
-			msg.param1(),
-			msg.param2());
-	}
 }
 
 
-
-// extern
-void enqueueMidi(uint8_t port, uint32_t msg32)
-	// from theSystem::timer_handler() for usb or
-	// midiHost::rx_data() for host
+void dequeueMidi()
 {
-	msgUnion msg(port,msg32);
-	enqueueMidi(msg);
-}
-
-// extern
-void enqueueMidi(uint8_t port, const uint8_t *bytes)
-	// from theSystem::handleSerialData()
-{
-	msgUnion msg(port,
-		(bytes[0] & 0x0f),
-		(bytes[1] & 0x0f) + 1,
-		bytes[2],
-		bytes[3]);
-	enqueueMidi(msg);
-}
-
-
-
-//-------------------------------------
-// immediate sends as device (cable0)
-//-------------------------------------
-
-static void sendMidiMessage(const char *what, uint8_t port, uint8_t type, uint8_t channel, uint8_t p1, uint8_t p2)
-{
-    if (channel < 1 || channel > 16)
+    uint32_t msg32 = 0;
+    while (queue_tail != queue_head)
     {
-        my_error("sendMidiMessage(%s) channel(%d) must be between 1 and 16",what,channel);
-        return;
-    }
-
-	// we first create a msgUnion to actually send to the correct subport of the 3 devices
-
-	uint8_t use_port =
-		(port <= MIDI_PORT_USB4) ? port :
-		(port <= MIDI_PORT_HOST2) ? port - MIDI_PORT_HOST1 : 0;
-	msgUnion msg(use_port, type, channel, p1, p2);
-
-    if (port <= MIDI_PORT_USB4)
-	{
-	    display(dbg_midi_send,"sendMidiMessageUSB(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x) = 0x%08x",what,port,type,channel,p1,p2,msg.i);
-		usb_midi_write_packed(msg.i);
-		usb_midi_flush_output();
- 	}
-	else if (port <= MIDI_PORT_HOST2)
-	{
-	    display(dbg_midi_send,"sendMidiMessageHost(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x)",what,port,type,channel,p1,p2,msg.i);
-		midi_host.write_packed(msg.i);
+        msg32 = midi_queue[queue_tail++];
+        if (queue_tail == MAX_QUEUE)
+            queue_tail = 0;
+		if (msg32)
+			_processMessage(msg32);
 	}
-	else // port == MIDI_PORT_SERIAL
-    {
-	    display(dbg_midi_send,"sendMidiMessageSerial(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x)",what,port,type,channel,p1,p2,msg.i);
-	    Serial3.write(msg.b,4);
-	}
-
-	// then we set our port into the msg, and pass it to
-	// enqueueMidi as output for monitoring display
-
-	msg.setPort(port);
-	monitor_msg(1, msg);
 }
-
-
-
-void sendMidiProgramChange(uint8_t port, uint8_t channel, uint8_t prog_num)
-{
-    sendMidiMessage("programChange", port, MIDI_TYPE_PGM_CHG, channel, prog_num, 0);	// 0x0c
-}
-
-void sendMidiControlChange(uint8_t port, uint8_t channel, uint8_t cc_num, uint8_t value)
-{
-    sendMidiMessage("controlChange", port, MIDI_TYPE_CC, channel, cc_num, value);	// 0x0b
-}
-
-
-bool sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val, bool wait)
-{
-    display(dbg_ftp+1,"sendFTPCommandAndValue(0x%02x, %02x,%02x) wait=%d",ftp_port,cmd,val,wait);
-
-	// I send a single command pair to the HOST1 port
-	// and get replies from both HOST1 and HOST2.
-	// Since HOST1 typically finishes first, that's the
-	// one that gets used to set FTP values.
-
-	#define FTP_TIMEOUT    6000
-
-	proc_entry();
-	pending_command = cmd;
-	pending_command_value = val;
-	sendMidiControlChange(ftp_port, 8, FTP_COMMAND_OR_REPLY, cmd);
-	sendMidiControlChange(ftp_port, 8, FTP_COMMAND_VALUE, 	val);
-
-	bool ok = 1;
-	if (wait)
-	{
-		uint32_t start = millis();
-		while (pending_command && millis() - start < FTP_TIMEOUT)
-		{
-			delay(1);
-		}
-		if (pending_command)
-		{
-			ok = 0;
-			my_error("FTP TIMEOUT waiting for pending_command(0x%04x)",pending_command);
-		}
-	}
-	proc_leave();
-	return ok;
-}
-
 
 
