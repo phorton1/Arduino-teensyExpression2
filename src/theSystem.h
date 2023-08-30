@@ -17,6 +17,7 @@ extern int_rect pedal_rect;                 // the area containing the pedals - 
 extern int_rect client_rect;                // area available to rigs - under title to top of pedals
 
 
+
 class theSystem
 {
     public:
@@ -30,7 +31,7 @@ class theSystem
         void setTitle(const char *title);
         void onButton(int row, int col, int event);
 
-        inline void midiActivity(int port_num) { m_midi_activity[port_num]=millis(); }
+        inline void midiActivity(int act_num) { m_midi_activity[act_num] = millis(); }
 
     private:
 
@@ -42,8 +43,8 @@ class theSystem
         IntervalTimer m_timer;
         static void timer_handler();
 
-        uint32_t m_midi_activity[NUM_MIDI_PORTS];
-        bool m_last_midi_activity[NUM_MIDI_PORTS];
+        uint32_t m_midi_activity[NUM_ACTIVITY_INDICATORS];
+        bool m_last_midi_activity[NUM_ACTIVITY_INDICATORS];
 
         void handleSerialData();
 };

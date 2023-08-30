@@ -27,7 +27,7 @@
 	// show receieved usb and serial midi  bytes
 
 
-#define MIDI_ACTIVITY_TIMEOUT 			90
+#define MIDI_ACTIVITY_TIMEOUT 			150
 #define BATTERY_CHECK_TIME  			30000
 #define UI_UPDATE_INTERVAL				30			// 33 frames per second
 
@@ -70,7 +70,7 @@
 
 #define INDICATOR_Y      	 	20
 #define INDICATOR_RADIUS  	  	5
-#define INDICATOR_X 			280
+#define INDICATOR_X 			320
 #define INDICATOR_PAIR_SPACING  40
 #define INDICATOR_SPACING    	15
 
@@ -117,7 +117,7 @@ void theSystem::begin()
 {
 	display(dbg_sys,"theSystem::begin()",0);
 
-	for (int i=0; i<NUM_MIDI_PORTS; i++)
+	for (int i=0; i<NUM_ACTIVITY_INDICATORS; i++)
 	{
 		m_midi_activity[i] = millis();
 		m_last_midi_activity[i] = 0;
@@ -179,18 +179,18 @@ void theSystem::onButton(int row, int col, int event)
 // static
 void theSystem::timer_handler()
 {
-	uint32_t msg = usb_midi_read_message();  // read from device
-	if (msg)
+	uint32_t msg32 = usb_midi_read_message();  // read from device
+	if (msg32)
 	{
 		#if WITH_MIDI_HOST
-			midi_host.write_packed(msg);
+			midi_host.write_packed(msg32);
 		#endif
 
 		int save_proc_level = proc_level;
 		proc_level = 1;
-		display(dbg_midi,"usb:    0x%08x",msg);
+		display(dbg_midi,"usb:    0x%08x",msg32);
 		proc_level = 2;
-		enqueueMidi(msg & MIDI_PORT_NUM_MASK, msg);
+		enqueueMidi(false, msg32 & MIDI_PORT_NUM_MASK, msg32);
 		proc_level = save_proc_level;
 	}
 
@@ -322,7 +322,7 @@ void theSystem::handleSerialData()
 		uint8_t *p = (uint8_t *) static_serial_buffer;
 		display(dbg_midi,"serial: 0x%02x%02x%02x%02x",p[3],p[2],p[1],p[0]);
 		proc_level = 2;
-		enqueueMidi(MIDI_PORT_SERIAL,p);
+		enqueueMidi(false, MIDI_PORT_SERIAL,p);
 		proc_level = save_proc_level;
 	}
 	else if (finished)
@@ -359,6 +359,8 @@ void theSystem::handleSerialData()
 void theSystem::loop()
 	//  called from Arduino loop()
 {
+	dequeueMidi();
+
 	// basics
 
     theButtons.task();
@@ -473,7 +475,7 @@ void theSystem::loop()
 		// midi indicator frames
 
         mylcd.setDrawColor(TFT_WHITE);
-		for (int i=0; i<NUM_MIDI_PORTS; i++)
+		for (int i=0; i<NUM_ACTIVITY_INDICATORS; i++)
 		{
 			mylcd.fillCircle(
 				INDICATOR_X + (i/2)*INDICATOR_PAIR_SPACING + (i&1)*INDICATOR_SPACING,
@@ -545,37 +547,26 @@ void theSystem::loop()
 
 
 	// MIDI INDICATORS (always if changed)
-	// remap from by output-cable  Di0,Di1,Do0,Do1,Hi0,Hi1,Ho0,Ho1
-	// to by cable-output:         Di0,Do0, Di1,Do1,  Hi0,Ho0, Hi1,Ho1
 
 	uint32_t now = millis();
-	for (int cable_pair=0; cable_pair<NUM_MIDI_PORTS/2; cable_pair++)
+	for (int i=0; i<NUM_ACTIVITY_INDICATORS; i++)
 	{
-		for (int out=0; out<2; out++)
+		bool midi_on =
+			now > m_midi_activity[i] &&
+			now < m_midi_activity[i] + MIDI_ACTIVITY_TIMEOUT;
+
+		if (draw_title_frame ||  midi_on != m_last_midi_activity[i])
 		{
-			#define INDEX_MASK_HOST     0x04
-			#define INDEX_MASK_OUTPUT   0x02
-			#define INDEX_MASK_CABLE    0x01
+			m_last_midi_activity[i] = midi_on;
+			int color = midi_on ?
+				(i & 1) ? TFT_RED : TFT_GREEN :
+				TFT_BLACK;
 
-			int i = ((cable_pair<<1)&INDEX_MASK_HOST) + (out*INDEX_MASK_OUTPUT) + (cable_pair&1);
-
-			bool midi_on =
-				now > m_midi_activity[i] &&
-				now < m_midi_activity[i] + MIDI_ACTIVITY_TIMEOUT;
-
-			if (draw_title_frame ||  midi_on != m_last_midi_activity[i])
-			{
-				m_last_midi_activity[i] = midi_on;
-				int color = midi_on ?
-					out ? TFT_RED : TFT_GREEN :
-					0;
-
-				mylcd.setDrawColor(color);
-				mylcd.fillCircle(
-					INDICATOR_X + cable_pair*INDICATOR_PAIR_SPACING + out*INDICATOR_SPACING,
-					INDICATOR_Y,
-					INDICATOR_RADIUS);
-			}
+			mylcd.setDrawColor(color);
+			mylcd.fillCircle(
+				INDICATOR_X + (i/2)*INDICATOR_PAIR_SPACING + (i&1)*INDICATOR_SPACING,
+				INDICATOR_Y,
+				INDICATOR_RADIUS);
 		}
 	}
 

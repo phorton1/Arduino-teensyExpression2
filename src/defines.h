@@ -55,8 +55,8 @@ extern void mem_check(const char *where = 0);
 	// The special value of 0 is only available for Listens, which means
 	// to listen on any channel.
 
-
-
+#define NUM_ACTIVITY_INDICATORS		6
+	// these are paira for any USB, any HOST, and the SERIAL port.
 
 
 
