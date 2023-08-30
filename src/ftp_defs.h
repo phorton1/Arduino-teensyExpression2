@@ -72,7 +72,7 @@
 //  |      |  3D  |  from -0x40 to 0x40        | Tuning           |    whih is the most recent NoteOn or NoteOff message.
 //  |      |      |  (-64 to 64)               |                  | Tuning then updates that value until the note is turned off
 //  |      |      |  from controller only      |                  | We maintain a list of active note_t's and my UI can check the
-//  |      |      |                            |                  |    "tuning_note" global pointer to see if there is one, and if so,
+//  |      |      |                            |                  |    "ftp_tuning_note" global pointer to see if there is one, and if so,
 //  |      |      |                            |                  |    the tuning values (note and +/-) to display.
 //  +======================================================================================================================================
 

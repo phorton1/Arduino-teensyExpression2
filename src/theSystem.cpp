@@ -89,6 +89,7 @@ int_rect pedal_rect(0,235,479,319);			// 89 high, starting at 230
 // virtual
 void sysWindow::endWindow(uint32_t param)
 {
+	display(dbg_win,"sysWindow::endWindow(%s,0x%08x)",name(),param);
 	the_system.endWindow(this,param);
 }
 
@@ -96,11 +97,11 @@ void sysWindow::endWindow(uint32_t param)
 void sysWindow::begin(bool cold)
 	// windows are responsible for setting the system button
 {
+	display(dbg_win,"sysWindow::begin(%s,%d)",name(),cold);
+	theButtons.clear();
 	fillRect(m_flags & WIN_FLAG_SHOW_PEDALS ?
 		client_rect : full_client_rect,
 		TFT_BLACK);
-	for (int i=0; i<NUM_BUTTONS; i++)
-		theButtons.setButtonType(i,0);
 }
 
 
@@ -172,7 +173,6 @@ void theSystem::begin()
 // static
 void theSystem::timer_handler()
 {
-    theButtons.task();
 	thePedals.task();
 	pollRotary();
 
@@ -395,7 +395,7 @@ void theSystem::swapWindow(sysWindow *win, uint32_t param)
 	}
 	sysWindow *old = getTopWindow();
 	old->end();
-	m_window_stack[m_num_windows++] = win;
+	m_window_stack[m_num_windows-1] = win;
 	win->begin(true);
 }
 
@@ -405,7 +405,7 @@ void theSystem::endWindow(sysWindow *cur, uint32_t param)
 	// as windows typically end themselves.  It *could*
 	// eventually be used to exit known subwindows.
 {
-	display(dbg_win,"endWindow(%s,0x%08x)",cur->name(),param);
+	display(dbg_win,"theSystem::endWindow(%s,0x%08x)",cur->name(),param);
 	if (!m_num_windows)
 	{
 		my_error("WINDOW STACK UNDERFLOW!!!",0);
@@ -468,6 +468,12 @@ void theSystem::onButton(int row, int col, int event)
 void theSystem::loop()
 	//  called from Arduino loop()
 {
+    theButtons.task();
+		// cannot be called from timer_handler()
+		// because buttons can change colors and/or
+		// bump the window number, and we don't want to
+		// be in the middle of a rigMachine button update
+		// at that point.
 
 	initQueryFTP();
 		// query the FTP battery level on a timer

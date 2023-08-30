@@ -348,21 +348,21 @@ static void _handleFTP(msgUnion &msg)
 		{
 			if (p1 == FTP_SET_TUNING)   // 0x1D
 			{
-				display_level(dbg_ftp_notes,2,"FTP(%d) tuning_note1 = most_recent_note",pindex);
-				tuning_note = most_recent_note;
+				display_level(dbg_ftp_notes,2,"FTP(%d) tuning_note1 = ftp_cur_note",pindex);
+				ftp_tuning_note = ftp_cur_note;
 			}
-			else if (!tuning_note)
+			else if (!ftp_tuning_note)
 			{
-				display_level(dbg_ftp_notes,2,"FTP(%d) tuning_note2 = most_recent_note",pindex);
-				tuning_note = most_recent_note;
+				display_level(dbg_ftp_notes,2,"FTP(%d) tuning_note2 = ftp_cur_note",pindex);
+				ftp_tuning_note = ftp_cur_note;
 			}
 
 			// 0x00 = -40,  0x40 == 0, 0x80 == +40
 			int tuning = ((int) p2) - 0x40;      // 40 == 0,  0==-
-			if (tuning_note)
+			if (ftp_tuning_note)
 			{
-				display_level(dbg_ftp_notes,2,"FTP(%d) tuning_note->tuning = %d",pindex,tuning);
-				tuning_note->tuning = tuning;
+				display_level(dbg_ftp_notes,2,"FTP(%d) ftp_tuning_note->tuning = %d",pindex,tuning);
+				ftp_tuning_note->tuning = tuning;
 			}
 		}
 		else if (p1 == FTP_COMMAND_OR_REPLY)

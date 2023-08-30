@@ -1,11 +1,9 @@
 //-------------------------------------------------
 // winFtpTuner.h
 //-------------------------------------------------
-
 #pragma once
 
 #include "theSystem.h"
-
 
 
 class winFtpTuner : public sysWindow
@@ -14,11 +12,10 @@ class winFtpTuner : public sysWindow
 
         winFtpTuner();
 
-        void setSwapModal(bool b)   { m_swap_modal = b; }
-
     private:
 
-        virtual const char *name() override { return "FTP Tuner"; }
+        virtual const char *name() override      { return "FTP Tuner"; }
+        virtual const char *shortName() override { return "FTP Tuner"; }
 
         virtual void end() override;
         virtual void begin(bool warm) override;
@@ -27,9 +24,8 @@ class winFtpTuner : public sysWindow
 
         // implementation
 
-        bool m_swap_modal;
         bool m_draw_needed;
-        int  m_string_pressed[6];
+        int  m_string_pressed[NUM_FTP_STRINGS];
         int  m_tuner_note;
         int  m_tuner_value;
 
@@ -40,7 +36,7 @@ class winFtpTuner : public sysWindow
 };
 
 
-extern winFtpTuner ftp_tuner;
+extern winFtpTuner win_ftp_tuner;
 
 
 // end of winFtpTuner.h

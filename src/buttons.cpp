@@ -75,7 +75,10 @@ void buttonArray::begin()
 void buttonArray::clear()
 {
     for (int num=0; num<NUM_BUTTONS; num++)
+	{
 		m_buttons[num].init();
+		setLED(num,LED_BLACK);
+	}
 }
 
 
@@ -94,7 +97,7 @@ void buttonArray::showButton(int num)
 	// forces a button to show the correct color before an event
 {
     uint32_t use_color = (m_buttons[num].m_state & BUTTON_STATE_WHITE) ? LED_WHITE : m_buttons[num].m_color;
-	display(dbg_btn+1,"showButton(%d, color=0x%06x, use_color=0x%06x)",num,m_buttons[num].m_color,use_color);
+	display(dbg_btn,"showButton(%d, color=0x%06x, use_color=0x%06x)",num,m_buttons[num].m_color,use_color);
 	setLED(num,use_color);
 	showLEDs(1);	// force
 }
@@ -246,8 +249,12 @@ void buttonArray::task()
 				pb->m_state & BUTTON_STATE_WHITE ? LED_WHITE :
 				pb->m_blink && !blink_state ? LED_BLACK :
 				pb->m_color;
+
 			if (getLED(num) != use_color)
+			{
+				// warning(0,"setLED(%d,0x%06x) state=0x%04x color=0x%06x",num,use_color,pb->m_state,pb->m_color);
 				setLED(num,use_color);
+			}
 
         }   // for each col
 

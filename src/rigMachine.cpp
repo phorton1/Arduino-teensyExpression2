@@ -19,6 +19,7 @@
 #include "pedals.h"
 #include "rotary.h"
 #include "winFtpTuner.h"
+#include "winFtpSensitivity.h"
 
 
 #define dbg_rig 	0
@@ -723,12 +724,15 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 			case RIG_TOKEN_NOTE_ON:
 			case RIG_TOKEN_NOTE_OFF:
 			case RIG_TOKEN_ALL_NOTES_OFF:
-			case RIG_TOKEN_FTP_SENSITIVITY:
 				break;
 
+			case RIG_TOKEN_FTP_SENSITIVITY:
+				display(dbg_calls,"ftpSensitivity()",0);
+				the_system.startWindow(&win_ftp_sensitivity);
+				break;
 			case RIG_TOKEN_FTP_TUNER:
 				display(dbg_calls,"ftpTuner()",0);
-				the_system.startWindow(&ftp_tuner);
+				the_system.startWindow(&win_ftp_tuner);
 				break;
 
 			case RIG_TOKEN_LOAD_RIG:

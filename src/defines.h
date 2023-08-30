@@ -19,7 +19,6 @@ extern void mem_check(const char *where = 0);
 
 #define THE_SYSTEM_BUTTON   4
 
-
 #define NUM_PEDALS          4
 #define NUM_ROTARY          4
 
@@ -65,6 +64,11 @@ extern void mem_check(const char *where = 0);
 #define ACTIVITY_INDICATOR_HOST_OUT		3
 #define ACTIVITY_INDICATOR_USB_IN		4
 #define ACTIVITY_INDICATOR_USB_OUT		5
+
+
+// FTP
+
+#define NUM_FTP_STRINGS   6
 
 
 //----------------------------------------------------------------------

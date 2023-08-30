@@ -7,13 +7,13 @@
 #define dbg_init  0
 
 
-note_t *first_note = 0;
-note_t *last_note = 0;
-note_t *most_recent_note = 0;
-note_t *tuning_note = 0;
+note_t *ftp_first_note = 0;
+note_t *ftp_last_note = 0;
+note_t *ftp_cur_note = 0;
+note_t *ftp_tuning_note = 0;
 
 int ftp_battery_level = -1;
-int ftp_sensitivity[NUM_STRINGS] = {-1,-1,-1,-1,-1,-1};
+int ftp_sensitivity[NUM_FTP_STRINGS] = {-1,-1,-1,-1,-1,-1};
 int ftp_poly_mode = 1;
 int ftp_bend_mode = 0;
 int	ftp_dynamic_range = -1;     // range 10..20, default 20
@@ -85,17 +85,17 @@ note_t *addNote(uint8_t val, uint8_t vel, uint8_t string, uint8_t vel2)
     note->next = 0;
 
     __disable_irq();
-    if (!first_note)
-        first_note = note;
-    if (last_note)
+    if (!ftp_first_note)
+        ftp_first_note = note;
+    if (ftp_last_note)
     {
-        last_note->next = note;
-        note->prev = last_note;
+        ftp_last_note->next = note;
+        note->prev = ftp_last_note;
     }
     else
         note->prev = 0;
-    last_note = note;
-    most_recent_note = note;
+    ftp_last_note = note;
+    ftp_cur_note = note;
     __enable_irq();
 
     return note;
@@ -107,7 +107,7 @@ note_t *addNote(uint8_t val, uint8_t vel, uint8_t string, uint8_t vel2)
 void deleteNote(uint8_t string)
 {
     __disable_irq();
-    note_t *note = first_note;
+    note_t *note = ftp_first_note;
     while (note && note->string != string)
     {
         note = note->next;
@@ -118,16 +118,16 @@ void deleteNote(uint8_t string)
             note->prev->next = note->next;
         if (note->next)
             note->next->prev = note->prev;
-        if (note == first_note)
-            first_note = note->next;
-        if (note == last_note)
-            last_note = note->prev;
+        if (note == ftp_first_note)
+            ftp_first_note = note->next;
+        if (note == ftp_last_note)
+            ftp_last_note = note->prev;
 
-        if (note == most_recent_note)
-            most_recent_note = 0;
+        if (note == ftp_cur_note)
+            ftp_cur_note = 0;
 
-        if (note == tuning_note)
-            tuning_note = 0;
+        if (note == ftp_tuning_note)
+            ftp_tuning_note = 0;
     }
     else
     {
@@ -393,7 +393,7 @@ void initQueryFTP()
 		ftp_init_state = 1;
         display(dbg_init,"INITIALIZING FTP",0);
 
-        for (int i=0; i<NUM_STRINGS; i++)
+        for (int i=0; i<NUM_FTP_STRINGS; i++)
         {
             sendFTPCommandAndValue(ftp_port,FTP_CMD_GET_SENSITIVITY, i);
         }

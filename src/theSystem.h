@@ -37,7 +37,8 @@ class sysWindow
         virtual ~sysWindow()        {}
 
         virtual const char *name() = 0;
-        virtual uint32_t getId()    { return 0; }
+        virtual const char *shortName() { return ""; }
+        virtual uint32_t getId()        { return 0; }
 
     protected:
 

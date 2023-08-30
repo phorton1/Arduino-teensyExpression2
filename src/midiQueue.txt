@@ -143,21 +143,21 @@ static void handleFTP(msgUnion &msg)
 		{
 			if (p1 == FTP_SET_TUNING)   // 0x1D
 			{
-				display(dbg_ftp,"FTP tuning_note1 = most_recent_note",0);
-				tuning_note = most_recent_note;
+				display(dbg_ftp,"FTP tuning_note1 = ftp_cur_note",0);
+				ftp_tuning_note = ftp_cur_note;
 			}
-			else if (!tuning_note)
+			else if (!ftp_tuning_note)
 			{
-				display(dbg_ftp,"FTP tuning_note2 = most_recent_note",0);
-				tuning_note = most_recent_note;
+				display(dbg_ftp,"FTP tuning_note2 = ftp_cur_note",0);
+				ftp_tuning_note = ftp_cur_note;
 			}
 
 			// 0x00 = -40,  0x40 == 0, 0x80 == +40
 			int tuning = ((int) p2) - 0x40;      // 40 == 0,  0==-
-			if (tuning_note)
+			if (ftp_tuning_note)
 			{
-				display(dbg_ftp,"FTP tuning_note->tuning = %d",tuning);
-				tuning_note->tuning = tuning;
+				display(dbg_ftp,"FTP ftp_tuning_note->tuning = %d",tuning);
+				ftp_tuning_note->tuning = tuning;
 			}
 		}
 		else if (p1 == FTP_COMMAND_OR_REPLY)
@@ -1009,22 +1009,22 @@ void _processMessage(uint32_t i)
                 if (p1 == FTP_SET_TUNING)   // 0x1D
                 {
                     s = "SetTuning";
-                    tuning_note = most_recent_note;
-                    color = tuning_note ? ansi_color_light_red : ansi_color_light_blue;
+                    ftp_tuning_note = ftp_cur_note;
+                    color = ftp_tuning_note ? ansi_color_light_red : ansi_color_light_blue;
                 }
-                else    // I am going to assume that if there is no tuning_note here, we inherit the most_recent_note, if any
+                else    // I am going to assume that if there is no ftp_tuning_note here, we inherit the ftp_cur_note, if any
                 {
-                    if (!tuning_note)
-                        tuning_note = most_recent_note;
-                    color = tuning_note ? ansi_color_light_grey : ansi_color_yellow;
+                    if (!ftp_tuning_note)
+                        ftp_tuning_note = ftp_cur_note;
+                    color = ftp_tuning_note ? ansi_color_light_grey : ansi_color_yellow;
                         // yellow indicates a tuning message without a corresponding tuning note
                         // or even a most_recent one to inherit from
                 }
 
                 // 0x00 = -40,  0x40 == 0, 0x80 == +40
                 int tuning = ((int) p2) - 0x40;      // 40 == 0,  0==-
-                if (tuning_note)
-                    tuning_note->tuning = tuning;
+                if (ftp_tuning_note)
+                    ftp_tuning_note->tuning = tuning;
                 if (show_it)
                     sprintf(buf2,"tuning=%d",tuning);
 

@@ -1,11 +1,9 @@
 #pragma once
 
-#include <Arduino.h>
+#include "defines.h"
 
 // This module keeps track of the FTP state (as determined by the stuff in midiQueue.cpp
 // The tuner, fretboard display, and sensitivy VU are driven off these values.
-
-#define NUM_STRINGS 6
 
 
 typedef struct noteStruct
@@ -28,10 +26,10 @@ typedef struct noteStruct
 
 // maintained state
 
-extern note_t *first_note;
-extern note_t *last_note;
-extern note_t *most_recent_note;
-extern note_t *tuning_note;
+extern note_t *ftp_first_note;
+extern note_t *ftp_last_note;
+extern note_t *ftp_cur_note;
+extern note_t *ftp_tuning_note;
 
 // the battery level is read only
 //
@@ -45,7 +43,7 @@ extern float getFTPBatteryPct();
 
 // stored on controller
 
-extern int  ftp_sensitivity[NUM_STRINGS];            // all must be !- -1 or we are not initialized
+extern int  ftp_sensitivity[NUM_FTP_STRINGS];            // all must be !- -1 or we are not initialized
 
 // stored in EEPROM (separate from preferences)
 // In this code I treat these as global settings.
