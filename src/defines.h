@@ -59,42 +59,6 @@ extern void mem_check(const char *where = 0);
 	// these are paira for any USB, any HOST, and the SERIAL port.
 
 
-
-
-#if 0	// obsolete stuff
-
-    #define BUTTON_NUM(r,c)    ((r) * NUM_BUTTON_COLS + (c))
-    #define BUTTON_ROW(i)      ((i) / NUM_BUTTON_COLS)
-    #define BUTTON_COL(i)      ((i) % NUM_BUTTON_COLS)
-
-    #define PEDAL_SYNTH     0
-    #define PEDAL_LOOP      1
-    #define PEDAL_WAH       2
-    #define PEDAL_GUITAR    3
-
-    #define LOOPER_NUM_TRACKS_TIMES_LAYERS    (LOOPER_NUM_TRACKS * LOOPER_NUM_LAYERS)
-
-    typedef struct
-        // structure common to New and Old rig patches
-    {
-        int prog_num;
-        const char *short_name;         // SHOULD BE 6 CHARS OR LESS
-        const char *long_name;          // NOT USED IN NEW RIG
-        bool mono_mode;                 // NOT USED IN OLD RIG
-    }   synthPatch_t;
-
-    // common buttons
-
-    #define BUTTON_MOVE_UP          12
-    #define BUTTON_MOVE_LEFT        16
-    #define BUTTON_MOVE_RIGHT       18
-    #define BUTTON_MOVE_DOWN        22
-    #define BUTTON_SELECT           17
-
-#endif
-
-
-
 //----------------------------------------------------------------------
 // PIN USAGE
 //----------------------------------------------------------------------
@@ -227,7 +191,7 @@ extern void mem_check(const char *where = 0);
 
 #else		// old rotary perf board
 
-	// these definitions work with the old teensyExpression
+	// these definitions work with the old rotary perf board
 
 								// pin 1 3V on 3rd connector facing
 	#define ROTARY_1B   12      // pin 2   // was 4
@@ -364,6 +328,40 @@ public:
     int xe;
     int ye;
 };
+
+
+#if 0	// obsolete stuff
+
+    #define BUTTON_NUM(r,c)    ((r) * NUM_BUTTON_COLS + (c))
+    #define BUTTON_ROW(i)      ((i) / NUM_BUTTON_COLS)
+    #define BUTTON_COL(i)      ((i) % NUM_BUTTON_COLS)
+
+    #define PEDAL_SYNTH     0
+    #define PEDAL_LOOP      1
+    #define PEDAL_WAH       2
+    #define PEDAL_GUITAR    3
+
+    #define LOOPER_NUM_TRACKS_TIMES_LAYERS    (LOOPER_NUM_TRACKS * LOOPER_NUM_LAYERS)
+
+    typedef struct
+        // structure common to New and Old rig patches
+    {
+        int prog_num;
+        const char *short_name;         // SHOULD BE 6 CHARS OR LESS
+        const char *long_name;          // NOT USED IN NEW RIG
+        bool mono_mode;                 // NOT USED IN OLD RIG
+    }   synthPatch_t;
+
+    // common buttons
+
+    #define BUTTON_MOVE_UP          12
+    #define BUTTON_MOVE_LEFT        16
+    #define BUTTON_MOVE_RIGHT       18
+    #define BUTTON_MOVE_DOWN        22
+    #define BUTTON_SELECT           17
+
+#endif
+
 
 
 // end of defines.h
