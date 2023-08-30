@@ -117,9 +117,6 @@ char static_timestamp[32];
 
     void printDirectory(myFileType_t dir, int numTabs = 0)
     {
-		int save_proc_level = proc_level;
-		proc_level = numTabs + 1;
-
         while(true)
         {
             myFileType_t entry = dir.openNextFile();
@@ -135,11 +132,11 @@ char static_timestamp[32];
                 my_error("Could not get dir_entry for %s",filename);
                 return;
             }
-            display(dbg_print_dir,"    cdate(%d) ctime(%d) c10ths(%d)",
+            display_level(dbg_print_dir,numTabs + 1,"    cdate(%d) ctime(%d) c10ths(%d)",
                 dir_entry.creationDate,dir_entry.creationTime,dir_entry.creationTimeTenths);
-            display(dbg_print_dir,"    adate(%d) wdate(%d) wtime(%d)",
+            display_level(dbg_print_dir,numTabs + 1,"    adate(%d) wdate(%d) wtime(%d)",
                 dir_entry.lastAccessDate,dir_entry.lastWriteDate,dir_entry.lastWriteTime);
-            display(dbg_print_dir,"    attr(0x%02x), size(%d)",
+            display_level(dbg_print_dir,,numTabs + 1"    attr(0x%02x), size(%d)",
                 dir_entry.attributes,dir_entry.fileSize);
 
             uint16_t year = FAT_YEAR(dir_entry.creationDate);
@@ -180,7 +177,7 @@ char static_timestamp[32];
             }
             else
             {
-                display(0,"%-32s%s%-08d  %s",
+                display_level(0,numTabs + 1,"%-32s%s%-08d  %s",
                     filename,
 					tab_buf,
                     entry.size(),
@@ -189,8 +186,6 @@ char static_timestamp[32];
 
             entry.close();
         }
-
-		proc_level = save_proc_level;
      }
 #endif  // LIST_DIRECTORY_AT_STARTUP
 

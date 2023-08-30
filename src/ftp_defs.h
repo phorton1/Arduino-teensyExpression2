@@ -1,5 +1,9 @@
 #pragma once
 
+#define FTP_CONTROL_CHANNEL		8
+	// ftp commands must be sent to channel 8
+	// the other channels are for performance stuff
+
 // "CC" vslues (psram1)
 
 #define FTP_NOTE_INFO           0x1E

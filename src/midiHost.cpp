@@ -1,19 +1,14 @@
 //-----------------------------------------
 // midiHost.cpp
 //-----------------------------------------
-// whole file is not compiled if !WITH_MIDI_HOST
-
 #include "midiHost.h"
-#if WITH_MIDI_HOST
-
 #include <myDebug.h>
 #include "midiQueue.h"
 #include "theSystem.h"
 
-#define dbg_midi  1
-    // show host: messages as they come in
 
-// #define HOST_CABLE_BIT  0x80
+#define dbg_raw_midi  1
+    // show host: messages as they come in
 
 
 USBHost myusb;
@@ -46,17 +41,14 @@ void midiHost::rx_data(const Transfer_t *transfer)
 
                 if (msg32 !=  0x0000fe1f)     // for now
                 {
-                    int save_proc_level = proc_level;
-                    proc_level = 1;
-                    display(dbg_midi,"host:  0x%08x",msg32);
-                    proc_level = 2;
+                    if (dbg_raw_midi <= 0)
+                        display_level(dbg_raw_midi,0,"host:  0x%08x",msg32);
 
                     // port comes in as 0x00 or 0x10
                     // we bump it to MIDI_PORT_HOST1 = 0x40 or
                     // MIDI_PORT_HOST2 = 0x50;
 
                     enqueueMidi(false, MIDI_PORT_HOST1 | (msg32 & MIDI_PORT_NUM_MASK), msg32);
-                    proc_level = save_proc_level;
                 }
             }
         }
@@ -113,7 +105,3 @@ void midiHost::rx_data(const Transfer_t *transfer)
         return 1;   // flush the usb_midi buffer
     }
 #endif
-
-
-
-#endif  // WITH_MIDI_HOST

@@ -814,7 +814,7 @@ void rigMachine::onButton(int row, int col, int event)
 
 	int num = row * NUM_BUTTON_COLS + col;
 
-	display(dbg_rig,"onButton(%d) 0x%04x proc_level=%d",num,event,proc_level);
+	display(dbg_rig,"onButton(%d) 0x%04x",num,event);
 	proc_entry();
 
 	const rig_t *context;

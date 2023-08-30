@@ -1,32 +1,25 @@
 //--------------------------------------------
 // midiHost.h
 //--------------------------------------------
-// empty if !WITH_MIDI_HOST
 
 #pragma once
 
-#include "defines.h"
+#include <Arduino.h>
+#include <USBHost_t36.h>
 
-#if WITH_MIDI_HOST
+class midiHost : public MIDIDevice
+    // requires slightly modified USBHost_t36.h
+{
+    public:
 
-    #include <Arduino.h>
-    #include <USBHost_t36.h>
+        midiHost(USBHost &host) : MIDIDevice(host)  {}
 
-    class midiHost : public MIDIDevice
-        // requires slightly modified USBHost_t36.h
-    {
-        public:
+        void init();
 
-            midiHost(USBHost &host) : MIDIDevice(host)  {}
+        virtual void rx_data(const Transfer_t *transfer) override;
+            // virtual override to handle USB irq,
+            // write packet to teensyDuino device,
+            // and enqueue packet for processing
+};
 
-            void init();
-
-            virtual void rx_data(const Transfer_t *transfer) override;
-                // virtual override to handle USB irq,
-                // write packet to teensyDuino device,
-                // and enqueue packet for processing
-    };
-
-    extern midiHost midi_host;
-
-#endif  // WITH_MIDI_HOST
+extern midiHost midi_host;

@@ -13,44 +13,47 @@
 
 
 #define dbg_midi_send  0
-#define dbg_queue	   0
-#define dbg_ftp		   -1
+#define dbg_queue	   1
+#define dbg_ftp		   0
 	// 0 = show set values
 	// =1 = show sendFTPCommandAndValue()
 
 
-#define MAX_QUEUE       8192
+#define MAX_QUEUE       	8192
+#define MAX_OUTGOING_QUEUE  1024
+#define FTP_RETRY_TIME		100
+#define FTP_RETRY_COUNT		10
+
+
 #define MAX_SYSEX       1024
 
 
 //---------------------------------------
 // vars
 //---------------------------------------
+// the midi queue
 
-static int queue_head = 0;
-static int queue_tail = 0;
+static int queue_head;
+static int queue_tail;
 static uint32_t midi_queue[MAX_QUEUE];
 
+// For generally handling two part COMMAND and REPLY sequences
 
-// Stuff for handling FTP ...
-// although the command and reply scheme *may* be general
+static uint8_t last_command[NUM_MIDI_PORTS * 2];
 
-static uint8_t last_command[NUM_MIDI_PORTS * 2]  = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    // as we are processing messages, we keep track of the most recent
-    // B7 1F XX "FTP_COMMAND_OR_REPLY" (XX) that was processed, (i.e.
-	// 07 == FTP_CMD_BATTERY_LEVEL), so that when we get the
-	// B7 3F YY "FTP_COMMAND_VALUE" message we know what YY is.
+// For handling asynchrounous COMMAND/REPLY conversation with the FTP
 
-static uint8_t pending_command        = 0;
-static uint8_t pending_command_value  = 0;
-// static int command_retry_count         = 0;
-// static elapsedMillis command_time      = 0;
-    // These four variables are used to implement an asynychronous command
-    // and reply conversation with the FTP with retries and timeouts.
-	// When we send a command and value, we save them here, and in processing,
-    // (if and) when the FTP replies with the correct command reply and
-	// subsequent value, we know the message was received, and so we can
-	// clear the pending command and allow another to be sent.
+
+static uint8_t  pending_command;
+static uint8_t  pending_command_value;
+static int 		command_retry_count;
+static uint32_t command_time;
+
+static int 		outgoing_head;
+static int 		outgoing_tail;
+static uint16_t outgoing_queue[MAX_OUTGOING_QUEUE];
+
+// For handling FTP notes
 
 static uint8_t most_recent_note_val = 0;
 static uint8_t most_recent_note_vel = 0;
@@ -76,22 +79,23 @@ static void sendMidiMessage(const char *what, uint8_t port, uint8_t type, uint8_
 	uint8_t use_port =
 		(port <= MIDI_PORT_USB4) ? port :
 		(port <= MIDI_PORT_HOST2) ? port - MIDI_PORT_HOST1 : 0;
+	// use_port >>= 4;
 	msgUnion msg(use_port, type, channel, p1, p2);
 
     if (port <= MIDI_PORT_USB4)
 	{
-	    display(dbg_midi_send,"sendMidiMessageUSB(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x) = 0x%08x",what,port,type,channel,p1,p2,msg.i);
+	    display_level(dbg_midi_send,1,"sendMidiMessageUSB(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x) = 0x%08x use_port=0x%02x",what,port,type,channel,p1,p2,msg.i,use_port);
 		usb_midi_write_packed(msg.i);
 		usb_midi_flush_output();
  	}
 	else if (port <= MIDI_PORT_HOST2)
 	{
-	    display(dbg_midi_send,"sendMidiMessageHost(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x)",what,port,type,channel,p1,p2,msg.i);
+	    display_level(dbg_midi_send,1,"sendMidiMessageHost(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x) = 0x%08x use_port=0x%02x",what,port,type,channel,p1,p2,msg.i,use_port);
 		midi_host.write_packed(msg.i);
 	}
 	else // port == MIDI_PORT_SERIAL
     {
-	    display(dbg_midi_send,"sendMidiMessageSerial(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x)",what,port,type,channel,p1,p2,msg.i);
+	    display_level(dbg_midi_send,1,"sendMidiMessageSerial(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x) = 0x%08x use_port=0x%02x",what,port,type,channel,p1,p2,msg.i,use_port);
 	    Serial3.write(msg.b,4);
 	}
 
@@ -115,40 +119,89 @@ void sendMidiControlChange(uint8_t port, uint8_t channel, uint8_t cc_num, uint8_
 }
 
 
-bool sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val, bool wait)
+
+
+//-------------------------------------
+// outgoing Message Processing
+//-------------------------------------
+
+void sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val)
+	// merely enquees the 16 bit command and value
 {
-    display(dbg_ftp+1,"sendFTPCommandAndValue(0x%02x, %02x,%02x) wait=%d",ftp_port,cmd,val,wait);
+    display_level(dbg_ftp+1,0,"sendFTPCommandAndValue(0x%02x, 0x%02x,0x%02x)",ftp_port,cmd,val);
+	uint16_t cmd_and_val = (cmd << 8) | val;
 
-	// I send a single command pair to the HOST1 port
-	// and get replies from both HOST1 and HOST2.
-	// Since HOST1 typically finishes first, that's the
-	// one that gets used to set FTP values.
-
-	#define FTP_TIMEOUT    6000
-
-	proc_entry();
-	pending_command = cmd;
-	pending_command_value = val;
-	sendMidiControlChange(ftp_port, 8, FTP_COMMAND_OR_REPLY, cmd);
-	sendMidiControlChange(ftp_port, 8, FTP_COMMAND_VALUE, 	val);
-
-	bool ok = 1;
-	if (wait)
-	{
-		uint32_t start = millis();
-		while (pending_command && millis() - start < FTP_TIMEOUT)
-		{
-			delay(1);
-		}
-		if (pending_command)
-		{
-			ok = 0;
-			my_error("FTP TIMEOUT waiting for pending_command(0x%04x)",pending_command);
-		}
-	}
-	proc_leave();
-	return ok;
+    // __disable_irq();
+    outgoing_queue[outgoing_head++] = cmd_and_val;
+    if (outgoing_head == MAX_OUTGOING_QUEUE)
+        outgoing_head = 0;
+    if (outgoing_head == outgoing_tail)
+        my_error("outgoing_queue overflow at %d",outgoing_head);
+    // __enable_irq();
 }
+
+
+static uint16_t _dequeueOutgoing()
+{
+    int cmd_and_val = 0;
+    if (outgoing_tail != outgoing_head)
+    {
+        cmd_and_val = outgoing_queue[outgoing_tail++];
+        if (outgoing_tail == MAX_OUTGOING_QUEUE)
+            outgoing_tail = 0;
+    }
+    return cmd_and_val;
+}
+
+
+static void _sendPendingCommand()
+	// only called if the global pending_command is set
+{
+	// shouldn't really get here without an active
+	// FTP port, but they *might* change the pref
+	// after the fire-and-forget
+
+    int ftp_port = FTP_ACTIVE_PORT;
+    if (ftp_port)
+    {
+		sendMidiControlChange(ftp_port,FTP_CONTROL_CHANNEL, FTP_COMMAND_OR_REPLY, pending_command);
+		sendMidiControlChange(ftp_port,FTP_CONTROL_CHANNEL, FTP_COMMAND_VALUE,    pending_command_value);
+	}
+    command_time = millis();
+}
+
+
+void _processOutgoing()
+{
+    // see if there's a command to dequue and send
+    // dequeue them even if we don't send them
+
+    if (!pending_command)
+    {
+		uint16_t cmd_and_val = _dequeueOutgoing();
+        if (cmd_and_val)
+        {
+			pending_command = cmd_and_val >> 8;
+            pending_command_value = cmd_and_val & 0xff;
+            display_level(dbg_ftp+1,0,"FTP send cmd(0x%02x) val(0x%02x)",pending_command,pending_command_value);
+            command_retry_count = 0;
+            _sendPendingCommand();
+        }
+    }
+    else if (command_retry_count > FTP_RETRY_COUNT)
+    {
+        my_error("FTP timed out sending cmd(0x%02x) val(0x%02x)",pending_command,pending_command_value);
+        command_retry_count = 0;
+        pending_command = 0;
+    }
+    else if (millis() - command_time > FTP_RETRY_TIME)
+    {
+        command_retry_count++;
+        display_level(dbg_ftp+1,0,"FTP resend(%d) cmd(0x%02x) val(0x%02x)",command_retry_count,pending_command,pending_command_value);
+        _sendPendingCommand();
+    }
+}
+
 
 
 //----------------------------------------------------------------
@@ -157,7 +210,7 @@ bool sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val, bool wai
 
 void enqueueMidi(msgUnion &msg)
 {
-	display(dbg_queue + 1,"_enqueueMidi(0x%08x)",msg.i);
+	display_level(dbg_queue+1,3,"_enqueueMidi(0x%08x)",msg.i);
 
 	// Set the activity bit for the message
 
@@ -191,7 +244,16 @@ void enqueueMidi(msgUnion &msg)
 
 	if (enqueue_it)
 	{
-		display(dbg_queue,"_enqueueMidi(0x%08x)",msg.i);
+		if (dbg_queue <= 0)
+			display_level(dbg_queue,4,"_enqueueMidi(0x%08x) out(%d) port(0x%02x) channel(%-2d) type(0x%02x) param1(0x%02x) param2(0x%02x)",
+				msg.i,
+				msg.isOutput(),
+				msg.portEnum(),
+				msg.channel(),
+				msg.type(),
+				msg.param1(),
+				msg.param2());
+
 		__disable_irq();
 		midi_queue[queue_head++] = msg.i;
 		if (queue_head == MAX_QUEUE)
@@ -233,16 +295,26 @@ void enqueueMidi(bool output, uint8_t port, const uint8_t *bytes)
 //-------------------------------------------------------------
 
 
-static void handleFTP(msgUnion &msg)
+static void _handleFTP(msgUnion &msg)
 {
 	uint8_t type = msg.type();
 	uint8_t pindex = msg.portEnum();
 	uint8_t p1 = msg.param1();
 	uint8_t p2 = msg.param2();
 
+	if (dbg_ftp <= 0)
+		display_level(dbg_queue,4,"_handleFTP  (0x%08x) out(%d) port(0x%02x) channel(%-2d) type(0x%02x) param1(0x%02x) param2(0x%02x)",
+			msg.i,
+			msg.isOutput(),
+			pindex,
+			msg.channel(),
+			type,
+			p1,
+			p2);
+
 	if (type == MIDI_TYPE_NOTE_OFF || type == MIDI_TYPE_NOTE_ON)	// 0x08 or 0x09
 	{
-		display(dbg_ftp,"FTP(%d) note val=%-3d vel=%d",pindex,msg.b[2],msg.b[3]);
+		display_level(dbg_ftp,2,"FTP(%d) note val=%-3d vel=%d",pindex,msg.b[2],msg.b[3]);
 		most_recent_note_val = msg.b[2];
 		most_recent_note_vel = msg.b[3];
 	}
@@ -254,12 +326,12 @@ static void handleFTP(msgUnion &msg)
 			uint8_t vel = p2 & 0x0f;
 			if (most_recent_note_vel)
 			{
-				display(dbg_ftp,"FTP(%d) addNote(%d,%d,%d,%d)",pindex,most_recent_note_val,most_recent_note_vel,string,vel);
+				display_level(dbg_ftp,2,"FTP(%d) addNote(%d,%d,%d,%d)",pindex,most_recent_note_val,most_recent_note_vel,string,vel);
 				addNote(most_recent_note_val,most_recent_note_vel,string,vel);
 			}
 			else
 			{
-				display(dbg_ftp,"FTP(%d) deleteNote(%d)",pindex,string);
+				display_level(dbg_ftp,2,"FTP(%d) deleteNote(%d)",pindex,string);
 				deleteNote(string);
 			}
 			most_recent_note_vel = 0;
@@ -269,12 +341,12 @@ static void handleFTP(msgUnion &msg)
 		{
 			if (p1 == FTP_SET_TUNING)   // 0x1D
 			{
-				display(dbg_ftp,"FTP(%d) tuning_note1 = most_recent_note",pindex);
+				display_level(dbg_ftp,2,"FTP(%d) tuning_note1 = most_recent_note",pindex);
 				tuning_note = most_recent_note;
 			}
 			else if (!tuning_note)
 			{
-				display(dbg_ftp,"FTP(%d) tuning_note2 = most_recent_note",pindex);
+				display_level(dbg_ftp,2,"FTP(%d) tuning_note2 = most_recent_note",pindex);
 				tuning_note = most_recent_note;
 			}
 
@@ -282,7 +354,7 @@ static void handleFTP(msgUnion &msg)
 			int tuning = ((int) p2) - 0x40;      // 40 == 0,  0==-
 			if (tuning_note)
 			{
-				display(dbg_ftp,"FTP(%d) tuning_note->tuning = %d",pindex,tuning);
+				display_level(dbg_ftp,2,"FTP(%d) tuning_note->tuning = %d",pindex,tuning);
 				tuning_note->tuning = tuning;
 			}
 		}
@@ -297,24 +369,26 @@ static void handleFTP(msgUnion &msg)
 
 			if (command == FTP_CMD_POLY_MODE)
 			{
-				display(dbg_ftp,"FTP(%d) poly_mode = 0x%02x",pindex,p2);
+				display_level(dbg_ftp,2,"FTP(%d) poly_mode = 0x%02x",pindex,p2);
 				ftp_poly_mode = p2;
 			}
 			else if (command == FTP_CMD_PITCHBEND_MODE)
 			{
-				display(dbg_ftp,"FTP(%d) bend_mode = 0x%02x",pindex,p2);
+				display_level(dbg_ftp,2,"FTP(%d) bend_mode = 0x%02x",pindex,p2);
 				ftp_bend_mode = p2;
 			}
 			else if (command == FTP_CMD_BATTERY_LEVEL) // we can parse this one because it doesn't require extra knowledge
 			{
-				display(dbg_ftp,"FTP(%d) battery_level = 0x%02x",pindex,p2);
+				display_level(dbg_ftp,2,"FTP(%d) battery_level = 0x%02x",pindex,p2);
 				ftp_battery_level = p2;
 			}
 			else if (command == FTP_CMD_GET_SENSITIVITY)
 			{
+				// we double check that this is a response to our
+				// specific pending command !?!
 				if (pending_command == FTP_CMD_GET_SENSITIVITY)
 				{
-					display(dbg_ftp,"FTP(%d) sensitivity[%d] = 0x%02x",pindex,pending_command_value,p2);
+					display_level(dbg_ftp,2,"FTP(%d) sensitivity[%d] = 0x%02x",pindex,pending_command_value,p2);
 					ftp_sensitivity[pending_command_value] = p2;
 				}
 			}
@@ -322,22 +396,22 @@ static void handleFTP(msgUnion &msg)
 			{
 				int string = p2 >> 4;
 				int level  = p2 & 0xf;
-				display(dbg_ftp,"FTP(%d) sensitivity2[%d] = 0x%02x",pindex,string,level);
+				display_level(dbg_ftp,2,"FTP(%d) sensitivity2[%d] = 0x%02x",pindex,string,level);
 				ftp_sensitivity[string] = level;
 			}
 			else if (command == FTP_CMD_DYNAMICS_SENSITIVITY)
 			{
-				display(dbg_ftp,"FTP(%d) dynamic_range = 0x%02x",pindex,p2);
+				display_level(dbg_ftp,2,"FTP(%d) dynamic_range = 0x%02x",pindex,p2);
 				ftp_dynamic_range = p2;
 			}
 			else if (command == FTP_CMD_DYNAMICS_OFFSET)
 			{
-				display(dbg_ftp,"FTP(%d) dynamic_offset = 0x%02x",pindex,p2);
+				display_level(dbg_ftp,2,"FTP(%d) dynamic_offset = 0x%02x",pindex,p2);
 				ftp_dynamic_offset = p2;
 			}
 			else if (command == FTP_CMD_TOUCH_SENSITIVITY)
 			{
-				display(dbg_ftp,"FTP(%d) touch_sensitivity = 0x%02x",pindex,p2);
+				display_level(dbg_ftp,2,"FTP(%d) touch_sensitivity = 0x%02x",pindex,p2);
 				ftp_touch_sensitivity = p2;
 			}
 
@@ -346,7 +420,7 @@ static void handleFTP(msgUnion &msg)
 
 			if (command == pending_command)
 			{
-				display(dbg_ftp + 1,"FTP(%d) pending_command(0x%02x)=0",pindex,pending_command);
+				display_level(dbg_ftp+1,1,"FTP(%d) clearing pending_command(0x%02x)",pindex,pending_command);
 				pending_command = 0;
 			}
 
@@ -356,16 +430,29 @@ static void handleFTP(msgUnion &msg)
 
 
 
-static void _processMessage(uint32_t msg32)
+static void _processMsg(uint32_t msg32)
 {
 	msgUnion msg(msg32);
 
-	display(dbg_queue,"processMessage(0x%08x)",msg32);
+	if (dbg_queue <= 0)
+		display_level(dbg_queue,4,"_processMsg (0x%08x) out(%d) port(0x%02x) channel(%-2d) type(0x%02x) param1(0x%02x) param2(0x%02x)",
+			msg.i,
+			msg.isOutput(),
+			msg.portEnum(),
+			msg.channel(),
+			msg.type(),
+			msg.param1(),
+			msg.param2());
+
+	// I believe I cannot limit the checks to channel 8
+	// due to the fact that I want notes ...
 
 	uint8_t ftp_port = FTP_ACTIVE_PORT;
-	if (ftp_port && msg.port() == ftp_port)
+	if (ftp_port &&
+		msg.port() == ftp_port &&
+		!msg.isOutput())
 	{
-		handleFTP(msg);
+		_handleFTP(msg);
 	}
 }
 
@@ -379,8 +466,9 @@ void dequeueMidi()
         if (queue_tail == MAX_QUEUE)
             queue_tail = 0;
 		if (msg32)
-			_processMessage(msg32);
+			_processMsg(msg32);
 	}
+	_processOutgoing();
 }
 
 

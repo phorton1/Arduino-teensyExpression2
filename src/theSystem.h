@@ -41,7 +41,9 @@ class theSystem
         int last_battery_level;
 
         IntervalTimer m_timer;
+        IntervalTimer m_critical_timer;
         static void timer_handler();
+        static void critical_timer_handler();
 
         uint32_t m_midi_activity[NUM_ACTIVITY_INDICATORS];
         bool m_last_midi_activity[NUM_ACTIVITY_INDICATORS];

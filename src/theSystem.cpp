@@ -15,16 +15,14 @@
 #include "ftp.h"
 #include "rigMachine.h"
 #include "rigExpression.h"		// for EXP_MIDI_PORT_SERIAL
+#include "midiHost.h"
 
-#if WITH_MIDI_HOST
-	#include "midiHost.h"
-#endif
 
 
 #define dbg_sys   0
 	// show system startup, etc
-#define dbg_midi 1
-	// show receieved usb and serial midi  bytes
+#define dbg_raw_midi 1
+	// show receieved usb and serial midi
 
 
 #define MIDI_ACTIVITY_TIMEOUT 			150
@@ -33,29 +31,20 @@
 
 
 //----------------------------------
-// normal timer loop
+// Timers Setup
 //----------------------------------
-// The "normal" timer loop does the bulk of the work in the system.
-// It is used to
-//
-//      (a) check the BUTTONS, PEDALS, and ROTARY states and
-//          generate events based on their changes.
-//      (b) process incoming or outgoing MIDI as necessary
-//          to generate program related events based on them.
-//      (c) re-enqueue the incoming and outgoing (processed) MIDI
-//          messags for display.
-//      (d) used variously by other objects to implement key
-//          repeats, etc.
-// I have more or less determined that the timers don't start again
-//    until the handler has returned.
-// At some point the timers use so much resources that the rest of
-//    the system can become non functional.  The following values
-//    work.
 
-#define EXP_TIMER_INTERVAL 1000	// 5000
+#define EXP_TIMER_INTERVAL 5000
     // 5000 us = 5 ms == 200 times per second
-#define EXP_TIMER_PRIORITY  192	// 240                     // lowest priority
+#define EXP_TIMER_PRIORITY  240                     // lowest priority
     // compared to default priority of 128
+
+#define EXP_CRITICAL_TIMER_INTERVAL 1000
+	// 1000 us = 1 ms = 1000 times per second
+#define EXP_CRITICAL_TIMER_PRIORITY  192
+    // Available priorities:
+    // Cortex-M4: 0,16,32,48,64,80,96,112,128,144,160,176,192,208,224,240
+    // Cortex-M0: 0,64,128,192
 
 
 //----------------------------------------
@@ -129,6 +118,8 @@ void theSystem::begin()
 
     m_timer.priority(EXP_TIMER_PRIORITY);
     m_timer.begin(timer_handler,EXP_TIMER_INTERVAL);
+    m_critical_timer.priority(EXP_CRITICAL_TIMER_PRIORITY);
+    m_critical_timer.begin(critical_timer_handler,EXP_CRITICAL_TIMER_INTERVAL);
 
 	if (!fileSystem::init())
 	{
@@ -149,28 +140,6 @@ void theSystem::begin()
 
 
 
-//-----------------------------------------
-// events
-//-----------------------------------------
-
-void theSystem::onButton(int row, int col, int event)
-{
-	int num = row * NUM_BUTTON_COLS + col;
-	if (num == THE_SYSTEM_BUTTON && event == BUTTON_EVENT_LONG_CLICK)
-	{
-		if (rig_machine.loadRig("default"))
-		{
-			draw_pedals = 1;
-		}
-	}
-	else
-	{
-		rig_machine.onButton(row,col,event);
-	}
-
-}
-
-
 
 //-----------------------------------------
 // timer handlers
@@ -179,22 +148,39 @@ void theSystem::onButton(int row, int col, int event)
 // static
 void theSystem::timer_handler()
 {
+    theButtons.task();
+	thePedals.task();
+	pollRotary();
+
+	the_system.handleSerialData();
+
+	dequeueMidi();
+}
+
+
+// static
+void theSystem::critical_timer_handler()
+{
 	uint32_t msg32 = usb_midi_read_message();  // read from device
 	if (msg32)
 	{
-		#if WITH_MIDI_HOST
+		if (dbg_raw_midi <= 0)
+			display_level(dbg_raw_midi,0,"usb:    0x%08x",msg32);
+
+		// We only write through to the midi host if spoof FTP
+		// in which case we also manually diddle the indicator
+
+		if (prefs.SPOOF_FTP)
+		{
 			midi_host.write_packed(msg32);
-		#endif
+			the_system.midiActivity(ACTIVITY_INDICATOR_HOST_IN);
+		}
 
-		int save_proc_level = proc_level;
-		proc_level = 1;
-		display(dbg_midi,"usb:    0x%08x",msg32);
-		proc_level = 2;
+		// (possibly) enqueue the message from the USB port
+
 		enqueueMidi(false, msg32 & MIDI_PORT_NUM_MASK, msg32);
-		proc_level = save_proc_level;
-	}
 
-	the_system.handleSerialData();
+	}
 }
 
 
@@ -317,13 +303,13 @@ void theSystem::handleSerialData()
 	}
 	else if (is_midi)		// is_midi invariantly sets finished
 	{
-		int save_proc_level = proc_level;
-		proc_level = 1;
 		uint8_t *p = (uint8_t *) static_serial_buffer;
-		display(dbg_midi,"serial: 0x%02x%02x%02x%02x",p[3],p[2],p[1],p[0]);
-		proc_level = 2;
+
+		if (dbg_raw_midi <= 0)
+			display_level(dbg_raw_midi,0,"serial: 0x%02x%02x%02x%02x",p[3],p[2],p[1],p[0]);
+
 		enqueueMidi(false, MIDI_PORT_SERIAL,p);
-		proc_level = save_proc_level;
+
 	}
 	else if (finished)
 	{
@@ -350,6 +336,27 @@ void theSystem::handleSerialData()
 
 
 
+//-----------------------------------------
+// events
+//-----------------------------------------
+
+void theSystem::onButton(int row, int col, int event)
+{
+	int num = row * NUM_BUTTON_COLS + col;
+	if (num == THE_SYSTEM_BUTTON && event == BUTTON_EVENT_LONG_CLICK)
+	{
+		if (rig_machine.loadRig("default"))
+		{
+			draw_pedals = 1;
+		}
+	}
+	else
+	{
+		rig_machine.onButton(row,col,event);
+	}
+
+}
+
 
 //--------------------------------------
 // loop()
@@ -359,13 +366,6 @@ void theSystem::handleSerialData()
 void theSystem::loop()
 	//  called from Arduino loop()
 {
-	dequeueMidi();
-
-	// basics
-
-    theButtons.task();
-	thePedals.task();
-	pollRotary();
 
 	initQueryFTP();
 		// query the FTP battery level on a timer
@@ -488,8 +488,7 @@ void theSystem::loop()
 	// battery indicator frame and value
 	//----------------------------------------
 
-	if (draw_title_frame ||
-		last_battery_level != ftp_battery_level)
+	if (draw_title_frame || last_battery_level != ftp_battery_level)
 	{
 		//  battery indicator frame
 
@@ -518,7 +517,6 @@ void theSystem::loop()
 
 		float pct = getFTPBatteryPct();
 		int color = ftp_battery_level == -1 ? TFT_LIGHTGREY : (pct <= .15 ? TFT_RED : TFT_DARKGREEN);
-
 
 		// display(0,"battery_level=%d   pct=%0.2f",ftp_battery_level,pct);
 

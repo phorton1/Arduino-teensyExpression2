@@ -64,11 +64,16 @@ class msgUnion
 			int p = port();
 			bool o = isOutput();
 			return p <= MIDI_PORT_USB3 ?
-					o ? 5 : 4 :
+					o ? ACTIVITY_INDICATOR_USB_OUT :
+						ACTIVITY_INDICATOR_USB_IN :
 				p <= MIDI_PORT_HOST2 ?
-					o ? 3 : 2 :
-				o ? 1 : 0;
+					o ? ACTIVITY_INDICATOR_HOST_OUT :
+						ACTIVITY_INDICATOR_HOST_IN :
+				o ? ACTIVITY_INDICATOR_SERIAL_OUT :
+					ACTIVITY_INDICATOR_SERIAL_IN;
 		}
+
+	// data
 
     union {
         uint32_t i;
@@ -96,7 +101,8 @@ extern void dequeueMidi();
 extern void sendMidiSysex(uint8_t port, int length, const uint8_t *buf);
 extern void sendMidiProgramChange(uint8_t port, uint8_t channel, uint8_t prog_num);
 extern void sendMidiControlChange(uint8_t port, uint8_t channel, uint8_t cc_num, uint8_t value);
-extern bool sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val, bool wait = 1);
+
+extern void sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val);
 
 
 // end of midiQueue.h

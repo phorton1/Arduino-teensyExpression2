@@ -9,15 +9,12 @@
 #include "src/myLeds.h"
 #include "src/theSystem.h"
 #include "src/fileSystem.h"
+#include "src/midiHost.h"
 
-#if WITH_MIDI_HOST
-    #include "src/midiHost.h"
-#endif
 
 // Uses slightly modified _usbDev.c that allows me to defer
 // usb_init() call until I am ready, and _usbNames.c that
 // works to allow overrides of teensy USB descriptors.
-
 
 extern "C" {
     extern void my_usb_init();          // in usb_dev.c
@@ -35,7 +32,7 @@ void setup()
     prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
     prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
     prefs.FTP_PORT = 2; // 0; // 2;     // enum
-    // nprefs.SPOOF_FTP = 1;    // on
+    // prefs.SPOOF_FTP = 1;    // on
 
     // save_prefs();
 
@@ -251,11 +248,8 @@ void setup()
     display(0,"initializing system ...",0);
     the_system.begin();
 
-
-    #if WITH_MIDI_HOST
-        display(0,"initilizing midiHost",0);
-        midi_host.init();
-    #endif
+    display(0,"initilizing midiHost",0);
+    midi_host.init();
 
     display(0,"teensyExpression.ino setup() completed.",0);
     // mem_check("at end of setup()");

@@ -9,8 +9,6 @@
 
 #define TEENSY_EXPRESSION_VERSION  "v2.0"
 
-#define WITH_MIDI_HOST      1
-
 extern void mem_check(const char *where = 0);
 
 // basics
@@ -55,8 +53,17 @@ extern void mem_check(const char *where = 0);
 	// The special value of 0 is only available for Listens, which means
 	// to listen on any channel.
 
+// Activity indicators
+
 #define NUM_ACTIVITY_INDICATORS		6
 	// these are paira for any USB, any HOST, and the SERIAL port.
+
+#define ACTIVITY_INDICATOR_SERIAL_IN    0
+#define ACTIVITY_INDICATOR_SERIAL_OUT   1
+#define ACTIVITY_INDICATOR_HOST_IN		2
+#define ACTIVITY_INDICATOR_HOST_OUT		3
+#define ACTIVITY_INDICATOR_USB_IN		4
+#define ACTIVITY_INDICATOR_USB_OUT		5
 
 
 //----------------------------------------------------------------------
