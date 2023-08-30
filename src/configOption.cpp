@@ -20,7 +20,6 @@ const char *off_on[]                  = {"Off","On"};
 const char *off_usb_serial[]          = {"Off","USB","Serial"};
 const char *off_usb_host[]            = {"Off","USB","Host"};
 const char *off_on_detail[]           = {"Off","On","Detail"};
-const char *off_in_out_both[]		  = {"Off", "IN", "OUT", "Both" };
 
 const char *curve_types[]             = {"linear","asympt","scurve"};
 	// not currently used here, will be needed in configPedal() dialog
@@ -77,13 +76,20 @@ D_SUB_MENU(	d_midi_opts,		"MIDI Monitor",	&d_root);
 D_ENUM(		d_midi_monitor,		"Monitor",		&d_midi_opts,	MIDI_MONITOR,			off_usb_serial );
 
 D_SUB_MENU(	d_midi_ports,		"Ports",		&d_midi_opts);
-D_ENUM(		d_mon_usb1,			"USB1",			&d_midi_ports,	MONITOR_PORT[0],	off_in_out_both );
-D_ENUM(		d_mon_usb2,			"USB2",			&d_midi_ports,	MONITOR_PORT[1],	off_in_out_both );
-D_ENUM(		d_mon_usb3,			"USB3",			&d_midi_ports,	MONITOR_PORT[2],	off_in_out_both );
-D_ENUM(		d_mon_usb4,			"USB4",			&d_midi_ports,	MONITOR_PORT[3],	off_in_out_both );
-D_ENUM(		d_mon_host1,		"HOST1",		&d_midi_ports,	MONITOR_PORT[4],	off_in_out_both );
-D_ENUM(		d_mon_host,			"HOST2",		&d_midi_ports,	MONITOR_PORT[5],	off_in_out_both );
-D_ENUM(		d_mon_serial,		"SERIAL",		&d_midi_ports,	MONITOR_PORT[5],	off_in_out_both );
+D_ENUM(		d_mon_usb1_in,		"USB1 in",		&d_midi_ports,	MONITOR_INPUT [0],	off_on );
+D_ENUM(		d_mon_usb1_out,		"USB1 out",		&d_midi_ports,	MONITOR_OUTPUT[0],	off_on );
+D_ENUM(		d_mon_usb2_in,		"USB2 in",		&d_midi_ports,	MONITOR_INPUT [1],	off_on );
+D_ENUM(		d_mon_usb2_out,		"USB2 out",		&d_midi_ports,	MONITOR_OUTPUT[1],	off_on );
+D_ENUM(		d_mon_usb3_in,		"USB3 in",		&d_midi_ports,	MONITOR_INPUT [2],	off_on );
+D_ENUM(		d_mon_usb3_out,		"USB3 out",		&d_midi_ports,	MONITOR_OUTPUT[2],	off_on );
+D_ENUM(		d_mon_usb4_in,		"USB4 in",		&d_midi_ports,	MONITOR_INPUT [3],	off_on );
+D_ENUM(		d_mon_usb4_out,		"USB4 out",		&d_midi_ports,	MONITOR_OUTPUT[3],	off_on );
+D_ENUM(		d_mon_host1_in,		"HOST1 in",		&d_midi_ports,	MONITOR_INPUT [4],	off_on );
+D_ENUM(		d_mon_host1_out,	"HOST1 out",	&d_midi_ports,	MONITOR_OUTPUT[4],	off_on );
+D_ENUM(		d_mon_host2_in,		"HOST2 in",		&d_midi_ports,	MONITOR_INPUT [5],	off_on );
+D_ENUM(		d_mon_host2_out,	"HOST2 out",	&d_midi_ports,	MONITOR_OUTPUT[5],	off_on );
+D_ENUM(		d_mon_serial_in,	"SERIAL in",	&d_midi_ports,	MONITOR_INPUT [6],	off_on );
+D_ENUM(		d_mon_serial_out,	"SERIAL out",	&d_midi_ports,	MONITOR_OUTPUT[6],	off_on );
 
 D_SUB_MENU(	d_midi_chans,		"Channels",		&d_midi_opts);
 D_ENUM(		d_mon_ch1,			"Channel 1",	&d_midi_chans,	MONITOR_CHANNEL[0],		off_on );
@@ -157,14 +163,23 @@ const opt_desc_t all_opts[] =
 	d_pedal4,
 	d_midi_opts,
 	d_midi_monitor,
+
 	d_midi_ports,
-	d_mon_usb1,
-    d_mon_usb2,
-    d_mon_usb3,
-    d_mon_usb4,
-    d_mon_host1,
-    d_mon_host,
-    d_mon_serial,
+	d_mon_usb1_in,
+	d_mon_usb1_out,
+	d_mon_usb2_in,
+	d_mon_usb2_out,
+	d_mon_usb3_in,
+	d_mon_usb3_out,
+	d_mon_usb4_in,
+    d_mon_usb4_out,
+	d_mon_host1_in,
+	d_mon_host1_out,
+	d_mon_host2_in,
+	d_mon_host2_out,
+	d_mon_serial_in,
+	d_mon_serial_out,
+
 	d_midi_chans,
 	d_mon_ch1,
 	d_mon_ch2,
@@ -182,6 +197,7 @@ const opt_desc_t all_opts[] =
 	d_mon_ch14,
 	d_mon_ch15,
 	d_mon_ch16,
+
 	d_midi_evts,
 	d_mon_sysex,
 	d_mon_active_sense,

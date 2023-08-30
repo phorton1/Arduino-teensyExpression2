@@ -118,10 +118,10 @@ const prefs_t default_prefs =
 			},
 		},
 
-	.MIDI_MONITOR					= OUTPUT_DEVICE_OFF,	// off, USB, Serial - default(off)
-
-	.MONITOR_PORT = 				{ 3, 3, 3, 3, 3, 3, 3 },							// 7 ports      off, in, out, both
-	.MONITOR_CHANNEL =				{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },	// 16 channels, off, on - default(on)
+	.MIDI_MONITOR					= OUTPUT_DEVICE_SERIAL,		// OUTPUT_DEVICE_OFF		// off, USB, Serial
+	.MONITOR_INPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on
+	.MONITOR_OUTPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on
+	.MONITOR_CHANNEL 				= { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },	// 16 channels off, on
 
 	.MONITOR_SYSEX					= 1,	// off, on, Detail - default(on)
 	.MONITOR_ACTIVE_SENSE			= 0,	// off, on - default(off)
@@ -245,9 +245,10 @@ const prefs_t prefs_max =
 			},
 		},
 
-	.MIDI_MONITOR					= OUTPUT_DEVICE_SERIAL,	// off, USB, Serial - default(off)
-	.MONITOR_PORT 					= { 3, 3, 3, 3, 3, 3, 3 },								// 7 * off, in, out, both
-	.MONITOR_CHANNEL 				= { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },	// 16 * off/on
+	.MIDI_MONITOR					= OUTPUT_DEVICE_SERIAL,									// off, USB, Serial
+	.MONITOR_INPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on
+	.MONITOR_OUTPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on
+	.MONITOR_CHANNEL 				= { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },	// 16 channels off, on
 
 	.MONITOR_SYSEX					= 2,	// off, on, Detail - default(on)
 	.MONITOR_ACTIVE_SENSE			= 1,	// off, on - default(off)

@@ -27,7 +27,7 @@
 // PRH - should implement debug port following (off, DEBUG, USB, SERIAL)
 //	   for FILE_SYS_DEVICE and MIDI_MONITOR
 
-#define TEENSY_EXPRESSION2_PREF_VERSION   238
+#define TEENSY_EXPRESSION2_PREF_VERSION   239
 	// EEPROM location 0 is magic
 	// it is 237 for teensyExpression1
 	// and 238 for teensyExpression2
@@ -109,14 +109,16 @@ typedef struct
 	uint8_t			MIDI_MONITOR;    			// off, USB, Serial - default(off)
 
 	// whether to monitor specific ports
+	// these are turned into 7 bit masks for matching the ports in enqueMidi
 
-	uint8_t			MONITOR_PORT[NUM_MIDI_PORTS];		// off, in, out, both
+	uint8_t			MONITOR_INPUT[NUM_MIDI_PORTS];
+	uint8_t			MONITOR_OUTPUT[NUM_MIDI_PORTS];
 
-	// whether to monitor specific channels
+	// what channels to monitor on any monitored ports
 
-	uint8_t 		MONITOR_CHANNEL[MIDI_MAX_CHANNEL];		// off, on - default(on) for 16 channels
+	uint16_t 		MONITOR_CHANNEL[MIDI_MAX_CHANNEL];		// off, on - default(on) for 16 channels
 
-	// what to monitor
+	// what to monitor on any monitored ports and channels
 
 	uint8_t			MONITOR_SYSEX;          	// off, on, Detail - default(on)
 	uint8_t			MONITOR_ACTIVE_SENSE;    	// off, on - default(off)
@@ -129,7 +131,10 @@ typedef struct
 	uint8_t 		MONITOR_CCS;            	// off, on - default(off)
 	uint8_t			MONITOR_EVERYTHING_ELSE;	// off, on - default(off)
 
-	// FTP specific monitoring
+	// FTP specific monitoring only occurs on the designated FTP input and output port
+	// REGARDLESS of whether port/channel is specifically allowed.  Note that
+	// identified FTP patches are in Addition to the SYSEX that might
+	// be monitoried on that port/channel.
 
 	uint8_t			MONITOR_FTP;                	// off, on - default(off)
 	uint8_t			MONITOR_FTP_PATCHES;  			// off, on - default(off)
