@@ -10,6 +10,12 @@
 #define TEENSY_EXPRESSION_VERSION  "v2.0"
 
 extern void mem_check(const char *where = 0);
+	// in mem_check.cpp
+
+#define SERIAL_DEVICE	   Serial3
+	// the serial port to use for our 'Serial' device
+	// will be Serial2 on Teensy 4.1
+
 
 // basics
 
@@ -65,6 +71,13 @@ extern void mem_check(const char *where = 0);
 #define ACTIVITY_INDICATOR_USB_IN		4
 #define ACTIVITY_INDICATOR_USB_OUT		5
 
+
+// Midi
+
+#define MIDI_TYPE_NOTE_OFF		0x08
+#define MIDI_TYPE_NOTE_ON		0x09
+#define MIDI_TYPE_CC			0x0B
+#define MIDI_TYPE_PGM_CHG		0x0C
 
 // FTP
 

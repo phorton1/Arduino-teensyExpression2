@@ -100,7 +100,7 @@ extern const rig_t *parseRig(const char *rig_name);
 	// The main entry point.
 	// Allocates a temporary rig on the heap, and parses the rig.
 	// if that goes well, the rig is relocated and packed into the
-	// rig pool, and a pointer the rig is returned.
+	// rig pool, and a pointer to the rig is returned.
 
 
 //----------------------------------------
@@ -153,7 +153,7 @@ extern const rig_t *parseRig(const char *rig_name);
 //-----------------------------------------
 // There will space for at least TWO of these largest rigs,
 // 		in the statically allocated rig_pool.  Additionally,
-// 		one will be allocated on the heap during parsing.
+// 		there is a statically allocated max rig for parsing.
 // Because of the use of uint16_t offsets, a Rig is inherently limited to 64K.
 // Only BaseRigs contain Listens and Values
 //     	So, BY CONVENTION, The BaseRig and any child ModalRigs
@@ -164,19 +164,18 @@ extern const rig_t *parseRig(const char *rig_name);
 // Returning from a ModalRig resets all the buttons, with inheritance, correctly,
 //     	BUT Areas are not cleared (alhtough they are re-evaluated).
 //     	Therefore, Areas are not properly inherited and so, therefore
-//        	BY CONVENTION AREA SLOTS SHOULD NOT BE RE-USED and changed IN VARIOUS MODAL RIGS
-//     	in the underlying rig.
-// Overlays are MODAL and can be stacked upto 16 deep, limited by the
+//        	BY CONVENTION AREA SLOTS SHOULD NOT BE RE-USED and changed
+//          by children MODAL RIGS
+// ModalRigs can be stacked upto 16 deep, limited by the
 // 		space in the static rig_pool.
-// Strings, StatementLists, Statements and Expressions are stored in pools.
 // Rig Fonts can be of the following sizes and/or bold:
-// 	12, 14, 16, 18, 20, 24, 28, 32, 40, 48
-// Rigs are parsed onto the heap, and then relocated into the rig_pool
-//      releasing the heap memory, so the parsing guarentees that the
-//      rig can be as big as the below defines, but when it is relocated
-//      (and packed) into the rig pool, it may not fit, depending on the
+// 		12, 14, 16, 18, 20, 24, 28, 32, 40, 48
+// Rigs are parsed into a private statically allocated space, and then
+//      relocated into the rig_pool, so it is guaranteed that we parse a
+//      rig as big as the below defines, but when it is relocated
+//      into the rig pool, it may not fit, depending on the
 //      other rigs that have been previously loaded.
-// The rig_pool is large enough to hold two max'd out rigs.
+
 
 //----------------------------------------
 // memory map

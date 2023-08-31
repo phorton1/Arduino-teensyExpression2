@@ -31,7 +31,7 @@ void setup()
     reset_prefs();
     prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
     prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
-    prefs.FTP_PORT = 2; // 0; // 2;     // enum
+    prefs.FTP_PORT = 0; // 2;     // enum
     // prefs.SPOOF_FTP = 1;    // on
 
     // save_prefs();

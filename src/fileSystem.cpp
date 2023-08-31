@@ -547,7 +547,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 {
     // DIRECTORY LIST
 
-     display(dbg_tfs-1,"handleFileCommand %s - %s",command);
+     display(dbg_tfs-1,"handleFileCommand %s",command);
 
     if (!strcmp(command,"list"))
     {

@@ -361,7 +361,7 @@ int getRigToken()
             rig_token.char_num  = parse_char_num;
         }
 
-		if (dbg_low <= 0)
+		if (dbg_low <= 0 && dbgSerial)
 			dbgSerial->print(c);
 
         if (c == 10)
@@ -735,6 +735,8 @@ int getRigToken()
 	{
 		int tt = rig_token.id;
 		static bool write_colon_return = 0;
+		if (!dbgSerial)
+			return;
 
 		if (tt == RIG_TOKEN_EOF)
 		{

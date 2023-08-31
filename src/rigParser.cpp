@@ -27,9 +27,11 @@
 #define AREA_CLIENT_HEIGHT  (client_rect.ye - client_rect.ys + 1)
 
 
+static uint8_t parse_pool[MAX_RIG_SIZE];
+static rig_t *parse_rig = (rig_t *) parse_pool;
 
-static rig_t *parse_rig;
 static bool any_end_modal;
+
 static uint16_t rig_pool_len;
 static uint8_t  rig_pool[RIG_POOL_SIZE];
 static const rig_t *base_rig = (const rig_t *) rig_pool;
@@ -37,31 +39,22 @@ static const rig_t *base_rig = (const rig_t *) rig_pool;
 
 
 static void init_parse()
-	// currently there is a risk of heap fragmentation
-	// in ftp::addNote(), which is the only other thing
-	// in the system currently using the heap. There is
-	// enough RAM available that we could statically allowcate
-	// a parse buffer of MAX_RIG_SIZE (17K) without too much
-	// impact (there are about 150K free as of this writing)
 {
 	any_end_modal = 0;
 	rig_error_found = 0;	 // in rigToken.cpp
 
 	display(0,"MAX_RIG_SIZE = %d", MAX_RIG_SIZE);
 
-	uint8_t *bytes = new uint8_t[MAX_RIG_SIZE];
-	memset(bytes,0,MAX_RIG_SIZE);
-
-	parse_rig = (rig_t *) bytes;
+	memset(parse_pool,0,MAX_RIG_SIZE);
 
 	uint16_t offset = sizeof(rig_t);
-	parse_rig->define_pool = (char *) &bytes[offset];
+	parse_rig->define_pool = (char *) &parse_pool[offset];
 	offset += MAX_DEFINE_POOL;
-	parse_rig->string_pool = (char *) &bytes[offset];
+	parse_rig->string_pool = (char *) &parse_pool[offset];
 	offset += MAX_STRING_POOL;
-	parse_rig->statement_pool = &bytes[offset];
+	parse_rig->statement_pool = &parse_pool[offset];
 	offset += MAX_STATEMENT_POOL;
-	parse_rig->expression_pool = &bytes[offset];
+	parse_rig->expression_pool = &parse_pool[offset];
 }
 
 
@@ -81,12 +74,9 @@ static rig_t *relocate()
 		rig_size,
 		relocate_to);
 
-
 	if (relocate_to + rig_size >= RIG_POOL_SIZE)
 	{
 		rig_error("RIG(%d) to big to fit in remaining POOL(%d)",rig_size,RIG_POOL_SIZE-relocate_to);
-		free(parse_rig);
-		parse_rig = 0;
 		return 0;
 	}
 
@@ -111,9 +101,6 @@ static rig_t *relocate()
 	relocate_to += parse_rig->expression_pool_len;
 
 	rig_pool_len = relocate_to;
-
-	free(parse_rig);
-	parse_rig = 0;
 	return new_rig;
 }
 
@@ -1202,7 +1189,6 @@ const rig_t *parseRig(const char *rig_name)
 		}
 		else
 		{
-			free(parse_rig);
 			rig_error("There was an error parsing the rig!");
 		}
 

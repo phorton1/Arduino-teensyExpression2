@@ -31,9 +31,12 @@ static bool addExpByte(rig_t *rig, uint8_t byte)
 	}
 
 	#if SHOW_OUTPUT_BYTES
+	if (dbgSerial)
+	{
 		dbgSerial->print("{");
 		dbgSerial->print(byte,HEX);
 		dbgSerial->print("}");
+	}
 	#endif
 
 	uint8_t *pool = (uint8_t *) rig->expression_pool;

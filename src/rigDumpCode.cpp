@@ -9,6 +9,12 @@
 
 #define MAX_DUMP_BUF 255
 
+// limited macros to use dbgSerial if it is set
+
+#define dbgPrintln()		{if (dbgSerial) dbgSerial->println(); }
+#define dbgPrint(a)			{if (dbgSerial) dbgSerial->print(a); }
+
+
 static myFileType_t rig_file;
 
 static int print_level = 0;
@@ -25,7 +31,7 @@ static void displayIndent()
 }
 static void displayNum(const char *name,uint16_t value)
 {
-	dbgSerial->print("=");
+	dbgPrint("=");
 	displayIndent();
 	rig_file.print(name);
 	rig_file.print(" = ");
@@ -34,7 +40,7 @@ static void displayNum(const char *name,uint16_t value)
 }
 static void displayAssign(const char *name,const char *prefix)
 {
-	dbgSerial->print("<");
+	dbgPrint("<");
 	displayIndent();
 	rig_file.print(".");
 	rig_file.print(name);
@@ -46,7 +52,7 @@ static void displayAssign(const char *name,const char *prefix)
 }
 static void dumpDisplay(const char *line)
 {
-	dbgSerial->print(".");
+	dbgPrint(".");
 	displayIndent();
 	rig_file.println(line);
 }
@@ -73,7 +79,7 @@ static void dumpArray(
 	const void *ptr,
 	uint16_t num)
 {
-	dbgSerial->print("{");
+	dbgPrint("{");
 
 	displayIndent();
 
@@ -127,7 +133,7 @@ static void dumpArray(
 
 	while (offset < num && more)
 	{
-		dbgSerial->print(".");
+		dbgPrint(".");
 		if (how & DT_CHAR)
 		{
 			displayIndent();
@@ -194,7 +200,7 @@ static void dumpArray(
 	else
 		rig_file.println("},");
 
-	dbgSerial->print("}");
+	dbgPrint("}");
 }
 
 
@@ -284,7 +290,7 @@ void dumpRigCode(const rig_t *rig, const char *prefix)
 	rig_file.println();
 	rig_file.close();
 
-	dbgSerial->println();
+	dbgPrintln();
 	display(0,"dumpRigCode(%s) finished",filename);
 
 }

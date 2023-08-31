@@ -16,10 +16,9 @@
 
 class msgUnion
     // USB raw input ports map to mine, but HOST0,1
-    // are 4,5 on mine and SERIAL0 is 6,  The OUTPUT
+    // are 4,5 in my scheme and SERIAL0 is 6,  The OUTPUT
     // state is weirdly stored in the high order bit
-    // of the 3 byte (the first parameter).
-    //
+    // of the 3rd byte (the first parameter).
 {
     public:
 
@@ -92,7 +91,7 @@ extern void enqueueMidi(bool output, uint8_t port, const uint8_t *bytes);
 	// intended to be called from time-critical code.
 
 extern void dequeueMidi();
-    // dequeue Messages on UI thread.  if FTP is enabled, certain messagss
+    // dequeue Messages on different thread. if FTP is enabled, certain messagss
 	// will be checked for functional reasons and then possibly re-filtered
 	// for port/channel before monitoring.  Then any messages left will be
 	// filtered according to monitoring preferences for display, building

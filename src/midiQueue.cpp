@@ -7,7 +7,6 @@
 #include "ftp.h"
 #include "ftp_defs.h"
 #include "midiHost.h"
-#include "midiTypes.h"
 #include "rigMachine.h"
 #include "theSystem.h"
 
@@ -97,7 +96,7 @@ static void sendMidiMessage(const char *what, uint8_t port, uint8_t type, uint8_
 	else // port == MIDI_PORT_SERIAL
     {
 	    display_level(dbg_midi_send,1,"sendMidiMessageSerial(%s, 0x%02x,  0x%02x,0x%02x,0x%02x,0x%02x) = 0x%08x use_port=0x%02x",what,port,type,channel,p1,p2,msg.i,use_port);
-	    Serial3.write(msg.b,4);
+	    SERIAL_DEVICE.write(msg.b,4);
 	}
 
 	// then we set our port into the msg, and pass it to

@@ -61,6 +61,11 @@ const char *getFTPCommandName(uint8_t p2)
 }
 
 
+//-------------------------------------------------------
+// ftp_notes
+//-------------------------------------------------------
+// ftp_notes are the only usage of the heap (new and free)
+// thus far in the entire program!
 
 const char *note_names[] = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
 
@@ -102,8 +107,6 @@ note_t *addNote(uint8_t val, uint8_t vel, uint8_t string, uint8_t vel2)
 }
 
 
-
-
 void deleteNote(uint8_t string)
 {
     __disable_irq();
@@ -139,12 +142,8 @@ void deleteNote(uint8_t string)
 
 
 
-
-
-
-
 //-------------------------------------------------------------
-// patch display
+// ftp patch display
 //-------------------------------------------------------------
 
 const char *pedalModeName(int i)
@@ -167,7 +166,6 @@ const char *pitchBendModeName(int i)
 	if (i == 0) return "Auto";
     return "unknownPitchBendMode";
 }
-
 
 
 uint8_t patch_sig[6] = {0xF0, 0x00, 0x01, 0x6E, 0x01, 0x21};
@@ -219,7 +217,6 @@ bool showFtpPatch(
         show("NAME: %s\n\r",name_buf);
         return false;
     }
-
 
     patch_buffer0_t *patch = (patch_buffer0_t *) patch_buf;
 
@@ -359,8 +356,6 @@ static uint32_t battery_time;
 static int      num_checks;
 static int      ftp_init_state;
 
-
-// static, global
 
 void initQueryFTP()
 {
