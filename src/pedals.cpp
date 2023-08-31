@@ -11,7 +11,7 @@
 #define SETTLE_TIME  50
     // time to settle into a direction
 
-pedalManager thePedals;
+pedalManager the_pedals;
 
 
 //------------------------------------
@@ -206,7 +206,7 @@ void expressionPedal::poll()
                 display(0,"pedal(%d) raw(%d) changed to %d",m_num,m_raw_value,m_value);
             #endif
 
-            thePedals.pedalEvent(m_num,m_value);
+            the_pedals.pedalEvent(m_num,m_value);
         }
     }
 

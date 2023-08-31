@@ -12,6 +12,9 @@
 #define MAX_RIG_NAME   		31
 #define	DEFAULT_RIG_NAME	"rpiLooper"
 #define DEFAULT_MODAL_NAME	"clipVolumes"
+#define DEFAULT_RIG_TOKEN	"default_token"
+#define DEFAULT_MODAL_TOKEN "default_modal_token"
+
 
 
 #define SERIAL_DEVICE	   Serial3

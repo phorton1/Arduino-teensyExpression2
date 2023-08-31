@@ -41,26 +41,18 @@
 #define dbg_btns	1
 	// show calls to setButtonColor and setButtonBlink during loop() expression handling
 
-#define MAX_RIG_STACK  16
 
 
+//------------------------------------
+// the rig
+//------------------------------------
 
-typedef struct
-{
-	const rig_t *rig;
-	char name[MAX_RIG_NAME + 1];
-	const char *define_pool;
-	const char *string_pool;
-	const uint8_t *statement_pool;
-	const uint8_t *expression_pool;
-} rigStack_t;
+#define LOAD_STATE_NONE			0
+#define LOAD_STATE_LOADING  	1
+#define LOAD_STATE_ERR_PARSE    2
+#define LOAD_STATE_ERR_START 	3
 
-int rig_stack_ptr = 0;
-rigStack_t rig_stack[MAX_RIG_STACK];
 rigMachine rig_machine;
-
-uint16_t listen_mask;
-	// 7 bits for each port for more rapid processing
 
 
 //------------------------------------------------------
@@ -103,65 +95,80 @@ const uint32_t LED_COLORS[] = {
 
 
 //----------------------------------------
-// rig_stack
+// rig Stack
 //----------------------------------------
+
+void rigMachine::showRigName()
+{
+	const char *use_name = m_stack[m_stack_ptr-1].name;
+	warning(0,"showName(%s)",use_name);
+	if (!strcmp(use_name,DEFAULT_RIG_TOKEN))
+		use_name = DEFAULT_RIG_NAME;
+	else if (!strcmp(use_name,DEFAULT_MODAL_TOKEN))
+		use_name = DEFAULT_MODAL_NAME;
+	the_system.setTitle(use_name,true);
+}
+
 
 bool rigMachine::pushRig(const rig_t *rig, const char *name)
 {
-	if (rig_stack_ptr >= MAX_RIG_STACK)
+	if (m_stack_ptr >= MAX_RIG_STACK)
 	{
-		my_error("RIG_STACK OVERFLOW!!",0);
+		rig_error("RIG_STACK OVERFLOW!!");
 		return 0;
 	}
-	display(dbg_rig,"pushRig(%d,%s)",rig_stack_ptr,name);
-	rig_stack[rig_stack_ptr].rig = rig;
-	strcpy(rig_stack[rig_stack_ptr].name,name);
-	rig_stack_ptr++;
+	display(dbg_rig,"pushRig(%d,%s)",m_stack_ptr,name);
+	m_stack[m_stack_ptr].rig = rig;
+	strcpy(m_stack[m_stack_ptr].name,name);
+	m_stack_ptr++;
 	return 1;
 }
 
-void rigMachine::popRig(bool exec_prev)
+void rigMachine::popRig()
 {
-	if (rig_stack_ptr < 2)
+	if (!m_stack_ptr)
 	{
 		my_error("RIG_STACK_UNDERFLOW!!",0);
 		return;
 	}
 
-	const char *old_name = rig_stack[rig_stack_ptr-1].name;
-	display(dbg_rig,"popRig(%d,%s) exec_prev=%d",rig_stack_ptr-1,old_name,exec_prev);
+	const char *old_name = m_stack[m_stack_ptr-1].name;
+	display(dbg_rig,"popRig(%d,%s)",m_stack_ptr-1,old_name);
 	proc_entry();
 
-	if (exec_prev)
-	{
-		// cancel any buttons defined by the rig being popped
+	// cancel buttons
 
-		for (int i=0; i<NUM_BUTTONS; i++)
+	the_buttons.clear();
+
+	m_stack_ptr--;
+	if (m_stack_ptr)
+	{
+		showRigName();
+		if (startRig(m_stack[m_stack_ptr-1].rig,0))
 		{
-			if (rig_stack[rig_stack_ptr-1].rig->button_refs[i][0] != BUTTON_INHERIT_FLAG)
-			{
-				display(dbg_rig+1,"cancelButton(%d)",i);
-				theButtons.setButtonType(i,0);
-			}
+			m_load_state = LOAD_STATE_NONE;
+			m_rig_loaded = true;							// it is now running
 		}
+		else
+			m_load_state = LOAD_STATE_ERR_START;		// pop another one
 	}
-
-	rig_stack_ptr--;
-	if (exec_prev)
+	else	// we are popping back to the system
 	{
-		startRig(rig_stack[rig_stack_ptr-1].rig,0);
-		the_system.setTitle(rig_stack[rig_stack_ptr-1].name);
+		initRotary();
+		the_pedals.init();
+		the_system.setTitle("",true);
+		the_buttons.setButtonType(THE_SYSTEM_BUTTON,BUTTON_EVENT_LONG_CLICK,LED_PURPLE);
 	}
 
 	proc_leave();
-	display(dbg_rig,"popRig(%d,%s) finished",rig_stack_ptr,old_name);
+	display(dbg_rig,"popRig(%d,%s) finished",m_stack_ptr,old_name);
 }
 
 
-static const uint16_t *inheritButtonRefs(int num, const rig_t **ret_context)
+const uint16_t *rigMachine::inheritButtonRefs(int num, const rig_t **ret_context)
 {
-	int use_ptr = rig_stack_ptr;
-	const rig_t *context = rig_stack[use_ptr-1].rig;
+	int use_ptr = m_stack_ptr;
+	const rig_t *context = m_stack[use_ptr-1].rig;
 	const uint16_t *refs = context->button_refs[num];
 	uint16_t ref = refs[0];
 
@@ -171,12 +178,12 @@ static const uint16_t *inheritButtonRefs(int num, const rig_t **ret_context)
 	{
 		display(dbg_btns,"rig(%d,%s) updateUI(%d) INHERITING from rig(%d,%s)",
 			use_ptr-1,
-			rig_stack[use_ptr-1].name,
+			m_stack[use_ptr-1].name,
 			num,
 			use_ptr-2,
-			rig_stack[use_ptr-2].name);
+			m_stack[use_ptr-2].name);
 		use_ptr--;
-		context = rig_stack[use_ptr-1].rig;
+		context = m_stack[use_ptr-1].rig;
 		refs = context->button_refs[num];
 		ref = refs[0];
 	}
@@ -188,76 +195,77 @@ static const uint16_t *inheritButtonRefs(int num, const rig_t **ret_context)
 
 
 //------------------------------------------------------
-// methods
+// loadRig(), startRig(), && restartRig()
 //-------------------------------------------------------
 
 bool rigMachine::loadRig(const char *rig_name)
 {
-	display(dbg_rig,"loadRig(%s)",rig_name);
-	proc_entry();
-
+	if (m_load_state)
+	{
+		my_error("Attempt to call loadRig() in load_state(%d)",m_load_state);
+		return false;
+	}
 	if (strlen(rig_name) > MAX_RIG_NAME)
 	{
 		rig_error("loadRig() rig_name too long",0);
+		return false;
+	}
+
+	// stop the machine from processing the current rig, if any
+
+	m_rig_loaded = 0;
+
+	// parse the rig
+	// on any errors we assume an error is on the
+	// screen, set the error state, and return false.
+
+	display(dbg_rig,"loadRig(%s)",rig_name);
+	proc_entry();
+	m_load_state = LOAD_STATE_LOADING;
+	const rig_t *rig = parseRig(rig_name);
+
+	if (!rig)
+	{
+		m_load_state = LOAD_STATE_ERR_PARSE;
 		proc_leave();
 		return false;
 	}
 
-	bool save_rig_loaded = m_rig_loaded;
-	m_rig_loaded = 0;
-		// stop the machine from processing the current rig, if any
+	// push the rig
+	// a base rig will always succeed in pushing
+	// and invalidates any other rigs.
 
-	const rig_t *rig = parseRig(rig_name);
-		// call the parser
-
-	bool ok = 0;
-	if (rig)
+	bool base_rig = !(rig->rig_type & RIG_TYPE_MODAL);
+	if (base_rig)
+		m_stack_ptr = 0;
+	if (!pushRig(rig,rig_name))
 	{
-		bool base_rig = !(rig->rig_type & RIG_TYPE_MODAL);
-		if (base_rig)
-			rig_stack_ptr = 0;
-		ok = pushRig(rig,rig_name);
-		if (ok)
-		{
-			ok = startRig(rig,base_rig);
-			if (!ok)
-			{
-				popRig(0);
-				m_rig_loaded = save_rig_loaded;
-			}
-			else
-			{
-				strcpy(m_rig_name,rig_name);
-				m_rig_loaded = 1;
-				the_system.setTitle(rig_name);
-			}
-		}
+		m_load_state = LOAD_STATE_ERR_PARSE;
+		proc_leave();
+		return false;
 	}
 
+	// At this point we need to pop the rig off
+	// the stack if start fails, BUT we can't
+	// pop it off until the error dialog is put away,
+	// so we set LOAD_STATE_ERR_START.
+
+	if (!startRig(rig,base_rig))
+	{
+		m_load_state = LOAD_STATE_ERR_START;
+		proc_leave();
+		return false;
+	}
+
+	// if it started ok, then we are finished
+
+	m_load_state = LOAD_STATE_NONE;
+	showRigName();
+	m_rig_loaded = 1;	// starts running now!
 	proc_leave();
-	display(dbg_rig,"loadRig(%s) finished with %d",rig_name,m_rig_loaded);
-	return ok;
+	return true;
 }
 
-
-//-----------------------------------------------
-// rig execution
-//-----------------------------------------------
-
-void rigMachine::restartRig()
-{
-	if (!rig_stack_ptr)
-	{
-		warning(0,"attempt to start rig when non on stack!",0);
-		return;
-	}
-	if (!m_rig_loaded)
-	{
-		warning(0,"attempt to start rig when none loaded!",0);
-		return;
-	}
-	startRig(rig_stack[rig_stack_ptr-1].rig,0);
-}
 
 
 bool rigMachine::startRig(const rig_t *rig, bool cold)
@@ -267,7 +275,7 @@ bool rigMachine::startRig(const rig_t *rig, bool cold)
 
 	if (cold)
 	{
-		listen_mask = 0;
+		m_listen_mask = 0;
 		memset(&m_rig_state,0,sizeof(rigState_t));
 	}
 
@@ -307,11 +315,35 @@ bool rigMachine::startRig(const rig_t *rig, bool cold)
 		}
 
 		display(dbg_rig+1,"setButton(%d,0x%04x)",i,mask);
-		theButtons.setButtonType(i,mask);
+		the_buttons.setButtonType(i,mask);
 	}
 	proc_leave();
 	display(dbg_rig,"startRig() finished",0);
 	return ok;
+}
+
+
+void rigMachine::restartRig()
+	// called when the last modal window pops off
+{
+	if (!m_stack_ptr)
+	{
+		warning(0,"attempt to restart rig when none on stack!",0);
+		return;
+	}
+	if (!m_rig_loaded)
+	{
+		warning(0,"attempt to restart rig when none loaded!",0);
+		return;
+	}
+
+	m_rig_loaded = false;    	// stop execution
+	display(dbg_rig,"restartRig(%d,%s)",m_stack_ptr,m_stack[m_stack_ptr-1].name);
+	showRigName();
+	if (startRig(m_stack[m_stack_ptr-1].rig,0))
+		m_rig_loaded = true;	// restart execution
+	else
+		m_load_state = LOAD_STATE_ERR_START;
 }
 
 
@@ -349,7 +381,7 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 			case 32: font = &Arial_32_Bold; break;
 			case 40: font = &Arial_40_Bold; break;
 			case 48: font = &Arial_48_Bold; break;
-			default:
+			default:	// should never happen
 				rig_error("Unknown font_size(%d)_bold",area->font_type);
 				proc_leave();
 				return;
@@ -370,6 +402,7 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 			case 32: font = &Arial_32; break;
 			case 40: font = &Arial_40; break;
 			case 48: font = &Arial_48; break;
+			default: 	// should never happen
 				rig_error("Unknown font_size(%d)",area->font_type);
 				proc_leave();
 				return;
@@ -415,7 +448,7 @@ bool rigMachine::evalExpression(const rig_t *rig, evalResult_t *rslt, const char
 
 	if (!expression(rig, rslt,code,offset))
 	{
-		rig_error("evalExpression(%s) failed at offset %d",what,*offset);
+		my_error("evalExpression(%s) failed at offset %d",what,*offset);
 		proc_leave();
 		return false;
 	}
@@ -519,7 +552,8 @@ bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, c
 				rslt->value > MIDI_MAX_CHANNEL ||
 				rslt->value < MIDI_MIN_CHANNEL))
 			{
-				rig_error("%s must be between %d and %d",what,MIDI_MIN_CHANNEL,MIDI_MAX_CHANNEL);
+				rig_error("evalParam - %s must be between %d and %d at offset(%d)",
+					what,MIDI_MIN_CHANNEL,MIDI_MAX_CHANNEL,*offset-1);
 				ok = 0;
 			}
 			*offset += 2;
@@ -535,7 +569,8 @@ bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, c
 			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16);
 			if (ok && rslt->value > max)
 			{
-				rig_error("%s must be %d or less",what,max);
+				rig_error("evalParam - %s must be %d or less at offset(%d)",
+					what,max,*offset-1);
 				ok = 0;
 			}
 			*offset += 2;
@@ -572,7 +607,7 @@ bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, c
 			break;
 
 		default:
-			rig_error("unknown arg_type(%d)",arg_type);
+			rig_error("evalParam - unknown arg_type(%d) at offset%d)",arg_type,*offset);
 			ok = 0;
 			break;
 	}
@@ -650,7 +685,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				m_rig_state.listens[idx].port    = m_param_values[1].value;
 				m_rig_state.listens[idx].channel = m_param_values[2].value;
 				m_rig_state.listens[idx].cc      = m_param_values[3].value;
-				listen_mask |= (1 << m_param_values[1].value);
+				m_listen_mask |= (1 << m_param_values[1].value);
 				break;
 
 			case RIG_TOKEN_PEDAL:
@@ -661,7 +696,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 					rigTokenToText(m_param_values[2].value + RIG_TOKEN_USB1),
 					m_param_values[3].value,
 					m_param_values[4].value);
-				thePedals.setPedal(
+				the_pedals.setPedal(
 					m_param_values[0].value,			// pedal num
 					m_param_values[1].text,				// name
 					MIDI_ENUM_TO_PORT(m_param_values[2].value),	// port
@@ -740,7 +775,11 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 			case RIG_TOKEN_LOAD_RIG:
 				display(dbg_calls,"loadRig(%s)",
 					m_param_values[0].text);
-				ok = rigMachine::loadRig(m_param_values[0].text);
+				ok = rigMachine::loadRig(
+					m_stack_ptr &&
+					!strcmp(m_param_values[0].text,"default_modal") &&
+					(m_stack[m_stack_ptr-1].rig->rig_type & RIG_TYPE_SYSTEM) ?
+						DEFAULT_MODAL_TOKEN : m_param_values[0].text);
 				break;
 
 			case RIG_TOKEN_END_MODAL:
@@ -748,11 +787,11 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 					m_param_values[0].value,
 					m_param_values[1].value);
 				m_rig_state.values[m_param_values[0].value] = m_param_values[1].value;
-				popRig(1);
+				popRig();
 				break;
 
 			default:
-				rig_error("unknown rigStatement: %d=%s",tt,rigTokenToString(tt));
+				rig_error("unknown rigStatement: %d=%s at offset(%d)",tt,rigTokenToString(tt),*offset-1);
 				ok = 0;
 				break;
 		}
@@ -801,7 +840,7 @@ void rigMachine::onMidiCC(const msgUnion &msg)
 	if (!m_rig_loaded)
 		return;
 	uint16_t mask = 1 << msg.port();
-	if (!(listen_mask && mask))
+	if (!(m_listen_mask && mask))
 		return;
 
 	display(dbg_midi+1,"onMidiCC(0x%02x,%d,0x%02x,0x%02x)",
@@ -885,14 +924,83 @@ void rigMachine::onButton(int row, int col, int event)
 // updateUI
 //--------------------------------------------------
 
+static bool pref_rig_failed;
+static bool default_rig_failed;
+	// rigs shall not fail twice
+
 void rigMachine::updateUI()
 {
+	//---------------------------------------------
+	// asynchronous rig loading
+	//---------------------------------------------
+	// if we encountered an error starting the rig on
+	// the top of the stack, pop the bad one off the stack
+	// and continue
+
+	if (m_load_state == LOAD_STATE_ERR_START)
+	{
+		if (m_stack_ptr)
+		{
+			display(dbg_rig,"LOAD_STATE_ERR_START calling popRig()",0);
+			popRig();
+		}
+		else	// I give up!
+		{
+			display(dbg_rig,"LOAD_STATE_ERR_START setting LOAD_STATE_NONE",0);
+			m_load_state = LOAD_STATE_NONE;
+		}
+		return;
+	}
+
+	// if there was an error parsing a rig, then
+	// it was never pushed.  Once we set LOAD_STATE_NONE,
+	// the default rig will attempt to be loaded.
+
+	if (m_load_state == LOAD_STATE_ERR_PARSE)
+	{
+		display(dbg_rig,"LOAD_STATE_ERR_PARSE setting LOAD_STATE_NONE",0);
+		m_load_state = LOAD_STATE_NONE;
+	}
+
+	// if no rig is loaded, try to load the
+	// preferred rig and if that fails try
+	// to load the default rig
+
+	if (m_load_state == LOAD_STATE_NONE &&
+		!m_rig_loaded &&
+		!pref_rig_failed)
+	{
+		display(dbg_rig,"updateUI() loading preferred rig: %s",prefs.RIG_NAME);
+		if (!loadRig(prefs.RIG_NAME))
+			pref_rig_failed = 1;
+	}
+
+	// This means that if the default rig IS
+	// the pref rig, and I have a problem in the
+	// default rig, it will try to load it twice
+
+	if (m_load_state == LOAD_STATE_NONE &&
+		!m_rig_loaded &&
+		!default_rig_failed)
+	{
+		display(dbg_rig,"updateUI() loading default rig: %s",DEFAULT_RIG_TOKEN);
+		if (!loadRig(DEFAULT_RIG_TOKEN))
+			default_rig_failed = 1;
+	}
+
+	// and finally, return if no rig loaded
+
 	if (!m_rig_loaded)
 		return;
 
+	//-------------------------------------
+	// rig loaded
+	//-------------------------------------
 	// evaulate and act on any defined button color or blink expression
 	// if a button has a color expression, evaluate it and set it to the button.
 	// and then if it has a blink, evaluate that, and set that into the button
+
+	suppress_rig_dialogs = 1;
 
 	evalResult_t rslt;
 	for (int num=0; num<NUM_BUTTONS; num++)
@@ -906,14 +1014,14 @@ void rigMachine::updateUI()
 			if (evalCodeExpression(context, &rslt, "LED_COLOR", ref))
 			{
 				// these checks are only to generate change debug messags
-				if (theButtons.getButtonColor(num) != LED_COLORS[rslt.value])
+				if (the_buttons.getButtonColor(num) != LED_COLORS[rslt.value])
 				{
 					display(dbg_btns,"rigMachine calling setButtonColor(%d) to index %d=0x%06x  old=0x%06x",
 						num,
 						rslt.value,
 						LED_COLORS[rslt.value],
-						theButtons.getButtonColor(num));
-					theButtons.setButtonColor(num,LED_COLORS[rslt.value]);
+						the_buttons.getButtonColor(num));
+					the_buttons.setButtonColor(num,LED_COLORS[rslt.value]);
 				}
 
 				ref = refs[SUBSECTION_NUM(RIG_TOKEN_BLINK)];
@@ -921,16 +1029,19 @@ void rigMachine::updateUI()
 				{
 					if (evalCodeExpression(context, &rslt, "BLINK", ref))
 					{
-						if (theButtons.getButtonBlink(num) != rslt.value)
+						if (the_buttons.getButtonBlink(num) != rslt.value)
 						{
 							display(dbg_btns,"rigMachine calling setButtonBlink(%d,%d)",
 								num,
 								rslt.value);
-							theButtons.setButtonBlink(num,rslt.value);
+							the_buttons.setButtonBlink(num,rslt.value);
 						}
 					}
 				}
 			}
 		}
 	}
+
+	suppress_rig_dialogs = 0;
+
 }

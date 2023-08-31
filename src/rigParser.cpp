@@ -42,6 +42,7 @@ static void init_parse()
 {
 	any_end_modal = 0;
 	rig_error_found = 0;	 // in rigToken.cpp
+	suppress_rig_dialogs = 0;
 
 	display(0,"MAX_RIG_SIZE = %d", MAX_RIG_SIZE);
 
@@ -852,7 +853,7 @@ static bool handleStatementList(int tt)
 	{
 		if (!handleStatement(tt))
 		{
-			rig_error("handleStatement() failed!");
+			my_error("handleStatement() failed!",0);
 			proc_leave();
 			return false;
 		}
@@ -1016,7 +1017,7 @@ static bool handleButton()
 	{
 		display(dbg_parse,"loadDefaultRig(%s)",rig_name);
 
-		bool is_base_rig = !strcmp(rig_name,DEFAULT_RIG_NAME);
+		bool is_base_rig = !strcmp(rig_name,DEFAULT_RIG_TOKEN);
 		uint16_t offset = is_base_rig ? 0 : rig_pool_len;
 		const rig_t *src_rig = is_base_rig ?
 			&default_rig : &default_modal_rig;
@@ -1077,10 +1078,10 @@ const rig_t *parseRig(const char *rig_name)
 	warning(dbg_parse,"ParseRig(%s.rig)",rig_name);
 
 	#if WITH_DEFAULT_RIG
-		if (!strcmp(rig_name,DEFAULT_RIG_NAME) || (
+		if (!strcmp(rig_name,DEFAULT_RIG_TOKEN) || (
 			rig_pool_len &&
 			(base_rig->rig_type & RIG_TYPE_SYSTEM) &&
-			!strcmp(rig_name,DEFAULT_MODAL_NAME)))
+			!strcmp(rig_name,DEFAULT_MODAL_TOKEN)))
 		{
 			return loadDefaultRig(rig_name);
 		}
@@ -1171,7 +1172,7 @@ const rig_t *parseRig(const char *rig_name)
 		ok = ok && !rig_error_found;
 		if (ok)
 		{
-			warning(dbg_parse,"parseRig(%s.rig) finished OK",0);
+			warning(dbg_parse,"parseRig(%s.rig) finished OK",rig_name);
 			new_rig = relocate();
 			if (new_rig)
 			{
@@ -1190,7 +1191,7 @@ const rig_t *parseRig(const char *rig_name)
 		}
 		else
 		{
-			rig_error("There was an error parsing the rig!");
+			my_error("There was an error parsing the rig!",0);
 		}
 
 	}	// file opened

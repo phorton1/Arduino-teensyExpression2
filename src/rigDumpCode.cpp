@@ -219,7 +219,7 @@ void dumpRigCode(const rig_t *rig, const char *prefix)
 	rig_file = SD.open(filename, FILE_WRITE);
 	if (!rig_file)
 	{
-		rig_error("Could not open %s for writing ..",filename);
+		rig_error("dumpRigCode() could not open %s for writing ..",filename);
 		return;
 	}
 

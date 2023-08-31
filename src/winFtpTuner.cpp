@@ -50,8 +50,8 @@ void winFtpTuner::begin(bool warm)
 	init();
 	sysWindow::begin(warm);
 
-	theButtons.setButtonType(BUTTON_SWITCH_WINDOW, BUTTON_EVENT_CLICK, LED_GREEN);
-	theButtons.setButtonType(BUTTON_END_WINDOW,    BUTTON_EVENT_CLICK, LED_PURPLE);
+	the_buttons.setButtonType(BUTTON_SWITCH_WINDOW, BUTTON_EVENT_CLICK, LED_GREEN);
+	the_buttons.setButtonType(BUTTON_END_WINDOW,    BUTTON_EVENT_CLICK, LED_PURPLE);
 
 	uint8_t ftp_port = FTP_ACTIVE_PORT;
 	if (ftp_port)

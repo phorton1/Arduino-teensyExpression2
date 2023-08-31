@@ -7,8 +7,8 @@
 #include "rigParser.h"
 #include "midiQueue.h"
 
-
 #define MAX_PARAMS			8		// from AREA statement
+#define MAX_RIG_STACK  		10
 
 
 typedef struct
@@ -47,8 +47,20 @@ typedef struct
 		uint16_t	value;
 		const char *text;
 	};
-
 } evalResult_t;
+
+
+
+typedef struct
+{
+	const rig_t *rig;
+	char name[MAX_RIG_NAME + 1];
+	const char *define_pool;
+	const char *string_pool;
+	const uint8_t *statement_pool;
+	const uint8_t *expression_pool;
+} rigStack_t;
+
 
 
 
@@ -59,9 +71,6 @@ public:
 	void loadDefaultRig();
 	bool loadRig(const char *name);
 
-	bool loaded()			{ return m_rig_loaded; }
-	const char *rigName()	{ return m_rig_name; }
-
 	void updateUI();
     void onButton(int row, int col, int event);
 	void onMidiCC(const msgUnion &msg);
@@ -71,15 +80,21 @@ public:
 private:
 
 	bool m_rig_loaded;
-	char m_rig_name[MAX_RIG_NAME + 1];
 
 	rigState_t m_rig_state;
 	evalResult_t m_param_values[MAX_PARAMS];
 
-	bool pushRig(const rig_t *rig, const char *name);
-	void popRig(bool exec_prev);
+	int m_stack_ptr;
+	rigStack_t m_stack[MAX_RIG_STACK];
 
+	uint16_t m_load_state;
+	uint16_t m_listen_mask;
+		// 7 bits for each port for more rapid processing
+
+	void popRig();
+	bool pushRig(const rig_t *rig, const char *name);
 	bool startRig(const rig_t *rig, bool cold);
+	void showRigName();
 
 	bool executeStatementList(const rig_t *rig, int statement_num);
 	bool executeStatement(const rig_t *rig, uint16_t *offset, uint16_t last_offset);
@@ -88,8 +103,10 @@ private:
 	bool evalExpression(const rig_t *rig, evalResult_t *rslt, const char *what, const uint8_t *code, uint16_t *offset);
 
 	bool expression(const rig_t *rig, evalResult_t *rslt, const uint8_t *code, uint16_t *offset);
-	bool evaluate(const rig_t *rig, const uint8_t *code, uint16_t *offset);
 	bool getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset);
+
+	bool evaluate(const rig_t *rig, const uint8_t *code, uint16_t *offset);
+	const uint16_t *inheritButtonRefs(int num, const rig_t **ret_context);
 
 	void rigDisplay(uint16_t area_num, uint16_t color, const char *text);
 

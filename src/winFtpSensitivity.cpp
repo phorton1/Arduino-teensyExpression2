@@ -60,15 +60,15 @@ void winFtpSensitivity::begin(bool warm)
 	init();
 	sysWindow::begin(warm);
 
-	theButtons.setButtonType(KEYPAD_UP,   	BUTTON_EVENT_CLICK,  LED_BLUE);
-	theButtons.setButtonType(KEYPAD_DOWN,	BUTTON_EVENT_CLICK,  LED_BLUE);
-	theButtons.setButtonType(KEYPAD_LEFT,	BUTTON_EVENT_CLICK,  LED_BLUE);
-	theButtons.setButtonType(KEYPAD_RIGHT,	BUTTON_EVENT_CLICK,  LED_BLUE);
-	// theButtons.setButtonType(KEYPAD_SELECT,	BUTTON_EVENT_CLICK,  LED_GREEN);
+	the_buttons.setButtonType(KEYPAD_UP,   	BUTTON_EVENT_CLICK,  LED_BLUE);
+	the_buttons.setButtonType(KEYPAD_DOWN,	BUTTON_EVENT_CLICK,  LED_BLUE);
+	the_buttons.setButtonType(KEYPAD_LEFT,	BUTTON_EVENT_CLICK,  LED_BLUE);
+	the_buttons.setButtonType(KEYPAD_RIGHT,	BUTTON_EVENT_CLICK,  LED_BLUE);
+	// the_buttons.setButtonType(KEYPAD_SELECT,	BUTTON_EVENT_CLICK,  LED_GREEN);
 	// don't like the middle green changing modes; so don't enable button
 
-	theButtons.setButtonType(BUTTON_SWITCH_WINDOW, BUTTON_EVENT_CLICK, LED_GREEN);
-	theButtons.setButtonType(BUTTON_END_WINDOW,    BUTTON_EVENT_CLICK, LED_PURPLE);
+	the_buttons.setButtonType(BUTTON_SWITCH_WINDOW, BUTTON_EVENT_CLICK, LED_GREEN);
+	the_buttons.setButtonType(BUTTON_END_WINDOW,    BUTTON_EVENT_CLICK, LED_PURPLE);
 }
 
 

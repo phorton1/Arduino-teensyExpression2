@@ -3,7 +3,14 @@
 //-------------------------------------------------------
 // The rigMachine expression evaluator.
 //
-// Note that the expression evaluator is NOT re-entrant!!
+// Errors in evaluation are problematic to report, especially
+// if they occur in the button led code which happens 30 times
+// a second and never stops.
+//
+// Therefore, the rig_error method itself knows if we are
+// parsing, evaulating a statement, or evaluating a
+// color/blink section, and can appropriately try
+// to report things if it can.
 
 
 #include <myDebug.h>
@@ -205,7 +212,7 @@ const int precedence(uint8_t op)
 		case EXP_LEFT_PAREN :
 			return 99;
 	}
-	rig_error("unknown op in precedence(0x%02x)",op);
+	rig_error("unknown op(0x%02x) in precedence",op);
 	return 0;
 }
 
@@ -251,7 +258,7 @@ bool doOp(int op_start, uint8_t op)
 				case EXP_DIVIDE :
 					if (val2.value == 0)
 					{
-						rig_error("Divide by zero!!");
+						rig_error("rigEval - Divide by zero!!");
 						ok = 0;
 					}
 					val1.value /= val2.value;
@@ -335,7 +342,7 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 			uint8_t num = val_stack[--val_top].value;
 			if (num > RIG_NUM_STRINGS-1)
 			{
-				rig_error("STRING INDEX(%d) out of range (0..%d)",num,RIG_NUM_STRINGS-1);
+				rig_error("rigEval - STRING INDEX(%d) out of range (0..%d)",num,RIG_NUM_STRINGS-1);
 				ok = 9;
 			}
 			else
@@ -370,8 +377,8 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 			uint8_t num = val_stack[--val_top].value;
 			if (num > RIG_NUM_VALUES-1)
 			{
-				rig_error("VALUE INDEX(%d) out of range (0..%d)",num,RIG_NUM_VALUES-1);
-				ok = 9;
+				rig_error("rigEval - VALUE INDEX(%d) out of range (0..%d)",num,RIG_NUM_VALUES-1);
+				ok = 0;
 			}
 			else
 			{
@@ -386,7 +393,7 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 
 	else if (!(byte & EXP_INLINE))
 	{
-		rig_error("INLINE op expected");
+		rig_error("rigEval - INLINE op expected");
 		ok = 0;
 	}
 	else

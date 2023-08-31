@@ -37,7 +37,7 @@ const prefs_t default_prefs =
 	.SPOOF_FTP          = 0,						// off, on
 	.FTP_PORT			= 1,						// off, USB, HOST
 
-	.RIG_NAME		    = {'r','p','i','L','o','o','p','e','r', 0},
+	.RIG_NAME		    = {'d','e','f','a','u','l','t','_','t','o','k','e','n', 0},
 
 	.PEDAL = {
 		{											// pedal 0 - Synth

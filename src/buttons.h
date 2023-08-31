@@ -89,4 +89,4 @@ class buttonArray
 
 
 
-extern buttonArray theButtons;
+extern buttonArray the_buttons;

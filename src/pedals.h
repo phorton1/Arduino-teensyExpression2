@@ -134,4 +134,4 @@ class pedalManager
 };
 
 
-extern pedalManager thePedals;
+extern pedalManager the_pedals;

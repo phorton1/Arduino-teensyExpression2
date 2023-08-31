@@ -38,7 +38,9 @@ class sysWindow
 
         virtual const char *name() = 0;
         virtual const char *shortName() { return ""; }
-        virtual uint32_t getId()        { return 0; }
+
+        void setId(uint16_t id)     { m_id = id; }
+        uint32_t getId()            { return m_id; }
 
     protected:
 
@@ -52,6 +54,7 @@ class sysWindow
 
         virtual void endWindow(uint32_t param);
 
+        uint16_t m_id;
         uint32_t m_flags;
 };
 
@@ -67,7 +70,7 @@ class theSystem
         void begin();
         void loop();
 
-        void setTitle(const char *title);
+        void setTitle(const char *title, bool draw_pedals=false);
         void onButton(int row, int col, int event);
 
         inline void midiActivity(int act_num) { m_midi_activity[act_num] = millis(); }

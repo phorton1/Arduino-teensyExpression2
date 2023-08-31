@@ -99,7 +99,6 @@ extern const rig_t *parseRig(const char *rig_name);
 	// if that goes well, the rig is relocated and packed into the
 	// rig pool, and a pointer to the rig is returned.
 
-
 //----------------------------------------
 // param constants
 //----------------------------------------

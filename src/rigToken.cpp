@@ -6,6 +6,8 @@
 #include <myDebug.h>
 #include "rigToken.h"
 #include "fileSystem.h"
+#include "theSystem.h"
+#include "winDialogs.h"
 
 
 #define dbg_open	1
@@ -30,6 +32,7 @@ static bool modal_rig;
 // extern
 token_t rig_token;
 bool rig_error_found;
+bool suppress_rig_dialogs;
 
 
 
@@ -50,9 +53,6 @@ void rig_error(const char *format, ...)
 {
 	rig_error_found = 1;
 
-	if (!dbgSerial)
-		return;
-
 	char rig_error_buffer[255];
 	sprintf(rig_error_buffer,"%d:%d ",rig_token.line_num,rig_token.char_num);
 	char *text = &rig_error_buffer[strlen(rig_error_buffer)];
@@ -61,9 +61,19 @@ void rig_error(const char *format, ...)
 	va_start(var, format);
 	vsprintf(text,format,var);
 
-	dbgSerial->print(ERROR_COLOR_STRING);
-	dbgSerial->print("RIG_ERROR - ");
-	dbgSerial->println(rig_error_buffer);
+	if (dbgSerial)
+	{
+		dbgSerial->print(ERROR_COLOR_STRING);
+		dbgSerial->print("RIG_ERROR - ");
+		dbgSerial->println(rig_error_buffer);
+	}
+
+	if (!suppress_rig_dialogs)
+	{
+		rig_error_dlg.setMessage(rig_error_buffer);
+		the_system.startWindow(&rig_error_dlg);
+	}
+
 }
 
 
@@ -672,7 +682,7 @@ int getRigToken()
 		}
 	}
 	else if (parse_section && (
-			id == RIG_TOKEN_BASERIG &&
+			id == RIG_TOKEN_BASERIG ||
 			id == RIG_TOKEN_MODAL))
 	{
 		rig_error("BaseRig or ModalRig only allowed as first Token");

@@ -98,7 +98,8 @@ void sysWindow::begin(bool cold)
 	// windows are responsible for setting the system button
 {
 	display(dbg_win,"sysWindow::begin(%s,%d)",name(),cold);
-	theButtons.clear();
+	the_system.setTitle(name());
+	the_buttons.clear();
 	fillRect(m_flags & WIN_FLAG_SHOW_PEDALS ?
 		client_rect : full_client_rect,
 		TFT_BLACK);
@@ -120,10 +121,11 @@ theSystem::theSystem()
 }
 
 
-void theSystem::setTitle(const char *title)
+void theSystem::setTitle(const char *title, bool draw_pedals)
 {
 	m_title = title;
 	m_draw_title = 1;
+	m_draw_pedals |= draw_pedals;
 }
 
 
@@ -137,8 +139,8 @@ void theSystem::begin()
 		m_last_midi_activity[i] = 0;
 	}
 
-    theButtons.begin();
-	thePedals.init();
+    the_buttons.begin();
+	the_pedals.init();
 	initRotary();
 
     m_timer.priority(EXP_TIMER_PRIORITY);
@@ -155,17 +157,8 @@ void theSystem::begin()
 		delay(5000);
 	}
 
-    theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);
-	// theButtons.setButtonType(9, BUTTON_EVENT_CLICK, LED_PURPLE);
-
-	// We try to load preferred startup rig and it fails, we then
-	// check to make sure its different than the default name,
-	// JIC I introduced a bug in the default rig so we don't try it twice,
-	// we load the default rig.
-
-	if (!rig_machine.loadRig(prefs.RIG_NAME) &&
-		strcmp(prefs.RIG_NAME,DEFAULT_RIG_NAME))
-		rig_machine.loadRig(DEFAULT_RIG_NAME);
+    the_buttons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);
+	// the_buttons.setButtonType(9, BUTTON_EVENT_CLICK, LED_PURPLE);
 
 	display(dbg_sys,"returning from theSystem::begin()",0);
 }
@@ -180,7 +173,7 @@ void theSystem::begin()
 // static
 void theSystem::timer_handler()
 {
-	thePedals.task();
+	the_pedals.task();
 	pollRotary();
 
 	the_system.handleSerialData();
@@ -427,18 +420,28 @@ void theSystem::endWindow(sysWindow *cur, uint32_t param)
 	}
 	old->end();
 
-	m_num_windows--;
-	sysWindow *win = getTopWindow();
+	// we don't want to decrement m_num_windows to zero until
+	// after we call restartRig().
 
+	sysWindow *win = m_num_windows > 2 ? m_window_stack[m_num_windows-2] : 0;
 	if (win)
-		win->begin(false);
-	else
 	{
-		m_draw_pedals = !(old->m_flags & WIN_FLAG_SHOW_PEDALS);
-		fillRect(m_draw_pedals ? full_client_rect : client_rect, TFT_BLACK);
+		win->begin(false);
+	}
+
+	// restartRig() will correctly set m_rig_loaded or an RIG_LOAD_STATE_ERROR_STRT
+	// and thus it becomes safe to start calling rig_machine.updateUI again.
+
+	if (!win)
+	{
+		m_draw_pedals = 1;
+		fillRect(full_client_rect, TFT_BLACK);
 		rig_machine.restartRig();
 	}
+
+	m_num_windows--;
 }
+
 
 
 //-----------------------------------------
@@ -450,10 +453,8 @@ void theSystem::onButton(int row, int col, int event)
 	int num = row * NUM_BUTTON_COLS + col;
 	if (num == THE_SYSTEM_BUTTON && event == BUTTON_EVENT_LONG_CLICK)
 	{
-		if (rig_machine.loadRig("default"))
-		{
-			m_draw_pedals = 1;
-		}
+		rig_machine.loadRig("default");
+		m_draw_pedals = 1;
 	}
 	else if (m_num_windows)
 	{
@@ -475,12 +476,13 @@ void theSystem::onButton(int row, int col, int event)
 void theSystem::loop()
 	//  called from Arduino loop()
 {
-    theButtons.task();
+    the_buttons.task();
 		// cannot be called from timer_handler()
 		// because buttons can change colors and/or
 		// bump the window number, and we don't want to
 		// be in the middle of a rigMachine button update
-		// at that point.
+		// at that point.  This also coordinates suppression
+		// of rig_error dialogs when updating button LEDs.
 
 	initQueryFTP();
 		// query the FTP battery level on a timer
@@ -518,7 +520,7 @@ void theSystem::loop()
 					TFT_YELLOW,
 					false,
 					"%s",
-					thePedals.getPedal(i)->getName());
+					the_pedals.getPedal(i)->getName());
 
 				if (i && i<NUM_PEDALS)
 					mylcd.drawLine(
@@ -533,7 +535,7 @@ void theSystem::loop()
 
 		for (int i=0; i<NUM_PEDALS; i++)
 		{
-			expressionPedal *pedal = thePedals.getPedal(i);
+			expressionPedal *pedal = the_pedals.getPedal(i);
 			if (draw_pedal_values || pedal->displayValueChanged())
 			{
 				pedal->clearDisplayValueChanged();

@@ -86,7 +86,7 @@ static bool dumpInline(const rig_t *rig, const uint8_t *code, uint16_t *offset)
 			sprintf(&dump_buf[strlen(dump_buf)],"]");
 			break;
 		default :
-			rig_error("unknown inline op(%d)",op);
+			my_error("dumpRig() - unknown inline op(0x%02x,0x%02x) at offset(%d)",op,value,*offset);
 			return false;
 			break;
 	}
@@ -151,7 +151,7 @@ static bool dumpOp(const uint8_t *code, uint16_t *offset)
 			sprintf(&dump_buf[strlen(dump_buf)]," %s ",rigTokenToText(op+RIG_TOKEN_PLUS-EXP_PLUS));
 			break;
 		default :
-			rig_error("unknown expression op(%d)",op);
+			my_error("dumpRig() - unknown expression op(0x%02x) at offset(%d)",op,*offset);
 			return false;
 			break;
 	}
@@ -265,7 +265,7 @@ static bool dumpParam(const rig_t *rig, bool button_section, int arg_type, bool 
 
 
 		default:
-			rig_error("unknown parameter arg type(%d)",arg_type);
+			my_error("dumpRig() - unknown arg_type(%d) at offset(%d)",arg_type,*offset);
 			return false;
 			break;
 	}

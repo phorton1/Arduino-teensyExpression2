@@ -7,7 +7,6 @@
 
 #define MAX_RIG_TOKEN 	79
 
-
 typedef struct
 {
 	int id;
@@ -29,11 +28,23 @@ extern void closeRigFile();
 
 extern const char *rigTokenToString(int token_id);				// for debugging and UC comparison
 extern const char *rigTokenToText(int token_id);				// for text output
-extern void rig_error(const char *format, ...);					// parse error reporting with token line_num and char_num
 
 
 extern int parse_section;		// 0=none, 1=program, 2=buttons, 3=end
 extern token_t rig_token;		// the current token
+
+
+//---------------------------------------------------------------
+// Rig Error Reporting differs depending upon when it is found
+//---------------------------------------------------------------
+// They are normally reported through a dialog while parsing
+// and executing statements, but are not reported while
+// evaluating button sections.
+
+
+extern bool suppress_rig_dialogs;
+
+extern void rig_error(const char *format, ...);					// parse error reporting with token line_num and char_num
 extern bool rig_error_found;	// true if any rig_errors occured; cleared in parseRig::init_parse()
 
 
