@@ -36,6 +36,9 @@ const prefs_t default_prefs =
 	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_DEBUG,		// off, Debug, USB, Serial - default(Debug)
 	.SPOOF_FTP          = 0,						// off, on
 	.FTP_PORT			= 1,						// off, USB, HOST
+
+	.RIG_NAME		    = {'r','p','i','L','o','o','p','e','r', 0},
+
 	.PEDAL = {
 		{											// pedal 0 - Synth
 			.NAME 	 = {'s','y','n','t','h', 0},
@@ -93,24 +96,28 @@ const prefs_t default_prefs =
 
 	.ROTARY = {
 			{
+				.NAME    = {'i','n','p','u','t', 0},
 				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
 				.CHANNEL = 0,					// zero based
 				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_INPUT_GAIN,
 			},
 			{
+				.NAME    = {'o','u','t','p','u','t', 0},
+				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
+				.CHANNEL = 0,					// zero based
+				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN,
+			},
+			{
+				.NAME    = {'t','h','r','u', 0},
 				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
 				.CHANNEL = 0,					// zero based
 				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_THRU_VOLUME,
 			},
 			{
+				.NAME    = {'m','i','x', 0},
 				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
 				.CHANNEL = 0,					// zero based
 				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME,
-			},
-			{
-				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
-				.CHANNEL = 0,					// zero based
-				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN,
 			},
 		},
 
@@ -220,21 +227,25 @@ const prefs_t prefs_max =
 
 	.ROTARY = {
 			{
+				.NAME	 = {0},
 				.PORT 	 = MAX_MIDI_PORT,
 				.CHANNEL = MIDI_MAX_CHANNEL-1,
 				.CC 	 = MIDI_MAX_VALUE,
 			},
 			{
+				.NAME	 = {0},
 				.PORT 	 = MAX_MIDI_PORT,
 				.CHANNEL = MIDI_MAX_CHANNEL-1,
 				.CC 	 = MIDI_MAX_VALUE,
 			},
 			{
+				.NAME	 = {0},
 				.PORT 	 = MAX_MIDI_PORT,
 				.CHANNEL = MIDI_MAX_CHANNEL-1,
 				.CC 	 = MIDI_MAX_VALUE,
 			},
 			{
+				.NAME	 = {0},
 				.PORT 	 = MAX_MIDI_PORT,
 				.CHANNEL = MIDI_MAX_CHANNEL-1,
 				.CC 	 = MIDI_MAX_VALUE,

@@ -8,7 +8,6 @@
 #include "midiQueue.h"
 
 
-#define MAX_RIG_NAME   		31
 #define MAX_PARAMS			8		// from AREA statement
 
 

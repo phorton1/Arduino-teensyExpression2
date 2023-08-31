@@ -662,25 +662,27 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 					m_param_values[3].value,
 					m_param_values[4].value);
 				thePedals.setPedal(
-					m_param_values[0].value,			// pedeal num
-					m_param_values[1].text,		// name
+					m_param_values[0].value,			// pedal num
+					m_param_values[1].text,				// name
 					MIDI_ENUM_TO_PORT(m_param_values[2].value),	// port
 					m_param_values[3].value - 1,		// switch to zero based channel number
 					m_param_values[4].value);			// cc
 				break;
 
 			case RIG_TOKEN_ROTARY:
-				display(dbg_calls,"ROTARY(%d,%d=%s,%d,%d)",
+				display(dbg_calls,"ROTARY(%d,%s,%d=%s,%d,%d)",
 					m_param_values[0].value,
-					m_param_values[1].value,
-					rigTokenToText(m_param_values[1].value + RIG_TOKEN_USB1),
+					m_param_values[1].text,
 					m_param_values[2].value,
-					m_param_values[3].value);
+					rigTokenToText(m_param_values[2].value + RIG_TOKEN_USB1),
+					m_param_values[3].value,
+					m_param_values[4].value);
 				setRotary(
 					m_param_values[0].value,			// rotary num
-					MIDI_ENUM_TO_PORT(m_param_values[1].value),	// port
-					m_param_values[2].value - 1,		// switch to zero based channel number
-					m_param_values[3].value);			// cc
+					m_param_values[1].text,				// name
+					MIDI_ENUM_TO_PORT(m_param_values[2].value),	// port
+					m_param_values[3].value - 1,		// switch to zero based channel number
+					m_param_values[4].value);			// cc
 				break;
 
 			case RIG_TOKEN_DISPLAY:

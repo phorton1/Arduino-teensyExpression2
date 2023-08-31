@@ -26,6 +26,7 @@ typedef struct
 
 typedef struct
 {
+    char    name[MAX_PEDAL_NAME + 1];
     uint8_t port;
     uint8_t channel;      // zero based
     uint8_t cc;
@@ -52,6 +53,9 @@ void initRotary()
 {
     for (int i=0; i<4; i++)
     {
+        memcpy(rotary[i].name,prefs.ROTARY[i].NAME,MAX_PEDAL_NAME);
+        rotary[i].name[MAX_PEDAL_NAME] = 0;
+
         rotary[i].port    = MIDI_ENUM_TO_PORT(prefs.ROTARY[i].PORT);
         rotary[i].channel = prefs.ROTARY[i].CHANNEL;
         rotary[i].cc      = prefs.ROTARY[i].CC;
@@ -83,9 +87,11 @@ void setRotaryValue(int num, int value)
 }
 
 
-void setRotary(int num, uint8_t port, uint8_t channel, uint8_t cc)
+void setRotary(int num, const char *name, uint8_t port, uint8_t channel, uint8_t cc)
 {
     display(dbg_rotary,"setRotary(%d)(0x%02x,%d,0x%02x)",num,port,channel,cc);
+    memcpy(rotary[num].name,name,MAX_PEDAL_NAME);
+    rotary[num].name[MAX_PEDAL_NAME] = 0;
     rotary[num].port    = port;
     rotary[num].channel = channel;
     rotary[num].cc      = cc;

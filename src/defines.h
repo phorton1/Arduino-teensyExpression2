@@ -7,14 +7,20 @@
 
 #include <Arduino.h>
 
-#define TEENSY_EXPRESSION_VERSION  "v2.0"
+#define TEENSY_EXPRESSION_VERSION  	"v2.0"
 
-extern void mem_check(const char *where = 0);
-	// in mem_check.cpp
+#define MAX_RIG_NAME   		31
+#define	DEFAULT_RIG_NAME	"rpiLooper"
+#define DEFAULT_MODAL_NAME	"clipVolumes"
+
 
 #define SERIAL_DEVICE	   Serial3
 	// the serial port to use for our 'Serial' device
 	// will be Serial2 on Teensy 4.1
+
+
+extern void mem_check(const char *where = 0);
+	// in mem_check.cpp
 
 
 // basics
@@ -28,7 +34,7 @@ extern void mem_check(const char *where = 0);
 #define NUM_PEDALS          4
 #define NUM_ROTARY          4
 
-#define MAX_PEDAL_NAME		7
+#define MAX_PEDAL_NAME		7		// also used for rotaries
 #define MIDI_MAX_VALUE		127
 
 // midi ports

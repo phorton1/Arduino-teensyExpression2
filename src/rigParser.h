@@ -11,9 +11,6 @@
 
 #define BUTTON_INHERIT_FLAG		0xFFFF
 
-#define	DEFAULT_RIG_NAME		"rpiLooper"
-#define DEFAULT_MODAL_NAME		"clipVolumes"
-
 #define RIG_TYPE_MODAL		0x0001		// rig is a modal rig
 #define RIG_TYPE_SYSTEM		0x0002		// rig was loaded from constants
 

@@ -196,8 +196,9 @@ static const int PEDAL_ARGS[] = {		// PEDAL(0, "Synth", MIDI, 1, 7);
 	PARAM_MIDI_CC,
 	0
 };
-static const int ROTARY_ARGS[] = {		// ROTARY(0, SERIAL, 1, LOOP_CONTROL_BASE + n);
+static const int ROTARY_ARGS[] = {		// ROTARY(0, "thru", SERIAL, 1, LOOP_CONTROL_BASE + n);
 	PARAM_ROTARY_NUM,
+	PARAM_PEDAL_NAME,
 	PARAM_MIDI_PORT,
 	PARAM_MIDI_CHANNEL,
 	PARAM_MIDI_CC,

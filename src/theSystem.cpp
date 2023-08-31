@@ -158,7 +158,14 @@ void theSystem::begin()
     theButtons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);
 	// theButtons.setButtonType(9, BUTTON_EVENT_CLICK, LED_PURPLE);
 
-	rig_machine.loadRig(DEFAULT_RIG_NAME);
+	// We try to load preferred startup rig and it fails, we then
+	// check to make sure its different than the default name,
+	// JIC I introduced a bug in the default rig so we don't try it twice,
+	// we load the default rig.
+
+	if (!rig_machine.loadRig(prefs.RIG_NAME) &&
+		strcmp(prefs.RIG_NAME,DEFAULT_RIG_NAME))
+		rig_machine.loadRig(DEFAULT_RIG_NAME);
 
 	display(dbg_sys,"returning from theSystem::begin()",0);
 }
