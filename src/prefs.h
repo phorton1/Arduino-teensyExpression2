@@ -35,18 +35,30 @@
 	// and automatically do a factory reset when switching between them
 
 
-// Pref Constants
+// Enumeration of DEBUG_DEVICEs
 
-#define OUTPUT_DEVICE_OFF			0
-#define OUTPUT_DEVICE_USB			1
-#define OUTPUT_DEVICE_SERIAL		2
+#define DEBUG_DEVICE_OFF		0
+#define DEBUG_DEVICE_USB		1
+#define DEBUG_DEVICE_SERIAL		2
 
-// Pref Names
+// Enumeration of OUTPUT_DEVICES that can follow the DEBUG_DEVICE
 
-#define PREF_BRIGHTNESS				"BRIGHTNESS"
-#define PREF_DEBUG_DEVICE			"DEBUG_DEVICE"
-#define PREF_FILE_SYSTEM_PORT		"FILE_SYSTEM_PORT"
-#define PREF_FTP_ENABLE				"FTP_PORT"
+#define OUTPUT_DEVICE_OFF	    0
+#define OUTPUT_DEVICE_DEBUG		1		// follows the DEBUG_DEVICE
+#define OUTPUT_DEVICE_USB		2
+#define OUTPUT_DEVICE_SERIAL	3
+
+// Encapsulation of FILE_SYS_DEVICE and MONITOR_DEVICE
+
+#define ACTIVE_FILE_SYS_DEVICE		( \
+	prefs.FILE_SYS_DEVICE == OUTPUT_DEVICE_DEBUG  ? ((Stream *) dbgSerial) : \
+	prefs.FILE_SYS_DEVICE == OUTPUT_DEVICE_USB    ? ((Stream *) &Serial) : \
+	prefs.FILE_SYS_DEVICE == OUTPUT_DEVICE_SERIAL ? ((Stream *) &SERIAL_DEVICE) : NULL )
+
+#define ACTIVE_MONTITOR_DEVICE		( \
+	prefs.MONOTOR_DEVICE == OUTPUT_DEVICE_DEBUG   ? ((Stream *) dbgSerial) : \
+	prefs.MONOTOR_DEVICE == OUTPUT_DEVICE_USB     ? ((Stream *) &Serial) : \
+	prefs.MONOTOR_DEVICE == OUTPUT_DEVICE_SERIAL  ? ((Stream *) &SERIAL_DEVICE) : NULL )
 
 
 //---------------------------------------
@@ -97,7 +109,7 @@ typedef struct
 {
 	uint8_t 		BRIGHTNESS;					// LED brightness, 1..100 - default=30
 	uint8_t			DEBUG_DEVICE;         		// off, USB, Serial - default(2=Serial)
-	uint8_t			FILE_SYS_DEVICE;   			// off, USB, Serial - default(0=off)
+	uint8_t			FILE_SYS_DEVICE;   			// off, Debug, USB, Serial - default(1=Debug)
 	uint8_t			SPOOF_FTP;         			// off, on - on implies FTP_PORT == HOST
 	uint8_t			FTP_PORT;         			// off, USB, HOST
 
@@ -106,7 +118,7 @@ typedef struct
 
 	// midi monitoring, general on/off
 
-	uint8_t			MIDI_MONITOR;    			// off, USB, Serial - default(off)
+	uint8_t			MIDI_MONITOR;    			// off, Debug, USB, Serial - default(off)
 
 	// whether to monitor specific ports
 	// these are turned into 7 bit masks for matching the ports in enqueMidi

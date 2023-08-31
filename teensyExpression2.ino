@@ -29,11 +29,9 @@ void setup()
     // things I might want to do:
     //
     reset_prefs();
-    prefs.DEBUG_DEVICE = OUTPUT_DEVICE_USB;
-    prefs.FILE_SYS_DEVICE = OUTPUT_DEVICE_USB;
+    prefs.DEBUG_DEVICE = DEBUG_DEVICE_USB;
     prefs.FTP_PORT = 0; // 2;     // enum
     // prefs.SPOOF_FTP = 1;    // on
-
     // save_prefs();
 
     //-------------------------------------
@@ -41,23 +39,23 @@ void setup()
     //-------------------------------------
     // start the external port
 
-    Serial3.begin(115200);
+    SERIAL_DEVICE.begin(115200);
     elapsedMillis serial_started = 0;
-    while (serial_started<1000 && !Serial3) {}
-    if (Serial3)
+    while (serial_started<1000 && !SERIAL_DEVICE) {}
+    if (SERIAL_DEVICE)
     {
         delay(1000);
-        Serial3.println("hello from teensyExpressionsetup() " TEENSY_EXPRESSION_VERSION " Serial3 port");
+        SERIAL_DEVICE.println("hello from teensyExpressionsetup() " TEENSY_EXPRESSION_VERSION " Serial port");
     }
 
-    // set the debug output to Serial3, or possibly nothing
+    // set the debug output to SERIAL_DEVICE, or possibly nothing
 
     uint8_t debug_device = prefs.DEBUG_DEVICE;
-    if (debug_device == OUTPUT_DEVICE_SERIAL)
+    if (debug_device == DEBUG_DEVICE_SERIAL)
     {
-        dbgSerial = &Serial3;
+        dbgSerial = &SERIAL_DEVICE;
     }
-    else if (debug_device == OUTPUT_DEVICE_OFF)
+    else if (debug_device == DEBUG_DEVICE_OFF)
     {
         dbgSerial = 0;      // turns off output in myDebug.cpp
     }
@@ -203,9 +201,9 @@ void setup()
         mylcd.println(msg);
         do_delay = 5000;
     }
-    else if (debug_device == OUTPUT_DEVICE_SERIAL)
+    else if (debug_device == DEBUG_DEVICE_SERIAL)
     {
-        const char *msg = "    DEBUG_OUTPUT to hardware Serial3!";
+        const char *msg = "    DEBUG_OUTPUT to hardware SERIAL_DEVICE!";
         warning(0,"%s",msg);
         mylcd.println(msg);
         do_delay = 5000;

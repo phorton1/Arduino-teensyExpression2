@@ -1,20 +1,25 @@
-// abstracted file system for use with serial IO protocol
+//----------------------------------------------------------
+// fileSystem.cpp
+//----------------------------------------------------------
+// Abstracted file system for use with serial IO protocol
 //
-// Actually the initial problem was bad connectors on the perf-board
-// to Uno 3.5" TFT display that made me think that my 3.6's might be bad ..
+// OLD NOTE:
 //
-// What a fucking mess.
+// prh - I was getting an error when starting the system from a cold power up.
+// it was working ok from a compile (ctrl-I in Komodo) right after the TeensyLoader
+// put the program on the teensy, but not on a subsequent cold-powerup.
+// I "fixed" it by increasing BUSY_TIMEOUT_MICROS from 500000 to 1000000
+// in /Arduino/libraries/SdFat/src/SdCard/SdioTeensy.cpp.
 //
-// I was using a slighly modified version of the sdFat library v1.1.2 that I
+// VERSION2 NOTES
+//
+// In TE1 was using a slighly modified version of the sdFat library v1.1.2 that I
 // downloaded from https://github.com/greiman/SdFat 3 years ago in my libraries
 // folder.  It was working well with my old version 1.53 of teensyDuino ...
-// The only mod I had made was to BUSY_TIMEOUT_MICROS from 500000 to 1000000
-// in /Arduino/libraries/SdFat/src/SdCard/SdioTeensy.cpp
-// to 'fix' a problem where the SD Card would not start on a cold boot, but
-// WOULD start from a Komodo (or Arduino IDE) compile and upload.
+// The only mod I had made was mentioned above.
 //
 // I was worried about my teensy3.6's, they're being discontinued, and I have two brand new 4.1's.
-// But the 4.1 is not supported by that old version of SdFat.  To get SdFat for 4.1's, tt was
+// But the 4.1 is not supported by that old version of SdFat.  To get SdFat for 4.1's, it was
 // "recommended" that one upgrades the teensyDuino to a newer version which includes
 // SdFat (and SD) libraries ...
 //
@@ -25,7 +30,7 @@
 //
 // With teensyDuino 1.58 I got SdFat v2.1.2 in the Program Files (x86)
 // folder as part of the deal. So, I saved off and removed my old SdFat library,
-// and endevored to build with the new SdFat library. I immediatly found that
+// and endeavored to build with the new SdFat library. I immediatly found that
 // SdFat v2.1.2 is a complete rewrite from the old version and I had to figure
 // out what objects to use just to get it basically working:
 //
@@ -34,7 +39,7 @@
 //		DirFat_t instead the old dir_t for directory entries
 //      ... I still haven't figured out directory entries and datetime stamps
 //
-// I got it basicly working with the teensy3.6 (then made new PCB's and
+// I got it basically working with the teensy3.6 (then made new PCB's and
 // fixed the bad connector problem), and then noticed that new SdFat library
 // has the opposite problem of the one I 'fixed' in the old library. It
 // fails to initialze the SD card on a soft reboot (after a compile/upload),
@@ -54,9 +59,7 @@
 //--------------------------------------------------------------------------------
 // SO I NEED A GOOD PLACE TO STORE THEM, esp since one is under source control
 // and I am tempted to modify them, and /junk is not a good place for them.
-// So they are in:
-//
-//                       /zip/_teensy/_SdFat_libraries
+// So they are in:     /zip/_teensy/_SdFat_libraries
 
 
 
@@ -65,10 +68,10 @@
 #include <myDebug.h>
 #include <Base64.h>
 
-#define dbg_tfs    0
+#define dbg_tfs    2
     // This debugging *may* affect timing.
-    // It "works" when this is on (0), but "not" when 1 (debugging turned off)
-
+	// 1 = show file commands
+	// 0 = show file operations
 
 #if USE_OLD_FAT
 	SdFatSdio SD;
@@ -76,19 +79,6 @@
 	SdFat32 SD;
 #endif
 
-	// prh - I was getting an error when starting the system from a cold power up.
-    // it was working ok from a compile (ctrl-I in Komodo) right after the TeensyLoader
-    // put the program on the teensy, but not on a subsequent cold-powerup.
-    // I "fixed" it by increasing BUSY_TIMEOUT_MICROS from 500000 to 1000000
-    // in /Arduino/libraries/SdFat/src/SdCard/SdioTeensy.cpp.
-
-	// 2023-08-22 - new library not working from Komodo compile.
-	// tried increasing BUSY_TIMEOUT_MICROS to 2000000, no joy.
-
-
-Stream *s_Serial = 0;
-    // The serial port to send commands to.
-    // Determined by preference.
 
 
 // state of current put
@@ -198,23 +188,16 @@ char static_timestamp[32];
 // static
 bool fileSystem::init()
 {
-	uint8_t fs_device = prefs.FILE_SYS_DEVICE;
+	uint8_t dd = prefs.DEBUG_DEVICE;
+	uint8_t fsd = prefs.FILE_SYS_DEVICE;
 
-    if (fs_device == OUTPUT_DEVICE_OFF)
-    {
-        warning(0,"FILE_SYS_DEVICE is OFF",0);
-        s_Serial = 0;
-    }
-    else if (fs_device == OUTPUT_DEVICE_USB)
-    {
-        warning(0,"FILE_SYS_DEVICE is USB",0);
-        s_Serial = &Serial;
-    }
-    else if (fs_device == OUTPUT_DEVICE_SERIAL)
-    {
-        display(0,"FILE_SYS_DEVICE is Serial",0);
-        s_Serial = &Serial3;
-    }
+    warning(0,"FILE_SYS_DEVICE %s",
+		fsd == OUTPUT_DEVICE_SERIAL ? "is SERIAL" :
+		fsd == OUTPUT_DEVICE_USB 	? "is USB" :
+		fsd == OUTPUT_DEVICE_OFF 	? "is OFF!!" :
+		dd == DEBUG_DEVICE_SERIAL 	? "follows DEBUG_DEVICE which is SERIAL" :
+		dd == DEBUG_DEVICE_USB 		? "follows DEBUG_DEVICE which is USB" :
+		"follows DEBUG_DEVICE which is OFF" );
 
 #if USE_OLD_FAT
     if (!SD.begin())
@@ -454,87 +437,78 @@ void dtCallback(uint16_t* date, uint16_t* time)
 // handleFileCommand()
 //==================================================
 
-#define RECURSIVE_LIST   1
+void doListRecursive(Stream *fsd, char *full_name, bool recurse, int level, myFileType_t the_dir)
+{
+	char dir_name[255];
+	the_dir.getName(dir_name, sizeof(dir_name));
+	display(dbg_tfs,"doListRecursive(%s,%d,%d,%s)",full_name,recurse,level,dir_name);
 
-#if RECURSIVE_LIST
+	const char *ts = getDateTimeStamp(&the_dir,dir_name);
 
+	fsd->print("file_reply:Directory Listing ");
+	fsd->print(ts);
+	fsd->print(",");
+	fsd->println(full_name);
 
+	myFileType_t entry = the_dir.openNextFile();
+	while (entry)
+	{
+		char filename[255];
+		entry.getName(filename, sizeof(filename));
 
-    void doListRecursive(char *full_name, bool recurse, int level, myFileType_t the_dir)
-    {
-        char dir_name[255];
-        the_dir.getName(dir_name, sizeof(dir_name));
-        display(dbg_tfs,"doListRecursive(%s,%d,%d,%s)",full_name,recurse,level,dir_name);
+		if (entry.isDirectory())
+		{
+			const char *ts = getDateTimeStamp(&entry,filename);
 
-        const char *ts = getDateTimeStamp(&the_dir,dir_name);
+			fsd->print("file_reply:");
+			fsd->print(ts);
+			fsd->print(",");
+			fsd->print(filename);
+			fsd->print("/");
+			fsd->print("\r\n");
+		}
+		else
+		{
+			uint32_t size = entry.size();
+			const char *ts = getDateTimeStamp(&entry,filename);
 
-        s_Serial->print("file_reply:Directory Listing ");
-        s_Serial->print(ts);
-        s_Serial->print(",");
-        s_Serial->println(full_name);
+			fsd->print("file_reply:");
+			fsd->print(ts);
+			fsd->print(',');
+			fsd->print(size);
+			fsd->print(',');
+			fsd->print(filename);
+			fsd->print("\r\n");
+		}
 
-        myFileType_t entry = the_dir.openNextFile();
-        while (entry)
-        {
-            char filename[255];
-            entry.getName(filename, sizeof(filename));
+		entry = the_dir.openNextFile();
 
-            if (entry.isDirectory())
-            {
-                const char *ts = getDateTimeStamp(&entry,filename);
+	}   // while (entry)
 
-                s_Serial->print("file_reply:");
-                s_Serial->print(ts);
-                s_Serial->print(",");
-                s_Serial->print(filename);
-                s_Serial->print("/");
-                s_Serial->print("\r\n");
-            }
-            else
-            {
-                uint32_t size = entry.size();
-                const char *ts = getDateTimeStamp(&entry,filename);
+	// rewind if recurse
 
-                s_Serial->print("file_reply:");
-                s_Serial->print(ts);
-                s_Serial->print(',');
-                s_Serial->print(size);
-                s_Serial->print(',');
-                s_Serial->print(filename);
-                s_Serial->print("\r\n");
-            }
+	if (recurse)
+	{
+		the_dir.rewindDirectory();
+		myFileType_t entry = the_dir.openNextFile();
+		while (entry)
+		{
+			if (entry.isDirectory())
+			{
+				entry.getName(dir_name, sizeof(dir_name));
 
-            entry = the_dir.openNextFile();
+				char full_path[255];
+				strcpy(full_path,full_name);
+				strcat(full_path,"/");
+				strcat(full_path,dir_name);
 
-        }   // while (entry)
+				doListRecursive(fsd,full_path,recurse,level+1,entry);
+			}
+			entry = the_dir.openNextFile();
+		}
 
-        // rewind if recurse
-
-        if (recurse)
-        {
-            the_dir.rewindDirectory();
-            myFileType_t entry = the_dir.openNextFile();
-            while (entry)
-            {
-                if (entry.isDirectory())
-                {
-                    entry.getName(dir_name, sizeof(dir_name));
-
-                    char full_path[255];
-                    strcpy(full_path,full_name);
-                    strcat(full_path,"/");
-                    strcat(full_path,dir_name);
-
-                    doListRecursive(full_path,recurse,level+1,entry);
-                }
-                entry = the_dir.openNextFile();
-            }
-
-        }
-    }
-#endif  // RECURSIVE_LIST
-
-
+	}
+}
 
 
 #define MAX_DECODED_BUF   10240
@@ -547,76 +521,32 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 {
     // DIRECTORY LIST
 
-     display(dbg_tfs-1,"handleFileCommand %s",command);
+	Stream *fsd = ACTIVE_FILE_SYS_DEVICE;
+	if (!fsd)
+	{
+		warning(0,"FILE_SYS_DEVICE is off in handleFileCommand()!!!",0);
+		return;
+	}
+
+    display(dbg_tfs-1,"handleFileCommand %s",command);
 
     if (!strcmp(command,"list"))
     {
         // send a blank response if the directory does not exist
 
-        #if RECURSIVE_LIST
+		char *recurse = (char *) param;
+		char *dir_name = recurse;
+		while (*dir_name && *dir_name != ',') dir_name++;
+		if (*dir_name == ',') *dir_name++ = 0;
 
-            char *recurse = (char *) param;
-            char *dir_name = recurse;
-            while (*dir_name && *dir_name != ',') dir_name++;
-            if (*dir_name == ',') *dir_name++ = 0;
+		display(dbg_tfs,"list command %s - %s",recurse,dir_name);
 
-            display(dbg_tfs,"list command %s - %s",recurse,dir_name);
+		myFileType_t the_dir = SD.open(dir_name);
+		if (the_dir)
+		{
+			doListRecursive(fsd,dir_name,*recurse=='1',0,the_dir);
+		}
 
-            myFileType_t the_dir = SD.open(dir_name);
-            if (the_dir)
-            {
-                doListRecursive(dir_name,*recurse=='1',0,the_dir);
-            }
-
-        #else
-            const char *dir_name = param;
-            myFileType_t the_dir = SD.open(dir_name);
-            if (the_dir)
-            {
-                const char *ts = getDateTimeStamp(&the_dir,dir_name);
-
-                s_Serial->print("file_reply:Directory Listing ");
-                s_Serial->print(ts);
-                s_Serial->print(",");
-                s_Serial->println(dir_name);
-
-                myFileType_t entry = the_dir.openNextFile();
-                while (entry)
-                {
-                    char filename[255];
-                    entry.getName(filename, sizeof(filename));
-
-                    if (entry.isDirectory())
-                    {
-                        const char *ts = getDateTimeStamp(&entry,filename);
-
-                        s_Serial->print("file_reply:");
-                        s_Serial->print(ts);
-                        s_Serial->print(",");
-                        s_Serial->print(filename);
-                        s_Serial->print("/");
-                        s_Serial->print("\r\n");
-                    }
-                    else
-                    {
-                        uint32_t size = entry.size();
-
-                        const char *ts = getDateTimeStamp(&entry,filename);
-                        s_Serial->print("file_reply:");
-                        s_Serial->print(ts);
-                        s_Serial->print(',');
-                        s_Serial->print(size);
-                        s_Serial->print(',');
-                        s_Serial->print(filename);
-                        s_Serial->print("\r\n");
-                    }
-
-                    entry = the_dir.openNextFile();
-
-                }   // while (entry)
-            }   // if the_dir
-
-        #endif  // !RECURSIVE_LIST
     }   // list command
 
 
@@ -632,10 +562,10 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         display(dbg_tfs,"fileSystem::mkdir(%s,%s)",path,ts);
         if (SD.exists(path))
         {
-            s_Serial->print("file_reply:");
-            s_Serial->print("ERROR - directory_already_exists ");
-            s_Serial->print(path);
-            s_Serial->print("\r\n");
+            fsd->print("file_reply:");
+            fsd->print("ERROR - directory_already_exists ");
+            fsd->print(path);
+            fsd->print("\r\n");
         }
         else
         {
@@ -666,16 +596,16 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                     }
                 #endif
 
-                s_Serial->print("file_reply:");
-                s_Serial->print("OK - created_directory ");
+                fsd->print("file_reply:");
+                fsd->print("OK - created_directory ");
             }
             else
             {
-                s_Serial->print("file_reply:");
-                s_Serial->print("ERROR - could_not_create_directory ");
+                fsd->print("file_reply:");
+                fsd->print("ERROR - could_not_create_directory ");
             }
-            s_Serial->print(param);
-            s_Serial->print("\r\n");
+            fsd->print(param);
+            fsd->print("\r\n");
         }
     }   // mkdir command
 
@@ -701,13 +631,13 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
             const char *ts = getDateTimeStamp(&the_file,filename);
             uint32_t size = the_file.size();
 
-            s_Serial->print("file_reply:FILE ");
-            s_Serial->print(ts);
-            s_Serial->print(",");
-            s_Serial->print(size);
-            s_Serial->print(",");
-            s_Serial->print(filename);
-            s_Serial->print("\r\n");
+            fsd->print("file_reply:FILE ");
+            fsd->print(ts);
+            fsd->print(",");
+            fsd->print(size);
+            fsd->print(",");
+            fsd->print(filename);
+            fsd->print("\r\n");
 
             #define BUF_BYTES   80
             #define BASE64_BYTES   120      // at least 4/3ds the size of buf bytes
@@ -731,13 +661,13 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 if (got_bytes != bytes_to_read)
                 {
                     my_error("got %d bytes while attempting to read %d bytes at offset %d",got_bytes,bytes_to_read,file_off);
-                    s_Serial->print("file_reply:ERROR got ");
-                    s_Serial->print(got_bytes);
-                    s_Serial->print(" bytes while attempting to read ");
-                    s_Serial->print(bytes_to_read);
-                    s_Serial->print(" bytes at offset ");
-                    s_Serial->print(file_off);
-                    s_Serial->print("\r\n");
+                    fsd->print("file_reply:ERROR got ");
+                    fsd->print(got_bytes);
+                    fsd->print(" bytes while attempting to read ");
+                    fsd->print(bytes_to_read);
+                    fsd->print(" bytes at offset ");
+                    fsd->print(file_off);
+                    fsd->print("\r\n");
                     ok = 0;
                     break;
                 }
@@ -751,9 +681,9 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 b64_buf[enc_len] = 0;
 
 				delay(20);
-                s_Serial->print("file_reply:");
-                s_Serial->print(b64_buf);
-                s_Serial->print("\r\n");
+                fsd->print("file_reply:");
+                fsd->print(b64_buf);
+                fsd->print("\r\n");
 
                 size -= bytes_to_read;
                 file_off += bytes_to_read;
@@ -763,9 +693,9 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
             if (ok)
             {
-                s_Serial->print("file_reply:CHECKSUM ");
-                s_Serial->print(check_sum);
-                s_Serial->print("\r\n");
+                fsd->print("file_reply:CHECKSUM ");
+                fsd->print(check_sum);
+                fsd->print("\r\n");
             }
         }
         else
@@ -821,9 +751,9 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 if (!the_dir.isDirectory())
                 {
                     my_error("NOT A DIRECTORY (is a file): %s",dir);
-                    s_Serial->print("file_reply:ERROR NOT A DIRECTORY .. is a file - ");
-                    s_Serial->print(dir);
-                    s_Serial->print("\r\n");
+                    fsd->print("file_reply:ERROR NOT A DIRECTORY .. is a file - ");
+                    fsd->print(dir);
+                    fsd->print("\r\n");
                     ok = 0;
                 }
                 else
@@ -852,9 +782,9 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 				if (!rslt)
                 {
                     my_error("COULD NOT CREATE DIRECTORY: %s",dir);
-                    s_Serial->print("file_reply:ERROR - COULD NOT CREATE DIRECTORY ");
-                    s_Serial->print(dir);
-                    s_Serial->print("\r\n");
+                    fsd->print("file_reply:ERROR - COULD NOT CREATE DIRECTORY ");
+                    fsd->print(dir);
+                    fsd->print("\r\n");
                     ok = 0;
                 }
             }
@@ -870,9 +800,9 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
             if (!write_file)
             {
                 my_error("COULD NOT CREATE FILE %s",filename);
-                s_Serial->print("file_reply:ERROR - COULD NOT OPEN FILE ");
-                s_Serial->print(filename);
-                s_Serial->print("\r\n");
+                fsd->print("file_reply:ERROR - COULD NOT OPEN FILE ");
+                fsd->print(filename);
+                fsd->print("\r\n");
                 ok = 0;
             }
         }
@@ -881,16 +811,16 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
         if (ok)
         {
-            s_Serial->print("file_reply:OK PUT STARTED");
+            fsd->print("file_reply:OK PUT STARTED");
             #if 0
-                s_Serial->print(ts);
-                s_Serial->print(",");
-                s_Serial->print(size);
-                s_Serial->print(",");
-                s_Serial->print(filename);
+                fsd->print(ts);
+                fsd->print(",");
+                fsd->print(size);
+                fsd->print(",");
+                fsd->print(filename);
             #endif
 
-            s_Serial->print("\r\n");
+            fsd->print("\r\n");
         }
     }   // part 1 of 3 of put command
 
@@ -904,13 +834,13 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         if (bytes_written != decoded_size)
         {
             my_error("write fail got(%d) expected(%d) offset(%d)",bytes_written,decoded_size,write_offset);
-            s_Serial->print("file_reply:ERROR - write fail got=");
-            s_Serial->print(bytes_written);
-            s_Serial->print(" expected=");
-            s_Serial->print(decoded_size);
-            s_Serial->print(" at offset=");
-            s_Serial->print(write_offset);
-            s_Serial->print("\r\n");
+            fsd->print("file_reply:ERROR - write fail got=");
+            fsd->print(bytes_written);
+            fsd->print(" expected=");
+            fsd->print(decoded_size);
+            fsd->print(" at offset=");
+            fsd->print(write_offset);
+            fsd->print("\r\n");
         }
         else
         {
@@ -918,9 +848,9 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 write_checksum += decode_buf[i];
             write_offset += decoded_size;
 
-            s_Serial->print("file_reply:OK PUT CONTINUE offset=");
-            s_Serial->print(write_offset);
-            s_Serial->print("\r\n");
+            fsd->print("file_reply:OK PUT CONTINUE offset=");
+            fsd->print(write_offset);
+            fsd->print("\r\n");
         }
     }   // BASE64 - part 2 of 3 of put command
 
@@ -930,19 +860,19 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         display(dbg_tfs,"CHECKSUM got=%d calculated=%d",got,write_checksum);
         if (got == write_checksum)
         {
-            s_Serial->print("file_reply:OK CHECKSUM ");
-            s_Serial->print(got);
-            s_Serial->print("==");
-            s_Serial->print(write_checksum);
-            s_Serial->print("\r\n");
+            fsd->print("file_reply:OK CHECKSUM ");
+            fsd->print(got);
+            fsd->print("==");
+            fsd->print(write_checksum);
+            fsd->print("\r\n");
         }
         else
         {
-            s_Serial->print("file_reply:ERROR CHECKSUM FAIL got(");
-            s_Serial->print(got);
-            s_Serial->print(") != calculated(");
-            s_Serial->print(write_checksum);
-            s_Serial->print(")\r\n");
+            fsd->print("file_reply:ERROR CHECKSUM FAIL got(");
+            fsd->print(got);
+            fsd->print(") != calculated(");
+            fsd->print(write_checksum);
+            fsd->print(")\r\n");
         }
 
         setTimeStamp(write_file,write_ts);
@@ -974,25 +904,25 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
             if (rslt)
             {
-                s_Serial->print("file_reply:OK DELETE ");
-                s_Serial->print(is_dir);
-                s_Serial->print("\r\n");
+                fsd->print("file_reply:OK DELETE ");
+                fsd->print(is_dir);
+                fsd->print("\r\n");
             }
             else
             {
-                s_Serial->print("file_reply:ERROR - ");
-                s_Serial->print(is_dir?"rmRfStar(":"remove(");
-                s_Serial->print(param);
-                s_Serial->print(") failed!");
-                s_Serial->print("\r\n");
+                fsd->print("file_reply:ERROR - ");
+                fsd->print(is_dir?"rmRfStar(":"remove(");
+                fsd->print(param);
+                fsd->print(") failed!");
+                fsd->print("\r\n");
             }
         }
         else
         {
-            s_Serial->print("file_reply:ERROR - could not open '");
-            s_Serial->print(param);
-            s_Serial->print("'for deletion");
-            s_Serial->print("\r\n");
+            fsd->print("file_reply:ERROR - could not open '");
+            fsd->print(param);
+            fsd->print("'for deletion");
+            fsd->print("\r\n");
         }
 
     }   // delete command
@@ -1019,40 +949,37 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
             if (SD.rename(old_path,new_path))
             {
-                s_Serial->print("file_reply:OK RENAME ");
-                s_Serial->print(is_dir);
-                s_Serial->print(",");
-                s_Serial->print(size);
-                s_Serial->print(",");
-                s_Serial->print(ts);
-                s_Serial->print("\r\n");
+                fsd->print("file_reply:OK RENAME ");
+                fsd->print(is_dir);
+                fsd->print(",");
+                fsd->print(size);
+                fsd->print(",");
+                fsd->print(ts);
+                fsd->print("\r\n");
             }
             else
             {
-                s_Serial->print("file_reply:ERROR - rename '");
-                s_Serial->print(old_path);
-                s_Serial->print("' to '");
-                s_Serial->print(new_path);
-                s_Serial->print("' FAILED");
-                s_Serial->print("\r\n");
+                fsd->print("file_reply:ERROR - rename '");
+                fsd->print(old_path);
+                fsd->print("' to '");
+                fsd->print(new_path);
+                fsd->print("' FAILED");
+                fsd->print("\r\n");
             }
         }
         else
         {
-            s_Serial->print("file_reply:ERROR - could not open '");
-            s_Serial->print(old_path);
-            s_Serial->print("' for renaming");
-            s_Serial->print("\r\n");
+            fsd->print("file_reply:ERROR - could not open '");
+            fsd->print(old_path);
+            fsd->print("' for renaming");
+            fsd->print("\r\n");
         }
     }
 
+    fsd->print("file_reply_end");
+    fsd->print("\r\n");
 
-    s_Serial->print("file_reply_end");
-    s_Serial->print("\r\n");
-
-}
-
-
+}	// handleFileCommand
 
 
 // end of fileSystem.cpp

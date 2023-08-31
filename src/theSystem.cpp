@@ -211,7 +211,7 @@ void theSystem::critical_timer_handler()
 //--------------------------------------------------------
 // Serial Port Handler
 //--------------------------------------------------------
-// Polls Serial and Serial3 for data.
+// Polls Serial and SERIAL_DEVICE for data.
 // Handles incoming serial midi that starts with 0x0B and/or
 // fileSystem command lines that start with "file_command:.*"
 // Note that this implementation does not care about setting
@@ -234,13 +234,13 @@ void theSystem::critical_timer_handler()
 void theSystem::handleSerialData()
 {
 	// The main USB Serial is only expected to contain lines of text
-	// Serial3 may contain either text or serial midi data
+	// SERIAL_DEVICE may contain either text or serial midi data
 
 	int buf_ptr = 0;
 	bool is_midi = false;
 	bool started = false;
 	bool finished = false;
-	bool from_serial3 = 0;
+	bool from_serial = 0;
 	elapsedMillis line_timeout = 0;
 	static char static_serial_buffer[MAX_SERIAL_TEXT_LINE+1];
 
@@ -266,12 +266,12 @@ void theSystem::handleSerialData()
 			}
 		}
 	}
-	else if (Serial3.available())
+	else if (SERIAL_DEVICE.available())
 	{
 		started = true;
-		from_serial3 = 1;
+		from_serial = 1;
 
-		int c = Serial3.read();
+		int c = SERIAL_DEVICE.read();
 		if (c == 0x0B)		// ONLY CC commands on channel 0
 		{
 			is_midi = 1;
@@ -280,8 +280,8 @@ void theSystem::handleSerialData()
 			for (int i=0; i<3; i++)
 			{
 				static volatile int fu = 0;
-				while (!Serial3.available()) {fu++;}
-				c = Serial3.read();
+				while (!SERIAL_DEVICE.available()) {fu++;}
+				c = SERIAL_DEVICE.read();
 				static_serial_buffer[buf_ptr++] = c;
 			}
 
@@ -304,22 +304,22 @@ void theSystem::handleSerialData()
 						line_timeout = 0;
 
 					}
-					while (!Serial3.available())
+					while (!SERIAL_DEVICE.available())
 					{
 						if (line_timeout>=SERIAL_TIMEOUT)
 							break;
 					}
- 					c = Serial3.read();
+ 					c = SERIAL_DEVICE.read();
 				}
 			}
 		}
-	}	// Serial3.available()
+	}	// SERIAL_DEVICE.available()
 
 
  	if (started && !finished)
 	{
-		my_error("Could not finish serial input from_serial3(%d) is_midi(%d) buf_ptr(%d) %s",
-			from_serial3,
+		my_error("Could not finish serial input from_serial(%d) is_midi(%d) buf_ptr(%d) %s",
+			from_serial,
 			is_midi,
 			buf_ptr,
 			line_timeout>SERIAL_TIMEOUT ? "TIMEOUT" : "");
@@ -348,8 +348,8 @@ void theSystem::handleSerialData()
 		else
 		{
 			static_serial_buffer[buf_ptr+1] = 0;
-			my_error("theSystem got unexpected serial data from_serial3(%d) is_midi(%d) buf_ptr(%d) %s",
-				from_serial3,
+			my_error("theSystem got unexpected serial data from_serial(%d) is_midi(%d) buf_ptr(%d) %s",
+				from_serial,
 				is_midi,
 				buf_ptr,
 				line_timeout>SERIAL_TIMEOUT ? "TIMEOUT" : "");

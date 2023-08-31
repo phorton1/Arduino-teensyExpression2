@@ -29,15 +29,11 @@ prefs_t last_prefs;
 #define PP_TWO			(2 * PP_MAX / 3)
 
 
-#define OUTPUT_DEVICE_OFF			0
-#define OUTPUT_DEVICE_USB			1
-#define OUTPUT_DEVICE_SERIAL		2
-
 const prefs_t default_prefs =
 {
 	.BRIGHTNESS			= 30,				// LED brightness, 1..100 - default=30
-	.DEBUG_DEVICE		= OUTPUT_DEVICE_SERIAL,		// off, USB, Serial - default(2=Serial)
-	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_SERIAL,		// off, USB, Serial - default(0=off)
+	.DEBUG_DEVICE		= DEBUG_DEVICE_SERIAL,		// off, USB, Serial - default(2=Serial)
+	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_DEBUG,		// off, Debug, USB, Serial - default(Debug)
 	.SPOOF_FTP          = 0,						// off, on
 	.FTP_PORT			= 1,						// off, USB, HOST
 	.PEDAL = {
@@ -118,10 +114,10 @@ const prefs_t default_prefs =
 			},
 		},
 
-	.MIDI_MONITOR					= OUTPUT_DEVICE_SERIAL,		// OUTPUT_DEVICE_OFF		// off, USB, Serial
-	.MONITOR_INPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on
-	.MONITOR_OUTPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on
-	.MONITOR_CHANNEL 				= { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },	// 16 channels off, on
+	.MIDI_MONITOR					= OUTPUT_DEVICE_DEBUG,		// off, Debug, USB, Serial - default(0=off) 			DEBUG in testing
+	.MONITOR_INPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on		all on in testing
+	.MONITOR_OUTPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on		all on in testing
+	.MONITOR_CHANNEL 				= { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },	// 16 channels off, on		all on in testing
 
 	.MONITOR_SYSEX					= 1,	// off, on, Detail - default(on)
 	.MONITOR_ACTIVE_SENSE			= 0,	// off, on - default(off)
@@ -148,7 +144,7 @@ const prefs_t default_prefs =
 	.MONITOR_FTP_KNOWN_COMMANDS		= 0,	// off, on - default(off)
 	.MONITOR_FTP_UNKNOWN_COMMANDS	= 0,	// off, on - default(off)
 
-};	// in_memory prefs with defaults
+};	// const pref defaults
 
 
 //----------------------------------------------------
@@ -163,9 +159,9 @@ const prefs_t prefs_min = {
 
 const prefs_t prefs_max =
 {
-	.BRIGHTNESS			= 100,					// LED brightness, 1..100 - default=30
-	.DEBUG_DEVICE		= OUTPUT_DEVICE_SERIAL, // off, USB, Serial - default(2=Serial)
-	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_SERIAL, // off, USB, Serial - default(2=Serial)
+	.BRIGHTNESS			= 100,					// LED brightness, 1..100
+	.DEBUG_DEVICE		= DEBUG_DEVICE_SERIAL,  // off, USB, Serial
+	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_SERIAL, // off, Debug, USB, Serial
 	.SPOOF_FTP			= 1,					// off, on
 	.FTP_PORT			= 2,					// off, USB, HOST
 	.PEDAL = {
@@ -174,10 +170,10 @@ const prefs_t prefs_max =
 			.PORT 		= MAX_MIDI_PORT,
 			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
 			.CC 		= MIDI_MAX_VALUE,
-			.CALIB_MIN	= 1023,				// 0..1023 - default(0)
-			.CALIB_MAX	= 1023,				// 0..1023 - default(1023)
-			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
-			.CURVE = {                      // setup simple curves for the three different types
+			.CALIB_MIN	= 1023,				// 0..1023
+			.CALIB_MAX	= 1023,				// 0..1023
+			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve
+			.CURVE = {
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {0,0}, {0,0} }, },
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {0,0} }, },
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
@@ -187,10 +183,10 @@ const prefs_t prefs_max =
 			.PORT 		= MAX_MIDI_PORT,
 			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
 			.CC 		= MIDI_MAX_VALUE,
-			.CALIB_MIN	= 1023,				// 0..1023 - default(0)
-			.CALIB_MAX	= 1023,				// 0..1023 - default(1023)
-			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
-			.CURVE = {                      // setup simple curves for the three different types
+			.CALIB_MIN	= 1023,				// 0..1023
+			.CALIB_MAX	= 1023,				// 0..1023
+			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve
+			.CURVE = {
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {0,0}, {0,0} }, },
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {0,0} }, },
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
@@ -200,10 +196,10 @@ const prefs_t prefs_max =
 			.PORT 		= MAX_MIDI_PORT,
 			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
 			.CC 		= MIDI_MAX_VALUE,
-			.CALIB_MIN	= 1023,				// 0..1023 - default(0)
-			.CALIB_MAX	= 1023,				// 0..1023 - default(1023)
-			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
-			.CURVE = {                      // setup simple curves for the three different types
+			.CALIB_MIN	= 1023,				// 0..1023
+			.CALIB_MAX	= 1023,				// 0..1023
+			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve
+			.CURVE = {
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {0,0}, {0,0} }, },
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {0,0} }, },
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
@@ -213,10 +209,10 @@ const prefs_t prefs_max =
 			.PORT 		= MAX_MIDI_PORT,
 			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
 			.CC 		= MIDI_MAX_VALUE,
-			.CALIB_MIN	= 1023,				// 0..1023 - default(0)
-			.CALIB_MAX	= 1023,				// 0..1023 - default(1023)
-			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
-			.CURVE = {                      // setup simple curves for the three different types
+			.CALIB_MIN	= 1023,				// 0..1023
+			.CALIB_MAX	= 1023,				// 0..1023
+			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve
+			.CURVE = {
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {0,0}, {0,0} }, },
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {0,0} }, },
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
@@ -245,36 +241,36 @@ const prefs_t prefs_max =
 			},
 		},
 
-	.MIDI_MONITOR					= OUTPUT_DEVICE_SERIAL,									// off, USB, Serial
+	.MIDI_MONITOR					= DEBUG_DEVICE_SERIAL,									// off, USB, Serial
 	.MONITOR_INPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on
 	.MONITOR_OUTPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on
 	.MONITOR_CHANNEL 				= { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },	// 16 channels off, on
 
-	.MONITOR_SYSEX					= 2,	// off, on, Detail - default(on)
-	.MONITOR_ACTIVE_SENSE			= 1,	// off, on - default(off)
-	.MONITOR_NOTE_ON				= 1,	// off, on - default(off)
-	.MONITOR_NOTE_OFF				= 1,	// off, on - default(off)
-	.MONITOR_VELOCITY				= 1,	// off, on - default(off)   note: "after touch poly"
-	.MONITOR_PROGRAM_CHG			= 1,	// off, on - default(on)
-	.MONITOR_AFTER_TOUCH			= 1,	// off, on - default(off)
-	.MONITOR_PITCH_BEND				= 1,	// off, on - default(off)
-	.MONITOR_CCS					= 1,	// off, on - default(off)
-	.MONITOR_EVERYTHING_ELSE		= 1,	// off, on - default(off)
-	.MONITOR_FTP					= 1,	// off, on - default(off)
-	.MONITOR_FTP_PATCHES			= 1,	// off, on - default(off)
-	.MONITOR_FTP_NOTE_INFO			= 1,	// off, on - default(off)
-	.MONITOR_FTP_TUNING_MSGS		= 1,	// off, on - default(off)
-	.MONITOR_FTP_COMMANDS			= 1,	// off, on - default(off)
-	.MONITOR_FTP_VALUES				= 1,	// off, on - default(off)
-	.MONITOR_FTP_POLY_MODE			= 1,	// off, on - default(off)
-	.MONITOR_FTP_BEND_MODE			= 1,	// off, on - default(off)
-	.MONITOR_FTP_VOLUME				= 1,	// off, on - default(off)
-	.MONITOR_FTP_BATTERY			= 1,	// off, on - default(off)
-	.MONITOR_FTP_SENSITIVITY		= 1,	// off, on - default(off)
-	.MONITOR_FTP_KNOWN_COMMANDS		= 1,	// off, on - default(off)
-	.MONITOR_FTP_UNKNOWN_COMMANDS	= 1,	// off, on - default(off)
+	.MONITOR_SYSEX					= 2,	// off, on, Detail
+	.MONITOR_ACTIVE_SENSE			= 1,	// off, on
+	.MONITOR_NOTE_ON				= 1,	// off, on
+	.MONITOR_NOTE_OFF				= 1,	// off, on
+	.MONITOR_VELOCITY				= 1,	// off, on, note: "after touch poly"
+	.MONITOR_PROGRAM_CHG			= 1,	// off, on
+	.MONITOR_AFTER_TOUCH			= 1,	// off, on
+	.MONITOR_PITCH_BEND				= 1,	// off, on
+	.MONITOR_CCS					= 1,	// off, on
+	.MONITOR_EVERYTHING_ELSE		= 1,	// off, on
+	.MONITOR_FTP					= 1,	// off, on
+	.MONITOR_FTP_PATCHES			= 1,	// off, on
+	.MONITOR_FTP_NOTE_INFO			= 1,	// off, on
+	.MONITOR_FTP_TUNING_MSGS		= 1,	// off, on
+	.MONITOR_FTP_COMMANDS			= 1,	// off, on
+	.MONITOR_FTP_VALUES				= 1,	// off, on
+	.MONITOR_FTP_POLY_MODE			= 1,	// off, on
+	.MONITOR_FTP_BEND_MODE			= 1,	// off, on
+	.MONITOR_FTP_VOLUME				= 1,	// off, on
+	.MONITOR_FTP_BATTERY			= 1,	// off, on
+	.MONITOR_FTP_SENSITIVITY		= 1,	// off, on
+	.MONITOR_FTP_KNOWN_COMMANDS		= 1,	// off, on
+	.MONITOR_FTP_UNKNOWN_COMMANDS	= 1,	// off, on
 
-};	// in_memory prefs with defaults
+};	// const prefs maximums
 
 
 
