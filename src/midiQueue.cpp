@@ -128,8 +128,7 @@ void sendMidiControlChange(uint8_t port, uint8_t channel, uint8_t cc_num, uint8_
 void sendFTPCommandAndValue(uint8_t cmd, uint8_t val)
 	// merely enquees the 16 bit command and value
 {
-	uint8_t ftp_port = FTP_ACTIVE_PORT;
-	if (!ftp_port)
+	if (!FTP_PORT_IS_ACTIVE)
 	{
 		warning(0,"FTP port not active in sendFTPCommandAndValue(0x%02x,0x%02x)",cmd,val);
 		return;
@@ -167,9 +166,9 @@ static void _sendPendingCommand()
 	// FTP port, but they *might* change the pref
 	// after the fire-and-forget
 
-    int ftp_port = FTP_ACTIVE_PORT;
-    if (ftp_port)
+    if (FTP_PORT_IS_ACTIVE)
     {
+		int ftp_port = FTP_ACTIVE_PORT;
 		sendMidiControlChange(ftp_port,FTP_CONTROL_CHANNEL, FTP_COMMAND_OR_REPLY, pending_command);
 		sendMidiControlChange(ftp_port,FTP_CONTROL_CHANNEL, FTP_COMMAND_VALUE,    pending_command_value);
 	}
@@ -233,10 +232,13 @@ void enqueueMidi(msgUnion &msg)
 
 	bool enqueue_it = false;
 
-	uint8_t ftp_port = FTP_ACTIVE_PORT;
-	if (ftp_port && msg.port() == ftp_port)
+	if (FTP_PORT_IS_ACTIVE)
 	{
-		enqueue_it = 1;
+		uint8_t ftp_port = FTP_ACTIVE_PORT;
+		if (ftp_port && msg.port() == ftp_port)
+		{
+			enqueue_it = 1;
+		}
 	}
 	else if (prefs.MIDI_MONITOR)
 	{
@@ -459,9 +461,8 @@ static void _processMsg(uint32_t msg32)
 	// I believe I cannot limit the checks to channel 8
 	// due to the fact that I want notes ...
 
-	uint8_t ftp_port = FTP_ACTIVE_PORT;
-	if (ftp_port &&
-		msg.port() == ftp_port &&
+	if (FTP_PORT_IS_ACTIVE &&
+		msg.port() == FTP_ACTIVE_PORT &&
 		!msg.isOutput())
 	{
 		_handleFTP(msg);

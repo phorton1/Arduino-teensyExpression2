@@ -16,6 +16,7 @@
 #include "rigMachine.h"
 #include "rigExpression.h"		// for EXP_MIDI_PORT_SERIAL
 #include "midiHost.h"
+#include "winConfig.h"
 
 
 
@@ -87,7 +88,7 @@ int_rect pedal_rect(0,235,479,319);			// 89 high, starting at 230
 //----------------------------------------
 
 // virtual
-void sysWindow::endWindow(uint32_t param)
+void sysWindow::endWindow(uint16_t param)
 {
 	display(dbg_win,"sysWindow::endWindow(%s,0x%08x)",name(),param);
 	the_system.endWindow(this,param);
@@ -153,8 +154,6 @@ void theSystem::begin()
 
 	display(dbg_sys,"returning from theSystem::begin()",0);
 }
-
-
 
 
 //-----------------------------------------
@@ -375,9 +374,9 @@ void theSystem::startWindow(sysWindow *win)
 }
 
 
-void theSystem::swapWindow(sysWindow *win, uint32_t param)
+void theSystem::swapWindow(sysWindow *win, uint16_t param)
 {
-	display(dbg_win,"swapWindow(%s,0x%08x)",win->name(),param);
+	display(dbg_win,"swapWindow(%s,0x%04x)",win->name(),param);
 	if (!m_num_windows)		// hmmmm ... who would call this
 	{
 		warning(0,"swapWindow(%s,0x%04x) called with no windows on stack!",win->name(),param);
@@ -391,12 +390,12 @@ void theSystem::swapWindow(sysWindow *win, uint32_t param)
 }
 
 
-void theSystem::endWindow(sysWindow *cur, uint32_t param)
+void theSystem::endWindow(sysWindow *cur, uint16_t param)
 	// cur is currently only to verify caller's correctness
 	// as windows typically end themselves.  It *could*
 	// eventually be used to exit known subwindows.
 {
-	display(dbg_win,"theSystem::endWindow(%s,0x%08x)",cur->name(),param);
+	display(dbg_win,"theSystem::endWindow(%s,0x%04x) num=%d",cur->name(),param,m_num_windows);
 	if (!m_num_windows)
 	{
 		my_error("WINDOW STACK UNDERFLOW!!!",0);
@@ -414,9 +413,10 @@ void theSystem::endWindow(sysWindow *cur, uint32_t param)
 	// we don't want to decrement m_num_windows to zero until
 	// after we call restartRig().
 
-	sysWindow *win = m_num_windows > 2 ? m_window_stack[m_num_windows-2] : 0;
+	sysWindow *win = m_num_windows > 1 ? m_window_stack[m_num_windows-2] : 0;
 	if (win)
 	{
+		win->onChildEnd(param);
 		win->begin(false);
 	}
 
@@ -442,10 +442,13 @@ void theSystem::endWindow(sysWindow *cur, uint32_t param)
 void theSystem::onButton(int row, int col, int event)
 {
 	int num = row * NUM_BUTTON_COLS + col;
-	if (num == THE_SYSTEM_BUTTON && event == BUTTON_EVENT_LONG_CLICK)
+	if (!m_num_windows &&
+		num == THE_SYSTEM_BUTTON &&
+		event == BUTTON_EVENT_LONG_CLICK)
 	{
-		rig_machine.loadRig("default");
-		m_draw_pedals = 1;
+		startWindow(&win_config);
+		// rig_machine.loadRig("default");
+		// m_draw_pedals = 1;
 	}
 	else if (m_num_windows)
 	{

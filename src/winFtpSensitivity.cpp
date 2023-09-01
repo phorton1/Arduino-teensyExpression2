@@ -80,7 +80,7 @@ void winFtpSensitivity::begin(bool warm)
 // virtual
 void winFtpSensitivity::onButton(int row, int col, int event)
 {
-	uint8_t ftp_port = FTP_ACTIVE_PORT;
+	bool is_active = FTP_PORT_IS_ACTIVE;
 	int num = row * NUM_BUTTON_COLS + col;
 
 	if (num == KEYPAD_UP || num == KEYPAD_DOWN)
@@ -97,7 +97,7 @@ void winFtpSensitivity::onButton(int row, int col, int event)
 			value += (num == KEYPAD_RIGHT) ? 1 : -1;
 			if (value < 10) value = 10;
 			if (value > 20) value = 20;
-			if (ftp_port)
+			if (is_active)
 			{
 				sendFTPCommandAndValue(FTP_CMD_SPLIT_NUMBER,0x01);
 				sendFTPCommandAndValue(FTP_CMD_DYNAMICS_SENSITIVITY,value);
@@ -109,7 +109,7 @@ void winFtpSensitivity::onButton(int row, int col, int event)
 			value += (num == KEYPAD_RIGHT) ? 1 : -1;
 			if (value < 0)  value = 0;
 			if (value > 20) value = 20;
-			if (ftp_port)
+			if (is_active)
 			{
 				sendFTPCommandAndValue(FTP_CMD_SPLIT_NUMBER,0x01);
 				sendFTPCommandAndValue(FTP_CMD_DYNAMICS_OFFSET,value);
@@ -121,7 +121,7 @@ void winFtpSensitivity::onButton(int row, int col, int event)
 			value += (num == KEYPAD_RIGHT) ? 1 : -1;
 			if (value < 0) value = 0;
 			if (value > 9) value = 9;
-			if (ftp_port)
+			if (is_active)
 				sendFTPCommandAndValue(FTP_CMD_TOUCH_SENSITIVITY,value);
 		}
 		else
@@ -132,7 +132,7 @@ void winFtpSensitivity::onButton(int row, int col, int event)
 				value += (num == KEYPAD_RIGHT) ? 1 : -1;
 				if (value < 0)  value = 0;
 				if (value > 15) value = 15;
-				if (ftp_port)
+				if (is_active)
 					sendFTPCommandAndValue(FTP_CMD_SET_SENSITIVITY,m_selected<<4 | value);
 			}
 		}

@@ -6,10 +6,17 @@
 #include "defines.h"
 #include "prefs.h"
 
+// Because MIDI_PORT_USB1 is 0x00, we need two separate
+// macros.  One to check if the port IS active, and another
+// to return the value.
+
+#define FTP_PORT_IS_ACTIVE ( \
+	prefs.SPOOF_FTP || prefs.FTP_PORT )
+
 #define FTP_ACTIVE_PORT (   \
     prefs.SPOOF_FTP ? MIDI_PORT_HOST1 : \
-    prefs.FTP_PORT == 1 ? MIDI_PORT_USB1 : \
-    prefs.FTP_PORT == 2 ? MIDI_PORT_HOST1 : 0 )
+    (prefs.FTP_PORT == 1) ? MIDI_PORT_USB1 : \
+    (prefs.FTP_PORT == 2) ? MIDI_PORT_HOST1 : 0 )
 
 #define MIDI_OUTPUT_B2_FLAG  0x80
     // set into the high order bit of the B2 byte

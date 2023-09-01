@@ -194,26 +194,28 @@ extern void save_prefs();
 // used by config system
 
 #define pcast(m)			((uint32_t) &(m))
-#define poff(PREF)		((uint16_t) {pcast(prefs.PREF) - pcast(prefs)})
+#define poff(PREF)			((uint16_t) {pcast(prefs.PREF) - pcast(prefs)})
 // #define STRINGIFY(x) 		#x
 // #define TOSTRING(x) 		STRINGIFY(x)
 
 
+
+
+// written but not used so far
+
+extern void 	writePref8(uint16_t off, uint8_t value, const char *name = 0);
+extern uint8_t 	readPref8(uint16_t off, const char *name = 0);
+
+extern void 	writePref16(uint16_t off, uint16_t value, const char *name = 0);
+extern uint16_t readPref16(uint16_t off, const char *name = 0);
+
+extern uint8_t 	readPref8Min(uint16_t off);
+extern uint8_t 	readPref8Max(uint16_t off);
+extern uint16_t readPref16Min(uint16_t off);
+extern uint16_t readPref16Max(uint16_t off);
+
+
 #if 0
-
-	// written but not used so far
-
-	extern void 	writePref8(uint16_t off, uint8_t value, const char *name = 0);
-	extern uint8_t 	readPref8(uint16_t off, const char *name = 0);
-
-	extern void 	writePref16(uint16_t off, uint16_t value, const char *name = 0);
-	extern uint16_t readPref16(uint16_t off, const char *name = 0);
-
-	extern uint8_t 	readPref8Min(uint16_t off);
-	extern uint8_t 	readPref8Max(uint16_t off);
-	extern uint16_t readPref16Min(uint16_t off);
-	extern uint16_t readPref16Max(uint16_t off);
-
 
 	// dirty change detection and restore
 	// note that to restore all prefs, you merely call read_prefs()

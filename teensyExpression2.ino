@@ -27,9 +27,9 @@ void setup()
 
     // things I might want to do:
     //
-    reset_prefs();
-    prefs.DEBUG_DEVICE = DEBUG_DEVICE_USB;
-    prefs.FTP_PORT = 0; // 2;     // enum
+    // reset_prefs();
+    // prefs.DEBUG_DEVICE = DEBUG_DEVICE_USB;
+    // prefs.FTP_PORT = 0; // 2;     // enum
     // prefs.SPOOF_FTP = 1;    // on
     // save_prefs();
 
@@ -121,7 +121,7 @@ void setup()
     }
     else if (prefs.DEBUG_DEVICE == DEBUG_DEVICE_SERIAL)
     {
-        const char *msg = "    DEBUG_OUTPUT to hardware SERIAL_DEVICE!";
+        const char *msg = "    DEBUG_OUTPUT to SERIAL_DEVICE!";
         warning(0,"%s",msg);
         mylcd.println(msg);
         do_delay = 5000;

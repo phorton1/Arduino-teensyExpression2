@@ -9,8 +9,13 @@
 #include "commonDefines.h"
 
 #define dbg_prefs	0
+	// 0 = show file operations
+	// -1 = show restore operations and setPrefs
+	// -2 = show readPrefs
 
-#define NUM_EEPROM_USED	(sizeof(prefs_t) + 1)
+#define PREF_VERSION_OFFSET		1
+#define NUM_EEPROM_USED	(sizeof(prefs_t) + PREF_VERSION_OFFSET)
+
 
 prefs_t prefs;
 	// in memory prefs
@@ -160,7 +165,7 @@ const prefs_t default_prefs =
 // only one value has a non-zero minimum
 
 const prefs_t prefs_min = {
-	.BRIGHTNESS			= 30,
+	.BRIGHTNESS			= 5,
 };
 
 
@@ -296,7 +301,7 @@ void reset_prefs()
 {
     display(dbg_prefs,"reset_prefs()",0);
 	EEPROM.write(0,TEENSY_EXPRESSION2_PREF_VERSION);
-    for (uint16_t i=1; i<NUM_EEPROM_USED; i++)
+    for (uint16_t i=PREF_VERSION_OFFSET; i<NUM_EEPROM_USED; i++)
     {
         EEPROM.write(i,255);
     }
@@ -321,13 +326,14 @@ bool read_prefs()
 
 	uint8_t *ptr = (uint8_t*) &prefs;
 	uint8_t *last_ptr = (uint8_t*) &last_prefs;
+
     for (uint16_t i=0; i<sizeof(prefs_t); i++)
     {
-        uint8_t byte = EEPROM.read(i+1);
+        uint8_t byte = EEPROM.read(i + PREF_VERSION_OFFSET);
 		if (byte != 255)
 		{
 			*ptr = byte;
-			// display(0,"NON DEFAULT PREF AT BYTE %d",i);
+			display(0,"NON DEFAULT PREF AT BYTE %d",i);
 		}
 		*last_ptr = *ptr;
 		ptr++;
@@ -343,6 +349,8 @@ bool read_prefs()
 void save_prefs()
 	// write to EEPROM and update last_pref members
 	// writes 255 for prefs that match the default
+	// PRH THERE ARE CERTAIN VALUES FOR WHICH THIS WILL NOT WORK!
+	// i.e. if the low order of a uint16_t happens to be 255
 {
     display(dbg_prefs,"save_prefs()",0);
 	uint8_t *ptr = (uint8_t*) &prefs;
@@ -355,7 +363,7 @@ void save_prefs()
 		*last_ptr = val;
 		if (val == *def_ptr)
 			val = 255;
-        EEPROM.write(i+1,val);
+        EEPROM.write(i + PREF_VERSION_OFFSET, val);
 
 		ptr++;
 		last_ptr++;
@@ -365,88 +373,87 @@ void save_prefs()
 
 
 
+//-------------------------------------------------
+// read and write individual prefs
+//-------------------------------------------------
+
+// extern
+uint8_t readPref8(uint16_t off, const char *name)
+	// get the in-memory value
+	// the name is soley for debugging
+{
+	uint8_t *ptr = (uint8_t*) &prefs;
+	uint8_t value = ptr[off];
+	display(dbg_prefs + 2,"readPref8(%s,%d)=%d", name?name:"", off, value);
+	return value;
+}
+
+
+// extern
+void writePref8(uint16_t off, uint8_t value, const char *name)
+	// sets the in-memory value only!
+{
+	display(dbg_prefs + 1,"writePref8(%s, %d) off=%d", name?name:"", value, off);
+	uint8_t *ptr = (uint8_t*) &prefs;
+	ptr[off] = value;
+}
+
+
+// extern
+uint16_t readPref16(uint16_t off, const char *name)
+	// get the in-memory value
+	// the name is soley for debugging
+{
+	uint8_t *ptr = (uint8_t*) &prefs;
+	uint16_t *ptr16 = (uint16_t *) &ptr[off];
+	uint16_t value = *ptr16;
+	display(dbg_prefs + 2,"readPref16(%s,%d)=%d", name?name:"", off, value);
+	return value;
+}
+
+
+// extern
+void writePref16(uint16_t off, uint16_t value, const char *name)
+	// sets the in-memory value only!
+	// the name is soley for debugging
+{
+	display(dbg_prefs + 1,"writePref16(%s, %d) off=%d", name?name:"", value, off);
+	uint8_t *ptr = (uint8_t *) &prefs;
+	uint16_t *ptr16 = (uint16_t *) &ptr[off];
+	*ptr16 = value;
+}
+
+
+
+// extern
+uint8_t readPref8Min(uint16_t off)
+{
+	uint8_t *ptr = (uint8_t*) &prefs_min;
+	return ptr[off];
+}
+// extern
+uint8_t readPref8Max(uint16_t off)
+{
+	uint8_t *ptr = (uint8_t*) &prefs_max;
+	return ptr[off];
+}
+// extern
+uint16_t readPref16Min(uint16_t off)
+{
+	uint8_t *ptr = (uint8_t*) &prefs_min;
+	uint16_t *ptr16 = (uint16_t *) &ptr[off];
+	return *ptr16;
+}
+// extern
+uint16_t readPref16Max(uint16_t off)
+{
+	uint8_t *ptr = (uint8_t*) &prefs_max;
+	uint16_t *ptr16 = (uint16_t *) &ptr[off];
+	return *ptr16;
+}
+
+
 #if 0
-
-	// written but not used so far
-
-	//-------------------------------------------------
-	// read and write individual prefs
-	//-------------------------------------------------
-
-	// extern
-	uint8_t readPref8(uint16_t off, const char *name)
-		// get the in-memory value
-		// the name is soley for debugging
-	{
-		uint8_t *ptr = (uint8_t*) &prefs;
-		uint8_t value = ptr[off];
-		display(dbg_prefs + 1,"readPref8(%s,%d)=%d", name?name:"", off, value);
-		return value;
-	}
-
-
-	// extern
-	void writePref8(uint16_t off, uint8_t value, const char *name)
-		// sets the in-memory value only!
-	{
-		display(dbg_prefs + 1,"writePref8(%s, %d) off=%d", name?name:"", value, off);
-		uint8_t *ptr = (uint8_t*) &prefs;
-		ptr[off] = value;
-	}
-
-
-	// extern
-	uint16_t readPref16(uint16_t off, const char *name)
-		// get the in-memory value
-		// the name is soley for debugging
-	{
-		uint8_t *ptr = (uint8_t*) &prefs;
-		uint16_t *ptr16 = (uint16_t *) &ptr[off];
-		uint16_t value = *ptr16;
-		display(dbg_prefs + 1,"readPref16(%s,%d)=%d", name?name:"", off, value);
-		return value;
-	}
-
-
-	// extern
-	void writePref16(uint16_t off, uint16_t value, const char *name)
-		// sets the in-memory value only!
-		// the name is soley for debugging
-	{
-		display(dbg_prefs + 1,"writePref16(%s, %d) off=%d", name?name:"", value, off);
-		uint8_t *ptr = (uint8_t *) &prefs;
-		uint16_t *ptr16 = (uint16_t *) &ptr[off];
-		*ptr16 = value;
-	}
-
-
-
-	// extern
-	uint8_t readPref8Min(uint16_t off)
-	{
-		uint8_t *ptr = (uint8_t*) &prefs_min;
-		return ptr[off];
-	}
-	// extern
-	uint8_t readPref8Max(uint16_t off)
-	{
-		uint8_t *ptr = (uint8_t*) &prefs_max;
-		return ptr[off];
-	}
-	// extern
-	uint16_t readPref16Min(uint16_t off)
-	{
-		uint8_t *ptr = (uint8_t*) &prefs_min;
-		uint16_t *ptr16 = (uint16_t *) &ptr[off];
-		return *ptr16;
-	}
-	// extern
-	uint16_t readPref16Max(uint16_t off)
-	{
-		uint8_t *ptr = (uint8_t*) &prefs_max;
-		uint16_t *ptr16 = (uint16_t *) &ptr[off];
-		return *ptr16;
-	}
 
 	//------------------------------------------------------------
 	// change detection and restore

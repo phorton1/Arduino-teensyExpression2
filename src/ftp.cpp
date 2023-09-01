@@ -359,7 +359,7 @@ static int      ftp_init_state;
 
 void initQueryFTP()
 {
-	if (!FTP_ACTIVE_PORT)
+	if (!FTP_PORT_IS_ACTIVE)
 		return;
 
 	uint32_t now = millis();

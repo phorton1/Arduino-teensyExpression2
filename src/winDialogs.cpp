@@ -27,7 +27,7 @@ void rigErrorDialog::begin(bool warm)
 		client_rect.ys + 30,
 		client_rect.xe - 60,
 		client_rect.ye - 60,
-        LCD_JUST_LEFT,
+        LCD_JUST_CENTER,
 		TFT_RED,
 		TFT_BLACK,
 		1,	// use bc
@@ -49,11 +49,11 @@ void yesNoDialog::begin(bool warm)
     the_buttons.setButtonType(BUTTON_YES,BUTTON_EVENT_CLICK, LED_GREEN);
     mylcd.setFont(Arial_16_Bold);
 	mylcd.printJustified(
-		client_rect.xs + 10,
-		client_rect.ys + 10,
-		client_rect.xe - 20,
-		client_rect.ye - 20,
-        LCD_JUST_LEFT,
+		client_rect.xs + 30,
+		client_rect.ys + 30,
+		client_rect.xe - 60,
+		client_rect.ye - 60,
+        LCD_JUST_CENTER,
 		TFT_YELLOW,
 		TFT_BLACK,
 		1,	// use bc
@@ -63,6 +63,5 @@ void yesNoDialog::begin(bool warm)
 void yesNoDialog::onButton(int row, int col, int event)
 {
     int num = row * NUM_BUTTON_COLS + col;
-    endWindow(num == BUTTON_YES ? 1 : 0);
+    endWindow(num == BUTTON_YES ? m_id : 0);
 }
-
