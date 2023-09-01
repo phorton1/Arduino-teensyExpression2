@@ -148,15 +148,6 @@ void theSystem::begin()
     m_critical_timer.priority(EXP_CRITICAL_TIMER_PRIORITY);
     m_critical_timer.begin(critical_timer_handler,EXP_CRITICAL_TIMER_INTERVAL);
 
-	if (!fileSystem::init())
-	{
-		my_error("theSystem COULD NOT START FILE SYSTEM!!",0);
-        mylcd.setTextColor(TFT_YELLOW);
-        mylcd.println("");
-        mylcd.println("theSystem: COULD NOT START FILE SYSTEM!!");
-		delay(5000);
-	}
-
     the_buttons.setButtonType(THE_SYSTEM_BUTTON, BUTTON_EVENT_LONG_CLICK, LED_ORANGE);
 	// the_buttons.setButtonType(9, BUTTON_EVENT_CLICK, LED_PURPLE);
 

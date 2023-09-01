@@ -1,7 +1,6 @@
 //---------------------------------------------------
 // teensyExpression2.ino
 //---------------------------------------------------
-
 #include <myDebug.h>
 #include "src/defines.h"
 #include "src/myTFT.h"
@@ -35,9 +34,9 @@ void setup()
     // save_prefs();
 
     //-------------------------------------
-    // Start the serial portS
+    // Start the external serial port
     //-------------------------------------
-    // start the external port
+    // start the
 
     SERIAL_DEVICE.begin(115200);
     elapsedMillis serial_started = 0;
@@ -50,12 +49,11 @@ void setup()
 
     // set the debug output to SERIAL_DEVICE, or possibly nothing
 
-    uint8_t debug_device = prefs.DEBUG_DEVICE;
-    if (debug_device == DEBUG_DEVICE_SERIAL)
+    if (prefs.DEBUG_DEVICE == DEBUG_DEVICE_SERIAL)
     {
         dbgSerial = &SERIAL_DEVICE;
     }
-    else if (debug_device == DEBUG_DEVICE_OFF)
+    else if (prefs.DEBUG_DEVICE == DEBUG_DEVICE_OFF)
     {
         dbgSerial = 0;      // turns off output in myDebug.cpp
     }
@@ -78,35 +76,8 @@ void setup()
     serial_started = 0;
     while (serial_started<1000 && !Serial) {}
 
-    // output the initial message
-
-    // delay(400);
-    // mem_check("early in setup()");
-        // at start of day 2023-08-05
-        // mem used       8604
-        // heap_used      0
-        // free           253459
-        // stack_used     81
-        //
-        // with buttons:
-        // mem used       9564
-        // heap_used      0
-        // free           252499
-        // stack_used     81
-        //
-        // with bare bones system
-        // mem used       9596
-        // heap_used      0
-        // free           252475
-        // stack_used     73
-        //
-        // added midiQueue, buttons, pedals, and rotaries
-        // mem used       55216
-        // heap_used      0
-        // free           206855
-        // stack_used     73
-
     display(0,"teensyExpression.ino " TEENSY_EXPRESSION_VERSION " setup() started",0);
+    // mem_check("after serial port started");
 
     //-----------------------------------------------
     // start the TFT display
@@ -122,62 +93,9 @@ void setup()
     mylcd.print(TEENSY_EXPRESSION_VERSION);
     mylcd.println(" started ... ");
 
-    #if 0       // test all font sizes
-        // Before calling all the fonts
-        //
-        // Sketch uses 184860 bytes (17%) of program storage space. Maximum is 1048576 bytes.
-        // Global variables use 137280 bytes (52%) of dynamic memory, leaving 124864 bytes for local variables. Maximum is 262144 bytes.
-        //
-        // After calling all fonts:
-        //
-        // Sketch uses 221876 bytes (21%) of program storage space. Maximum is 1048576 bytes.
-        // Global variables use 137280 bytes (52%) of dynamic memory, leaving 124864 bytes for local variables. Maximum is 262144 bytes.
-        //
-        // Fonts don't take too much room
-
-        const ILI9341_t3_font_t *test_fonts[20] =
-        {
-            &Arial_12,
-            &Arial_12_Bold,
-            &Arial_14,
-            &Arial_14_Bold,
-            &Arial_16,
-            &Arial_16_Bold,
-            &Arial_18,
-            &Arial_18_Bold,
-            &Arial_20,
-            &Arial_20_Bold,
-            &Arial_24,
-            &Arial_24_Bold,
-            &Arial_28,
-            &Arial_28_Bold,
-            &Arial_32,
-            &Arial_32_Bold,
-            &Arial_40,
-            &Arial_40_Bold,
-            &Arial_48,
-            &Arial_48_Bold,
-        };
-
-        for (int i=0; i<20; i++)
-        {
-            mylcd.fillScreen(TFT_BLACK);
-            mylcd.setFont(*test_fonts[i]);
-            mylcd.setCursor(5,5);
-            mylcd.print("teensyExpression ");
-            mylcd.print(TEENSY_EXPRESSION_VERSION);
-            mylcd.println(" started ... ");
-            delay(500);
-        }
-        mylcd.fillScreen(TFT_BLACK);
-        mylcd.setFont(Arial_16);
-        mylcd.setCursor(0,40);
-    #endif  // test all fonts
-
     // write critical debugging messages to screen
-    // with variable delays
 
-    int do_delay = 2000;
+    int do_delay = 0;
     mylcd.setTextColor(TFT_YELLOW);
 
     if (prefs_reset)
@@ -201,7 +119,7 @@ void setup()
         mylcd.println(msg);
         do_delay = 5000;
     }
-    else if (debug_device == DEBUG_DEVICE_SERIAL)
+    else if (prefs.DEBUG_DEVICE == DEBUG_DEVICE_SERIAL)
     {
         const char *msg = "    DEBUG_OUTPUT to hardware SERIAL_DEVICE!";
         warning(0,"%s",msg);
@@ -223,21 +141,25 @@ void setup()
     // clear and show a fancy pattern
 
     display(0,"initializing LEDs ...",0);
-    initLEDs();
-        // Uses 3684 bytes of heap
 
+    initLEDs();
     clearLEDs();
     showLEDs();
     setLEDBrightness(prefs.BRIGHTNESS);
     LEDFancyStart();
 
-    // delay before clearing LEDs and screen
+    //--------------------------------
+    // start the file system
+    //--------------------------------
 
-    if (do_delay)
-        delay(do_delay);
-    clearLEDs();
-    showLEDs();
-    mylcd.fillScreen(TFT_BLACK);
+	if (!fileSystem::init())
+	{
+        const char *msg = "    COULD NOT START FILE SYSTEM!!";
+        warning(0,"%s",msg);
+        mylcd.println(msg);
+        do_delay = 5000;
+	}
+
 
     //-----------------------------------
     // start the system
@@ -249,32 +171,20 @@ void setup()
     display(0,"initilizing midiHost",0);
     midi_host.init();
 
+
+    //--------------------------
+    // done
+    //--------------------------
     display(0,"teensyExpression.ino setup() completed.",0);
+
+    if (do_delay)
+        delay(do_delay);
+
+    clearLEDs();
+    showLEDs();
+    mylcd.fillScreen(TFT_BLACK);
+
     // mem_check("at end of setup()");
-        // at start of day 2023-08-05
-        // mem used       8604
-        // heap_used      3684
-        // free           249775
-        // stack_used     81
-        //
-        // with buttons
-        // mem used       9564
-        // heap_used      2724      less??
-        // free           249775    same!!
-        // stack_used     81
-        //
-        // with bare bones system
-        // mem used       9596
-        // heap_used      2692      less?
-        // free           249783    more?
-        // stack_used     73
-        //
-        // added midiQueue, buttons, pedals, and rotaries
-        //
-        // mem used       55216     way more
-        // heap_used      2128      less again!
-        // free           204727    lost a lot
-        // stack_used     73
 
 }   // setup()
 
