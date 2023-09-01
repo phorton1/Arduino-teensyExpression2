@@ -102,7 +102,7 @@ extern void sendMidiSysex(uint8_t port, int length, const uint8_t *buf);
 extern void sendMidiProgramChange(uint8_t port, uint8_t channel, uint8_t prog_num);
 extern void sendMidiControlChange(uint8_t port, uint8_t channel, uint8_t cc_num, uint8_t value);
 
-extern void sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val);
+extern void sendFTPCommandAndValue(uint8_t cmd, uint8_t val);
 
 
 // end of midiQueue.h

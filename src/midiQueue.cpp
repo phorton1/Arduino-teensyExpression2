@@ -125,10 +125,16 @@ void sendMidiControlChange(uint8_t port, uint8_t channel, uint8_t cc_num, uint8_
 // outgoing Message Processing
 //-------------------------------------
 
-void sendFTPCommandAndValue(uint8_t ftp_port, uint8_t cmd, uint8_t val)
+void sendFTPCommandAndValue(uint8_t cmd, uint8_t val)
 	// merely enquees the 16 bit command and value
 {
-    display_level(dbg_ftp+1,0,"sendFTPCommandAndValue(0x%02x, 0x%02x,0x%02x)",ftp_port,cmd,val);
+	uint8_t ftp_port = FTP_ACTIVE_PORT;
+	if (!ftp_port)
+	{
+		warning(0,"FTP port not active in sendFTPCommandAndValue(0x%02x,0x%02x)",cmd,val);
+		return;
+	}
+    display_level(dbg_ftp+1,0,"sendFTPCommandAndValue(0x%02x,0x%02x)",cmd,val);
 	uint16_t cmd_and_val = (cmd << 8) | val;
 
     // __disable_irq();
@@ -476,5 +482,3 @@ void dequeueMidi()
 	}
 	_processOutgoing();
 }
-
-

@@ -359,8 +359,7 @@ static int      ftp_init_state;
 
 void initQueryFTP()
 {
-	uint8_t ftp_port = FTP_ACTIVE_PORT;
-	if (!ftp_port)
+	if (!FTP_ACTIVE_PORT)
 		return;
 
 	uint32_t now = millis();
@@ -376,10 +375,10 @@ void initQueryFTP()
 		return;
 	battery_time = now;
 
-	display(dbg_init,"initQueryFTP(port=0x%02x) battery=%d init=%d",ftp_port,ftp_battery_level,ftp_init_state);
+	display(dbg_init,"initQueryFTP(port=0x%02x) battery=%d init=%d",FTP_ACTIVE_PORT,ftp_battery_level,ftp_init_state);
 
 	num_checks++;
-	sendFTPCommandAndValue(ftp_port,FTP_CMD_BATTERY_LEVEL, 0);
+	sendFTPCommandAndValue(FTP_CMD_BATTERY_LEVEL, 0);
 
 	// one time fire-and-forget FTP initialization
 
@@ -390,7 +389,7 @@ void initQueryFTP()
 
         for (int i=0; i<NUM_FTP_STRINGS; i++)
         {
-            sendFTPCommandAndValue(ftp_port,FTP_CMD_GET_SENSITIVITY, i);
+            sendFTPCommandAndValue(FTP_CMD_GET_SENSITIVITY, i);
         }
 
         #define DEFAULT_DYNAMIC_RANGE   20
@@ -398,8 +397,8 @@ void initQueryFTP()
         #define DEFAULT_TOUCH_SENSITIVITY  4
 
         // sendFTPCommandAndValue(FTP_CMD_SPLIT_NUMBER,0x01);
-        sendFTPCommandAndValue(ftp_port,FTP_CMD_DYNAMICS_SENSITIVITY,DEFAULT_DYNAMIC_RANGE);
-        sendFTPCommandAndValue(ftp_port,FTP_CMD_DYNAMICS_OFFSET,DEFAULT_DYNAMIC_OFFSET);
-        sendFTPCommandAndValue(ftp_port,FTP_CMD_TOUCH_SENSITIVITY,DEFAULT_TOUCH_SENSITIVITY);
+        sendFTPCommandAndValue(FTP_CMD_DYNAMICS_SENSITIVITY,DEFAULT_DYNAMIC_RANGE);
+        sendFTPCommandAndValue(FTP_CMD_DYNAMICS_OFFSET,DEFAULT_DYNAMIC_OFFSET);
+        sendFTPCommandAndValue(FTP_CMD_TOUCH_SENSITIVITY,DEFAULT_TOUCH_SENSITIVITY);
     }
 }

@@ -39,9 +39,8 @@ void winFtpTuner::init()
 // virtual
 void winFtpTuner::end()
 {
-	uint8_t ftp_port = FTP_ACTIVE_PORT;
-	if (ftp_port)
-		sendFTPCommandAndValue(ftp_port, FTP_CMD_EDITOR_MODE, 0x00);
+	if (FTP_ACTIVE_PORT)
+		sendFTPCommandAndValue(FTP_CMD_EDITOR_MODE, 0x00);
 }
 
 // virtual
@@ -53,9 +52,8 @@ void winFtpTuner::begin(bool warm)
 	the_buttons.setButtonType(BUTTON_SWITCH_WINDOW, BUTTON_EVENT_CLICK, LED_GREEN);
 	the_buttons.setButtonType(BUTTON_END_WINDOW,    BUTTON_EVENT_CLICK, LED_PURPLE);
 
-	uint8_t ftp_port = FTP_ACTIVE_PORT;
-	if (ftp_port)
-		sendFTPCommandAndValue(ftp_port, FTP_CMD_EDITOR_MODE, 0x02);
+	if (FTP_ACTIVE_PORT)
+		sendFTPCommandAndValue(FTP_CMD_EDITOR_MODE, 0x02);
 			// I think this should be called FTP_COMMAND_TUNER
 			// as the only value that seems to work is the 2/0 bit
 }

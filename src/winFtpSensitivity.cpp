@@ -99,8 +99,8 @@ void winFtpSensitivity::onButton(int row, int col, int event)
 			if (value > 20) value = 20;
 			if (ftp_port)
 			{
-				sendFTPCommandAndValue(ftp_port, FTP_CMD_SPLIT_NUMBER,0x01);
-				sendFTPCommandAndValue(ftp_port, FTP_CMD_DYNAMICS_SENSITIVITY,value);
+				sendFTPCommandAndValue(FTP_CMD_SPLIT_NUMBER,0x01);
+				sendFTPCommandAndValue(FTP_CMD_DYNAMICS_SENSITIVITY,value);
 			}
 		}
 		else if (m_selected == ITEM_DYNAMIC_OFFSET)
@@ -111,8 +111,8 @@ void winFtpSensitivity::onButton(int row, int col, int event)
 			if (value > 20) value = 20;
 			if (ftp_port)
 			{
-				sendFTPCommandAndValue(ftp_port, FTP_CMD_SPLIT_NUMBER,0x01);
-				sendFTPCommandAndValue(ftp_port, FTP_CMD_DYNAMICS_OFFSET,value);
+				sendFTPCommandAndValue(FTP_CMD_SPLIT_NUMBER,0x01);
+				sendFTPCommandAndValue(FTP_CMD_DYNAMICS_OFFSET,value);
 			}
 		}
 		else if (m_selected == ITEM_TOUCH_SENSITIVITY)
@@ -122,7 +122,7 @@ void winFtpSensitivity::onButton(int row, int col, int event)
 			if (value < 0) value = 0;
 			if (value > 9) value = 9;
 			if (ftp_port)
-				sendFTPCommandAndValue(ftp_port, FTP_CMD_TOUCH_SENSITIVITY,value);
+				sendFTPCommandAndValue(FTP_CMD_TOUCH_SENSITIVITY,value);
 		}
 		else
 		{
@@ -133,7 +133,7 @@ void winFtpSensitivity::onButton(int row, int col, int event)
 				if (value < 0)  value = 0;
 				if (value > 15) value = 15;
 				if (ftp_port)
-					sendFTPCommandAndValue(ftp_port, FTP_CMD_SET_SENSITIVITY,m_selected<<4 | value);
+					sendFTPCommandAndValue(FTP_CMD_SET_SENSITIVITY,m_selected<<4 | value);
 			}
 		}
 	}
