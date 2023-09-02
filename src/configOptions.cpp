@@ -248,9 +248,12 @@ void configOption::init(const opt_desc_t *desc)
     m_display_selected	= -1;
 	m_display_enabled	= -1;
 
-    m_value = desc->pref_offset >= 0 ? desc->type & OPTION_16BIT ?
-		readPref16(desc->pref_offset) :
-		readPref8 (desc->pref_offset) : -1;
+	// not currently handling strings
+	m_value = getPref(desc->pref_offset, desc->title);
+
+    // m_value = desc->pref_offset >= 0 ? desc->type & OPTION_16BIT ?
+	// 	readPref16(desc->pref_offset) :
+	// 	readPref8 (desc->pref_offset) : -1;
 
 	display(dbg_opts+1,"init(%s) offset=%d  m_value=%d",getTitle(),desc->pref_offset,m_value);
 }
@@ -258,15 +261,17 @@ void configOption::init(const opt_desc_t *desc)
 
 uint16_t configOption::getMin() const
 {
-	return m_opt_desc->type & OPTION_16BIT ?
-		readPref16Min(m_opt_desc->pref_offset) :
-		readPref8Min (m_opt_desc->pref_offset);
+	return getPrefMin(m_opt_desc->pref_offset);
+	// return m_opt_desc->type & OPTION_16BIT ?
+	// 	readPref16Min(m_opt_desc->pref_offset) :
+	// 	readPref8Min (m_opt_desc->pref_offset);
 }
 uint16_t configOption::getMax() const
 {
-	return m_opt_desc->type & OPTION_16BIT ?
-		readPref16Max(m_opt_desc->pref_offset) :
-		readPref8Max (m_opt_desc->pref_offset);
+	return getPrefMax(m_opt_desc->pref_offset);
+	// return m_opt_desc->type & OPTION_16BIT ?
+	// 	readPref16Max(m_opt_desc->pref_offset) :
+	// 	readPref8Max (m_opt_desc->pref_offset);
 }
 
 
@@ -346,7 +351,7 @@ void  configOption::setValue(int i)
 		uint16_t min = getMin();
 		uint16_t max = getMax();
 
-		display(dbg_opts,"setValue(%s,%d) m_value(%d min(%d) max(%d)",
+		display(dbg_opts,"setValue(%s,%d) m_value(%d) min(%d) max(%d)",
 			getTitle(),i,m_value,min,max);
 
         if (i > max) i = max;
@@ -354,15 +359,11 @@ void  configOption::setValue(int i)
 
 		m_value = i;
 
-		if (m_opt_desc->type & OPTION_16BIT)
-			writePref16(m_opt_desc->pref_offset,i,m_opt_desc->title);
-		else
-			writePref8(m_opt_desc->pref_offset,i,m_opt_desc->title);
+		// not currently handling strings
+		setPref(m_opt_desc->pref_offset,m_value,m_opt_desc->title);
 
         if (m_opt_desc->setter)
             (m_opt_desc->setter)(i);
-        // if (m_opt_desc->type & OPTION_NEEDS_REBOOT)
-        //    s_reboot_needed = 1;
     }
 }
 
@@ -387,12 +388,12 @@ void configOption::incValue()
 
 
 int configOption::getValue() const
+	// there is a possibility that prefs could become de-normalized
+	// from m_value if some other process changes them out from under
+	// the winConfig.  Here we assume that will never happen, and
+	// just return m_value;
 {
-    if (m_opt_desc->pref_offset >= 0)
-         return m_opt_desc->type & OPTION_16BIT ?
-            readPref16(m_opt_desc->pref_offset,m_opt_desc->title) :
-            readPref8 (m_opt_desc->pref_offset,m_opt_desc->title);
-    return 0;
+	return m_value;
 }
 
 

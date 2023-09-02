@@ -173,53 +173,42 @@ typedef struct
 
 
 //================================================
-// methods
+// API
 //================================================
 
 extern prefs_t prefs;
-extern const prefs_t prefs_min;
-extern const prefs_t prefs_max;
+	// global public direct read/write access
 
 // initialize and reset methods
 
 extern void reset_prefs();
-	// does not re-read them
-
+	// clears the EEPROM but does not re-read prefs
+	// you will typically need to call read_prefs() or reboot
+	// after this.
 extern bool read_prefs();
 	// returns true if prefs were automatically reset
-
 extern void save_prefs();
 
-// offset based accessors
-// used by config system
+
+// Offset based accessors used by config system.
+// These methods know the type of the pref and take, or return,
+// a uint8_t, uint16_t, or const char * as the uint32_t parameter
+// or uint32_t return type. Min and Maxes are returned as uint16_t's.
+// There is no range checking in these routines!
 
 #define pcast(m)			((uint32_t) &(m))
 #define poff(PREF)			((uint16_t) {pcast(prefs.PREF) - pcast(prefs)})
-// #define STRINGIFY(x) 		#x
-// #define TOSTRING(x) 		STRINGIFY(x)
 
+extern void 	setPref(uint16_t off, uint32_t value, const char *name = 0);
+extern uint32_t getPref(uint16_t off, const char *name = 0);
+extern uint16_t getPrefMin(uint16_t off);
+extern uint16_t getPrefMax(uint16_t off);
 
-
-
-// written but not used so far
-
-extern void 	writePref8(uint16_t off, uint8_t value, const char *name = 0);
-extern uint8_t 	readPref8(uint16_t off, const char *name = 0);
-
-extern void 	writePref16(uint16_t off, uint16_t value, const char *name = 0);
-extern uint16_t readPref16(uint16_t off, const char *name = 0);
-
-extern uint8_t 	readPref8Min(uint16_t off);
-extern uint8_t 	readPref8Max(uint16_t off);
-extern uint16_t readPref16Min(uint16_t off);
-extern uint16_t readPref16Max(uint16_t off);
 
 
 #if 0
-
 	// dirty change detection and restore
 	// note that to restore all prefs, you merely call read_prefs()
-
 	extern bool 	prefs_dirty();
 	extern bool 	pref8_dirty(uint16_t off);
 	extern bool 	pref16_dirty(uint16_t off);

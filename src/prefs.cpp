@@ -22,6 +22,51 @@ prefs_t prefs;
 prefs_t last_prefs;
 	// a copy of the prefs for change detectioni
 
+//-----------------------------------------------------
+// prefTypes
+//-----------------------------------------------------
+// non-uint8_t prefs MUST be registered with this method
+
+#define PREF_TYPE_NONE			0		// -1
+#define PREF_TYPE_8				1		// uint8_t
+#define PREF_TYPE_16			2		// uint16_t
+#define PREF_TYPE_PEDAL_NAME 	3		// char[MAX_PEDAL_NAME + 1]
+#define PREF_TYPE_RIG_NAME		4		// char[MAX_RIG_NAME + 1]
+
+
+uint8_t prefType(int off)
+{
+	if (off == poff(RIG_NAME))
+	{
+		return PREF_TYPE_RIG_NAME;
+	}
+	else if (
+		off == poff(PEDAL[0].NAME)  ||
+		off == poff(PEDAL[1].NAME)  ||
+		off == poff(PEDAL[2].NAME)  ||
+		off == poff(PEDAL[3].NAME)  ||
+		off == poff(ROTARY[0].NAME) ||
+		off == poff(ROTARY[1].NAME) ||
+		off == poff(ROTARY[2].NAME) ||
+		off == poff(ROTARY[3].NAME) )
+	{
+		return PREF_TYPE_PEDAL_NAME;
+	}
+	else if (
+		off == poff(PEDAL[0].CALIB_MIN) ||
+		off == poff(PEDAL[1].CALIB_MIN) ||
+		off == poff(PEDAL[2].CALIB_MIN) ||
+		off == poff(PEDAL[3].CALIB_MIN) ||
+		off == poff(PEDAL[0].CALIB_MAX) ||
+		off == poff(PEDAL[1].CALIB_MAX) ||
+		off == poff(PEDAL[2].CALIB_MAX) ||
+		off == poff(PEDAL[3].CALIB_MAX) )
+	{
+		return PREF_TYPE_16;
+	}
+	return PREF_TYPE_8;
+}
+
 
 //----------------------------------------------------
 // DEFAULT PREFS
@@ -34,7 +79,7 @@ prefs_t last_prefs;
 #define PP_TWO			(2 * PP_MAX / 3)
 
 
-const prefs_t default_prefs =
+static const prefs_t default_prefs =
 {
 	.BRIGHTNESS			= 30,				// LED brightness, 1..100 - default=30
 	.DEBUG_DEVICE		= DEBUG_DEVICE_SERIAL,		// off, USB, Serial - default(2=Serial)
@@ -164,12 +209,12 @@ const prefs_t default_prefs =
 //----------------------------------------------------
 // only one value has a non-zero minimum
 
-const prefs_t prefs_min = {
+static const prefs_t prefs_min = {
 	.BRIGHTNESS			= 5,
 };
 
 
-const prefs_t prefs_max =
+static const prefs_t prefs_max =
 {
 	.BRIGHTNESS			= 100,					// LED brightness, 1..100
 	.DEBUG_DEVICE		= DEBUG_DEVICE_SERIAL,  // off, USB, Serial
@@ -313,32 +358,91 @@ void reset_prefs()
 bool read_prefs()
 	// set any non default (!=255) values into in-memory prefs
 {
-	bool retval = 0;
-    display(dbg_prefs,"read_prefs()",0);
+	display(dbg_prefs,"read_prefs()",0);
 
+	bool retval = 0;
 	if (EEPROM.read(0) != TEENSY_EXPRESSION2_PREF_VERSION)
 	{
-		reset_prefs();
 		retval = 1;
+		reset_prefs();
 	}
 
 	memcpy(&prefs,&default_prefs,sizeof(prefs_t));
 
-	uint8_t *ptr = (uint8_t*) &prefs;
-	uint8_t *last_ptr = (uint8_t*) &last_prefs;
+	// read the prefs by type in a stream like manner
 
-    for (uint16_t i=0; i<sizeof(prefs_t); i++)
-    {
-        uint8_t byte = EEPROM.read(i + PREF_VERSION_OFFSET);
-		if (byte != 255)
+	uint16_t offset = 0;
+	uint8_t *ptr = (uint8_t *) &prefs;
+	uint8_t *last_ptr = (uint8_t *) &last_prefs;
+
+	while (offset < sizeof(prefs))
+	{
+		uint8_t type = prefType(offset);
+		if (type == PREF_TYPE_8)
 		{
-			*ptr = byte;
-			display(0,"NON DEFAULT PREF AT BYTE %d",i);
+			uint8_t byte = EEPROM.read(PREF_VERSION_OFFSET + offset);
+			if (byte != 255)
+			{
+				*ptr = byte;
+				warning(dbg_prefs,"read_prefs non-default PREF_8(0x%02x) at offset %d",byte,offset);
+			}
+			*last_ptr = *ptr;
+			ptr++;
+			last_ptr++;
+			offset++;
 		}
-		*last_ptr = *ptr;
-		ptr++;
-		last_ptr++;
-    }
+		else if (type == PREF_TYPE_16)
+		{
+			uint8_t byte0 = EEPROM.read(PREF_VERSION_OFFSET + offset);
+			uint8_t byte1 = EEPROM.read(PREF_VERSION_OFFSET + offset+1);
+			if (byte0 != 255 || byte1 != 255)
+			{
+				ptr[0] = byte0;
+				ptr[1] = byte1;
+				warning(dbg_prefs,"read_prefs non-default PREF_16(0x%02x%02x) at offset %d",byte0,byte1,offset);
+			}
+			last_ptr[0] = ptr[0];
+			last_ptr[1] = ptr[1];
+			ptr += 2;
+			last_ptr += 2;
+			offset += 2;
+		}
+		else if (type == PREF_TYPE_RIG_NAME ||
+				 type == PREF_TYPE_PEDAL_NAME )
+		{
+			int len = (type == PREF_TYPE_RIG_NAME) ?
+				MAX_RIG_NAME + 1 :
+				MAX_PEDAL_NAME + 1;
+			uint8_t bytes[len];
+			bool is_default = 1;
+			for (int i=0; i<len; i++)
+			{
+				bytes[i] = EEPROM.read(PREF_VERSION_OFFSET + offset + i);
+				if (bytes[i] != 255)
+					is_default = 0;
+			}
+			if (!is_default)
+			{
+				warning(dbg_prefs,"read_prefs non-default PREF_STRING(%d,%s) at offset %d=",len,(const char *)bytes,offset);
+				for (int i=0; i<len; i++)
+				{
+					ptr[i] = bytes[i];
+				}
+			}
+			for (int i=0; i<len; i++)
+			{
+				last_ptr[i] = ptr[i];
+			}
+			ptr += len;
+			last_ptr += len;
+			offset += len;
+		}
+		else
+		{
+			my_error("illegal prefType(%d) in read_prefs() at offset(%d)",type, offset);
+			return false;
+		}
+	}
 
 	return retval;
 }
@@ -353,22 +457,104 @@ void save_prefs()
 	// i.e. if the low order of a uint16_t happens to be 255
 {
     display(dbg_prefs,"save_prefs()",0);
-	uint8_t *ptr = (uint8_t*) &prefs;
+
+	uint16_t offset = 0;
 	uint8_t *last_ptr = (uint8_t*) &last_prefs;
+	const uint8_t *ptr = (const uint8_t*) &prefs;
 	const uint8_t *def_ptr = (const uint8_t *) &default_prefs;
 
-    for (uint16_t i=0; i<sizeof(prefs_t); i++)
-    {
-		uint8_t val = *ptr;
-		*last_ptr = val;
-		if (val == *def_ptr)
-			val = 255;
-        EEPROM.write(i + PREF_VERSION_OFFSET, val);
+	while (offset < sizeof(prefs))
+	{
+		uint8_t type = prefType(offset);
+		if (type == PREF_TYPE_8)
+		{
+			uint8_t byte = *ptr;
+			*last_ptr = *ptr;
+			if (byte == *def_ptr)
+			{
+				byte = 255;
+			}
+			else
+			{
+				warning(dbg_prefs,"save_prefs non-default PREF_8(0x%02x) at offset %d",byte,offset);
+			}
+			EEPROM.write(PREF_VERSION_OFFSET + offset, byte);
+			ptr++;
+			def_ptr++;
+			last_ptr++;
+			offset++;
+		}
+		else if (type == PREF_TYPE_16)
+		{
+			uint8_t byte0 = ptr[0];
+			uint8_t byte1 = ptr[1];
+			last_ptr[0] = byte0;
+			last_ptr[1] = byte1;
+			if (byte0 == def_ptr[0] && byte1 == def_ptr[1])
+			{
+				byte0 = 255;
+				byte1 = 255;
+			}
+			else
+			{
+				warning(dbg_prefs,"save_prefs non-default PREF_16(0x%02x%02x) at offset %d",byte0,byte1,offset);
+			}
+			EEPROM.write(PREF_VERSION_OFFSET + offset, 	   byte0);
+			EEPROM.write(PREF_VERSION_OFFSET + offset + 1, byte1);
+			ptr += 2;
+			def_ptr += 2;
+			last_ptr += 2;
+			offset += 2;
+		}
+		else if (type == PREF_TYPE_RIG_NAME ||
+				 type == PREF_TYPE_PEDAL_NAME )
+		{
+			int len = (type == PREF_TYPE_RIG_NAME) ?
+				MAX_RIG_NAME + 1 :
+				MAX_PEDAL_NAME + 1;
+			uint8_t bytes[len];
+			for (int i=0; i<len; i++)
+			{
+				bytes[i] = ptr[i];
+				last_ptr[i] = ptr[i];
+			}
 
-		ptr++;
-		last_ptr++;
-		def_ptr++;
-    }
+			bool is_default = 1;
+			for (int i=0; i<len; i++)
+			{
+				if (bytes[i] != def_ptr[i])
+				{
+					is_default = 0;
+				}
+			}
+
+			if (is_default)
+			{
+				for (int i=0; i<len; i++)
+				{
+					bytes[i] = 255;
+				}
+			}
+			else
+			{
+				warning(dbg_prefs,"save_prefs non-default PREF_STRING(%d,%s) at offset %d=",len,(const char *)bytes,offset);
+			}
+			for (int i=0; i<len; i++)
+			{
+				EEPROM.write(PREF_VERSION_OFFSET + offset + i, bytes[i]);
+			}
+
+			ptr += len;
+			def_ptr += len;
+			last_ptr += len;
+			offset += len;
+		}
+		else
+		{
+			my_error("illegal prefType(%d) in save_prefs() at offset(%d)",type,offset);
+			return;
+		}
+	}
 }
 
 
@@ -377,84 +563,107 @@ void save_prefs()
 // read and write individual prefs
 //-------------------------------------------------
 
-// extern
-uint8_t readPref8(uint16_t off, const char *name)
-	// get the in-memory value
-	// the name is soley for debugging
+void setPref(uint16_t off, uint32_t value, const char *name)
 {
-	uint8_t *ptr = (uint8_t*) &prefs;
-	uint8_t value = ptr[off];
-	display(dbg_prefs + 2,"readPref8(%s,%d)=%d", name?name:"", off, value);
-	return value;
+	uint8_t type = prefType(off);
+	display(dbg_prefs,"setPref(%d==%s,0x%08x) type(%d)",off,name?name:"",value,type);
+	if (type == PREF_TYPE_8)
+	{
+		uint8_t val = value;
+		uint8_t *ptr = (uint8_t*) &prefs;
+		ptr[off] = val;
+	}
+	else if (type == PREF_TYPE_16)
+	{
+		uint16_t val = value;
+		uint8_t *ptr = (uint8_t*) &prefs;
+		uint16_t *ptr16 = (uint16_t *) &ptr[off];
+		*ptr16 = val;
+	}
+	else if (type == PREF_TYPE_RIG_NAME ||
+			 type == PREF_TYPE_PEDAL_NAME )
+	{
+		int len = (type == PREF_TYPE_RIG_NAME) ?
+			MAX_RIG_NAME + 1 :
+			MAX_PEDAL_NAME + 1;
+		char *ptr = (char*) &prefs;
+		memcpy(&ptr[off],(const char *) value, len);
+		ptr[off + len] = 0;
+	}
+	else
+	{
+		my_error("attempt to setPref(%d==%s,0x%08x) type(%d)",off,name?name:"",value,type);
+	}
 }
 
 
-// extern
-void writePref8(uint16_t off, uint8_t value, const char *name)
-	// sets the in-memory value only!
+uint32_t getPref(uint16_t off, const char *name)
 {
-	display(dbg_prefs + 1,"writePref8(%s, %d) off=%d", name?name:"", value, off);
-	uint8_t *ptr = (uint8_t*) &prefs;
-	ptr[off] = value;
+	uint8_t type = prefType(off);
+	display(dbg_prefs + 1,"getPref(%d==%s) type(%d)",off,name?name:"",type);
+	if (type == PREF_TYPE_8)
+	{
+		const uint8_t *ptr = (const uint8_t*) &prefs;
+		return ptr[off];
+	}
+	else if (type == PREF_TYPE_16)
+	{
+		const uint8_t *ptr = (const uint8_t*) &prefs;
+		const uint16_t *ptr16 = (const uint16_t *) &ptr[off];
+		return *ptr16;
+	}
+	else if (type == PREF_TYPE_RIG_NAME ||
+			 type == PREF_TYPE_PEDAL_NAME )
+	{
+		const uint8_t *ptr = (const uint8_t *) &prefs;
+		return (uint32_t) &ptr[off];
+	}
+	my_error("attempt to getPref(%d==%s) type(%d)",off,name?name:"",type);
+	return 0;
 }
 
 
-// extern
-uint16_t readPref16(uint16_t off, const char *name)
-	// get the in-memory value
-	// the name is soley for debugging
+uint16_t getPrefMin(uint16_t off)
 {
-	uint8_t *ptr = (uint8_t*) &prefs;
-	uint16_t *ptr16 = (uint16_t *) &ptr[off];
-	uint16_t value = *ptr16;
-	display(dbg_prefs + 2,"readPref16(%s,%d)=%d", name?name:"", off, value);
-	return value;
+	uint8_t type = prefType(off);
+	if (type == PREF_TYPE_8)
+	{
+		const uint8_t *ptr = (const uint8_t*) &prefs_min;
+		return ptr[off];
+	}
+	else if (type == PREF_TYPE_16)
+	{
+		const uint8_t *ptr = (const uint8_t*) &prefs_min;
+		const uint16_t *ptr16 = (const uint16_t *) &ptr[off];
+		return *ptr16;
+	}
+	my_error("attempt to getPrefMin(%d) type(%d)",off,type);
+	return 0;
 }
 
 
-// extern
-void writePref16(uint16_t off, uint16_t value, const char *name)
-	// sets the in-memory value only!
-	// the name is soley for debugging
+uint16_t getPrefMax(uint16_t off)
 {
-	display(dbg_prefs + 1,"writePref16(%s, %d) off=%d", name?name:"", value, off);
-	uint8_t *ptr = (uint8_t *) &prefs;
-	uint16_t *ptr16 = (uint16_t *) &ptr[off];
-	*ptr16 = value;
+	uint8_t type = prefType(off);
+	if (type == PREF_TYPE_8)
+	{
+		const uint8_t *ptr = (const uint8_t*) &prefs_max;
+		return ptr[off];
+	}
+	else if (type == PREF_TYPE_16)
+	{
+		const uint8_t *ptr = (const uint8_t*) &prefs_max;
+		const uint16_t *ptr16 = (const uint16_t *) &ptr[off];
+		return *ptr16;
+	}
+	my_error("attempt to getPrefMin(%d) type(%d)",off,type);
+	return 0;
 }
 
 
-
-// extern
-uint8_t readPref8Min(uint16_t off)
-{
-	uint8_t *ptr = (uint8_t*) &prefs_min;
-	return ptr[off];
-}
-// extern
-uint8_t readPref8Max(uint16_t off)
-{
-	uint8_t *ptr = (uint8_t*) &prefs_max;
-	return ptr[off];
-}
-// extern
-uint16_t readPref16Min(uint16_t off)
-{
-	uint8_t *ptr = (uint8_t*) &prefs_min;
-	uint16_t *ptr16 = (uint16_t *) &ptr[off];
-	return *ptr16;
-}
-// extern
-uint16_t readPref16Max(uint16_t off)
-{
-	uint8_t *ptr = (uint8_t*) &prefs_max;
-	uint16_t *ptr16 = (uint16_t *) &ptr[off];
-	return *ptr16;
-}
 
 
 #if 0
-
 	//------------------------------------------------------------
 	// change detection and restore
 	//------------------------------------------------------------
@@ -511,3 +720,5 @@ uint16_t readPref16Max(uint16_t off)
 	}
 
 #endif // 0
+
+
