@@ -3,6 +3,7 @@
 //------------------------------------------------
 // Contains common dialog windows
 // Note that these cannot be stacked on top of the same kind!
+// YesNoDialog returns 0 or the ID that is passed in.
 
 #pragma once
 
@@ -30,7 +31,7 @@ class rigErrorDialog : public sysWindow
         virtual const char *name() override      { return "Rig Error"; }
         virtual const char *shortName() override { return "Rig Error"; }
 
-        virtual void begin(bool warm) override;
+        virtual void begin(bool cold) override;
         virtual void onButton(int row, int col, int event) override;
 };
 
@@ -58,7 +59,7 @@ class yesNoDialog : public sysWindow
         virtual const char *name()          { return m_name; }
         virtual const char *short_name()    { return m_name; }
 
-        virtual void begin(bool warm) override;
+        virtual void begin(bool cold) override;
         virtual void onButton(int row, int col, int event) override;
 
 };

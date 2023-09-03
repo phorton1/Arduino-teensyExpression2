@@ -160,7 +160,6 @@ void winFtpTuner::drawCircle(int string, int fret, bool pressed)
 	center_x += FRETBOARD_X;
 	center_y += FRETBOARD_Y;
 
-	// display(0,"drawCircle(%d,%d,%d)",string,fret,pressed);
 	mylcd.setDrawColor(pressed ? PRESSED_COLOR : ((fret == 0 || fret > NUM_INTERVALS) ? FRET_COLOR : FRETBOARD_COLOR));
 	mylcd.fillCircle(center_x,center_y,CIRCLE_DIAMETER / 2);
 

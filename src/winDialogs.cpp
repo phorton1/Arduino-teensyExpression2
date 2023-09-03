@@ -7,19 +7,20 @@
 #include "buttons.h"
 #include "myTFT.h"
 
-#define BUTTON_NO    16
-#define BUTTON_OK    17
-#define BUTTON_YES   18
 
-rigErrorDialog rig_error_dlg;
-yesNoDialog    yes_no_dlg;
+rigErrorDialog	rig_error_dlg;
+yesNoDialog		yes_no_dlg;
 
 
+//----------------------
 // rigErrorDialog
+//----------------------
 
-void rigErrorDialog::begin(bool warm)
+#define BUTTON_OK    17
+
+void rigErrorDialog::begin(bool cold)
 {
-    sysWindow::begin(warm);
+    sysWindow::begin(cold);
     the_buttons.setButtonType(BUTTON_OK, BUTTON_EVENT_CLICK, LED_GREEN);
     mylcd.setFont(Arial_16_Bold);
 	mylcd.printJustified(
@@ -40,11 +41,16 @@ void rigErrorDialog::onButton(int row, int col, int event)
 }
 
 
+//----------------------
 // yesNoDialog
+//----------------------
 
-void yesNoDialog::begin(bool warm)
+#define BUTTON_NO    16
+#define BUTTON_YES   18
+
+void yesNoDialog::begin(bool cold)
 {
-    sysWindow::begin(warm);
+    sysWindow::begin(cold);
     the_buttons.setButtonType(BUTTON_NO, BUTTON_EVENT_CLICK, LED_RED);
     the_buttons.setButtonType(BUTTON_YES,BUTTON_EVENT_CLICK, LED_GREEN);
     mylcd.setFont(Arial_16_Bold);
