@@ -433,19 +433,6 @@ BUTTON(13):
 		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
 
-#-------------------------------------
-# Looper Volume Mode button
-#-------------------------------------
-
-BUTTON(14) :
-	color:	LED_ORANGE;
-	click:
-		display(AREA_MSG,YELLOW,"loadRig");
-		loadRig("default_modal");
-	long:
-		display(AREA_MSG,YELLOW,"tuner");
-		ftpTuner();
-
 
 #----------------------------------
 # Guitar Effect Buttons
@@ -501,6 +488,19 @@ BUTTON(18):											# ECHO effect
 		display(AREA_MSG, YELLOW, "EFFECTS OFF");
 
 
+#-------------------------------------
+# Looper Volume Mode button
+#-------------------------------------
+
+BUTTON(14) :
+	color:	LED_ORANGE;
+	click:
+		display(AREA_MSG,YELLOW,"loadRig");
+		loadRig("default_modal");
+	long:
+		display(AREA_MSG,YELLOW,"tuner");
+		ftpTuner();
+
 
 #---------------------------------------
 # Looper Stop Button
@@ -513,7 +513,7 @@ BUTTON(18):											# ECHO effect
 #
 # The Stop LED is
 #	RED if the _stop_cmd value is LOOP_COMMAND_STOP_IMMEDIATE=2,
-#   WHITE if the _stop_cmd_value is LOOP_COMMAND_STOP=3, and
+#   PURPLE if the _stop_cmd_value is LOOP_COMMAND_STOP=3, and
 #   BLACK otherwise.
 # A click of the Stop Button sends a LOOP_COMMAND_CC
 #   message to the Serial Midi Port on Channel 0
@@ -525,7 +525,7 @@ BUTTON(18):											# ECHO effect
 BUTTON(19):
 	color:
 		VALUE[_stop_cmd] == 2 ? LED_RED :	 #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP_IMMEDIATE ? LED_RED :
-		VALUE[_stop_cmd] == 3 ? LED_WHITE :	 #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP ? LED_WHITE :
+		VALUE[_stop_cmd] == 3 ? LED_PURPLE : #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP ? LED_PURPLE :
 		LED_BLACK;
 	click:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, VALUE[_stop_cmd]);
