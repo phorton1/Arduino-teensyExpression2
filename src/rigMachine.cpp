@@ -35,9 +35,10 @@
 	// 0  = just show final param value
 	// -1 = show param details and expression header
 	// -2 = show expression return value
-#define dbg_midi    0
-	// 0 = show setting of Listen Values
+#define dbg_midi    1
+	// 0  = show onMidiCC setting of Listen Values
 	// -1 = show onMidiCC header
+	// -2 = show onMidiCC checking each listen
 #define dbg_btns	1
 	// show calls to setButtonColor and setButtonBlink during loop() expression handling
 
@@ -839,15 +840,20 @@ void rigMachine::onMidiCC(const msgUnion &msg)
 {
 	if (!m_rig_loaded)
 		return;
-	uint16_t mask = 1 << msg.port();
-	if (!(m_listen_mask && mask))
-		return;
 
-	display(dbg_midi+1,"onMidiCC(0x%02x,%d,0x%02x,0x%02x)",
+	uint16_t mask = 1 << msg.portEnum();
+
+	if (dbg_midi <= -1)
+		display(dbg_midi+1,"onMidiCC(0x%02x,%d,0x%02x,0x%02x) lmask(0x%04x) mask(0x%04x)",
 			msg.port(),
 			msg.channel(),
 			msg.param1(),
-			msg.param2());
+			msg.param2(),
+			m_listen_mask,
+			mask);
+
+	if (!(m_listen_mask & mask))
+		return;
 
 	// set the value into any SERIAL Listens for the given CC number
 	// with the convention that listening to channel 0 accepts all channels
@@ -855,18 +861,26 @@ void rigMachine::onMidiCC(const msgUnion &msg)
 	for (int num=0; num<RIG_NUM_LISTENS; num++)
 	{
 		rigListen_t *listen = &m_rig_state.listens[num];
+
+		if (dbg_midi <= -2 && listen->active)
+			display(dbg_midi+1,"checking(0x%02x,%d,0x%02x)",
+				listen->port,
+				listen->channel,
+				listen->cc);
+
 		if (listen->active &&
-			listen->port == msg.port() &&
+			listen->port == msg.portEnum() &&
 			listen->cc == msg.param1() && (
 			listen->channel == MIDI_OMNI_CHANNEL ||		// MIDI_OMNI_CHANNEL == 0
 			listen->channel == msg.channel()))
 		{
-			display(dbg_midi,"onMidiCC(0x%02x,%d,0x%02x) --> setting value(%d) to 0x%02x",
-				msg.port(),
-				msg.channel(),
-				msg.param1(),
-				num,
-				msg.param2());
+			if (dbg_midi <= 0)
+				display(dbg_midi,"onMidiCC(0x%02x,%d,0x%02x) --> setting value(%d) to 0x%02x",
+					msg.port(),
+					msg.channel(),
+					msg.param1(),
+					num,
+					msg.param2());
 			m_rig_state.values[num] = msg.param2();
 		}
 	}
