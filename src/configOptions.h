@@ -7,10 +7,14 @@
 #pragma once
 
 #define NUM_CONFIG_OPTIONS		75
+
+// values which must agree with table setup
+
 #define BRIGHTNESS_OPT_NUM		1
+#define PEDAL0_OPT_NUM			10
 
-#define OPTION_16BIT			0x0001	// the option is a 16 bit value
 
+// OPTION FLAGS
 // YesNoDialog returns these values, which are set into it
 // with setID(), if they press yes
 

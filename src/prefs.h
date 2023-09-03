@@ -82,24 +82,11 @@ typedef struct
 
 typedef struct
 {
-	char			NAME[MAX_PEDAL_NAME+1];		// 7 character max name
-	uint8_t			PORT;						// 0..NUM_MIDI_PORTS-1
-	uint8_t			CHANNEL;					// the midi channel to send on
-	uint8_t			CC;							// the CC number to use
-
 	uint16_t		CALIB_MIN;				 	// 0..1023 - default(0)
 	uint16_t		CALIB_MAX;               	// 0..1023 - default(1023)
 	uint8_t     	CURVE_TYPE;              	// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
 	pref_curve_t 	CURVE[NUM_PEDAL_CURVES];
 }	pref_pedal_t;
-
-typedef struct
-{
-	char			NAME[MAX_PEDAL_NAME+1];		// 7 character max name
-	uint8_t			PORT;						// 0..NUM_MIDI_PORTS-1
-	uint8_t			CHANNEL;					// default(0),
-	uint8_t			CC;							// the CC number to use
-}	pref_rotary_t;
 
 
 //====================================
@@ -117,7 +104,6 @@ typedef struct
 	char			RIG_NAME[MAX_RIG_NAME + 1];
 
 	pref_pedal_t 	PEDAL[NUM_PEDALS];
-	pref_rotary_t	ROTARY[NUM_ROTARY];
 
 	// midi monitoring, general on/off
 
@@ -203,19 +189,8 @@ extern void 	setPref(uint16_t off, uint32_t value, const char *name = 0);
 extern uint32_t getPref(uint16_t off, const char *name = 0);
 extern uint16_t getPrefMin(uint16_t off);
 extern uint16_t getPrefMax(uint16_t off);
+extern bool 	prefs_dirty();
 
-
-
-#if 0
-	// dirty change detection and restore
-	// note that to restore all prefs, you merely call read_prefs()
-	extern bool 	prefs_dirty();
-	extern bool 	pref8_dirty(uint16_t off);
-	extern bool 	pref16_dirty(uint16_t off);
-	extern uint8_t 	pref8_restore(uint16_t off, const char *name);
-	extern uint16_t pref16_restore(uint16_t off, const char *name);
-
-#endif	// 0
 
 
 // end of prefs.h

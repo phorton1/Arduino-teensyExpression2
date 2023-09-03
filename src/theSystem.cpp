@@ -101,9 +101,7 @@ void sysWindow::begin(bool cold)
 	display(dbg_win,"sysWindow::begin(%s,%d)",name(),cold);
 	the_system.setTitle(name());
 	the_buttons.clear();
-	fillRect(m_flags & WIN_FLAG_SHOW_PEDALS ?
-		client_rect : full_client_rect,
-		TFT_BLACK);
+	fillRect(full_client_rect, TFT_BLACK);
 }
 
 
@@ -481,7 +479,7 @@ void theSystem::loop()
 	initQueryFTP();
 		// query the FTP battery level on a timer
 
-	if (!m_num_windows || getTopWindow()->m_flags & WIN_FLAG_SHOW_PEDALS)
+	if (!m_num_windows)
 	{
 		bool draw_pedal_values = false;
 		int pedal_width = pedal_rect.width() / NUM_PEDALS;

@@ -27,16 +27,6 @@
 #define BUTTON_SELECT           17
 
 
-configOption *rootOption = 0;
-configOption *cur_menu = 0;
-configOption *cur_option = 0;
-configOption *last_option = 0;
-configOption *display_menu = 0;
-configOption *display_option = 0;
-configOption *optBrightness = 0;
-
-int num_menu_children = 0;
-
 winConfig win_config;
 
 // terminal node modal dialog functions
@@ -56,41 +46,42 @@ static void setDbgDeviceFromPref()
 // ctor and functions
 //---------------------------------
 
-
 // virtual
 void winConfig::begin(bool cold)
 {
     display(dbg_cfg,"winConfig::begin(%d)",cold);
     sysWindow::begin(cold);
 
-	rootOption = the_options.getOption(0);
-	optBrightness = the_options.getOption(BRIGHTNESS_OPT_NUM);
+	m_rootOption = the_options.getOption(0);
+	m_optBrightness = the_options.getOption(BRIGHTNESS_OPT_NUM);
 
 	if (cold)
 	{
+		m_changed = 0;
 		the_options.init();
-		cur_menu = rootOption;
-		num_menu_children = cur_menu->getNumChildren();
-		cur_option = rootOption->getFirstChild();
-		cur_option->select(1);
+		m_cur_menu = m_rootOption;
+		m_cur_option = m_rootOption->getFirstChild();
+		m_cur_option->select(1);
 	}
 
-	display_menu = 0;
-	display_option = 0;
-	last_option = 0;
+	m_display_menu = 0;
+	m_display_option = 0;
+	m_last_option = 0;
 
     // setup buttons and leds
 
     the_buttons.setButtonType(BUTTON_BRIGHTNESS_DOWN,	BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT,		LED_RED);
     the_buttons.setButtonType(BUTTON_BRIGHTNESS_UP,		BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT,		LED_GREEN);
-    the_buttons.setButtonType(BUTTON_EXIT_DONE,			BUTTON_EVENT_CLICK | BUTTON_EVENT_LONG_CLICK,	LED_PURPLE);
-    the_buttons.setButtonType(BUTTON_EXIT_CANCEL,		BUTTON_EVENT_CLICK | BUTTON_EVENT_LONG_CLICK,	LED_ORANGE);
+    the_buttons.setButtonType(BUTTON_EXIT_DONE,			BUTTON_EVENT_CLICK | BUTTON_EVENT_LONG_CLICK,	LED_GREEN);
+    the_buttons.setButtonType(BUTTON_EXIT_CANCEL,		BUTTON_EVENT_CLICK | BUTTON_EVENT_LONG_CLICK,	LED_BLUE);
 
 	the_buttons.setButtonType(BUTTON_MOVE_UP,			BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT,		LED_BLUE);
 	the_buttons.setButtonType(BUTTON_MOVE_DOWN,			BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT,		LED_BLUE);
 	the_buttons.setButtonType(BUTTON_MOVE_LEFT,			BUTTON_EVENT_PRESS,								LED_BLUE);
 	the_buttons.setButtonType(BUTTON_MOVE_RIGHT,		BUTTON_EVENT_PRESS,								LED_BLUE);
 	the_buttons.setButtonType(BUTTON_SELECT,			BUTTON_EVENT_CLICK, 							LED_GREEN);
+
+	checkChanged();
 
 	display(dbg_cfg,"winConfig::begin() finished",0);
 
@@ -120,6 +111,27 @@ void reboot(int num)
 }
 
 
+void winConfig::setChanged()
+{
+	if (!m_changed)
+	{
+		m_changed = 1;
+		the_buttons.setButtonType(BUTTON_EXIT_DONE,	  BUTTON_EVENT_CLICK | BUTTON_EVENT_LONG_CLICK,	LED_PURPLE);
+		the_buttons.setButtonType(BUTTON_EXIT_CANCEL, BUTTON_EVENT_CLICK | BUTTON_EVENT_LONG_CLICK,	LED_ORANGE);
+	}
+}
+
+
+void winConfig::checkChanged()
+{
+	if (!m_changed)
+	{
+		if (prefs_dirty())
+			setChanged();
+	}
+}
+
+
 // virtual
 void winConfig::onChildEnd(uint16_t param)
 	// called when modal dialogs are ended
@@ -137,6 +149,7 @@ void winConfig::onChildEnd(uint16_t param)
 		save_prefs();
 		reboot(THE_SYSTEM_BUTTON);
 	}
+	checkChanged();
 }
 
 
@@ -152,36 +165,36 @@ void winConfig::onButton(int row, int col, int event)
     int num = row * NUM_BUTTON_COLS + col;
     display(dbg_cfg,"winConfig::onButton(%d) cur(%d:%s) enabled(%d)",
 		num,
-		cur_option->getNum(),
-		cur_option->getTitle(),
-		cur_option->getEnabled());
+		m_cur_option->getNum(),
+		m_cur_option->getTitle(),
+		m_cur_option->getEnabled());
 
     if (num == BUTTON_MOVE_UP)
     {
-        if (cur_option->getPrev())
+        if (m_cur_option->getPrev())
         {
-            cur_option->select(0);
-            cur_option = cur_option->getPrev();
-            cur_option->select(1);
+            m_cur_option->select(0);
+            m_cur_option = m_cur_option->getPrev();
+            m_cur_option->select(1);
         }
     }
     else if (num == BUTTON_MOVE_DOWN)
     {
-        if (cur_option->getNext())
+        if (m_cur_option->getNext())
         {
-            cur_option->select(0);
-            cur_option = cur_option->getNext();
-            cur_option->select(1);
+            m_cur_option->select(0);
+            m_cur_option = m_cur_option->getNext();
+            m_cur_option->select(1);
         }
     }
     else if (num == BUTTON_MOVE_LEFT)
     {
-        if (cur_option->getParent() != rootOption)
+        if (m_cur_option->getParent() != m_rootOption)
         {
-		    cur_option->select(0);
-			cur_option = cur_option->getParent();
-			cur_menu = cur_option->getParent();
-			cur_option->select(1);
+		    m_cur_option->select(0);
+			m_cur_option = m_cur_option->getParent();
+			m_cur_menu = m_cur_option->getParent();
+			m_cur_option->select(1);
         }
     }
 
@@ -210,7 +223,7 @@ void winConfig::onButton(int row, int col, int event)
 
 	// do something
 
-    else if (cur_option->getEnabled())
+    else if (m_cur_option->getEnabled())
 	{
 		if (num == BUTTON_SELECT)
 		{
@@ -218,17 +231,17 @@ void winConfig::onButton(int row, int col, int event)
 			// increment the value, call a dialog window,
 			// or do some special function
 
-			if (cur_option->getType() & OPTION_FACTORY_RESET)
+			if (m_cur_option->getType() & OPTION_FACTORY_RESET)
 			{
 				yes_no_dlg.setId(OPTION_FACTORY_RESET);
 				yes_no_dlg.setName("Confirm Factory Reset");
 				yes_no_dlg.setMessage("Are you sure you want to do a\nfactory reset?");
 				the_system.startWindow(&yes_no_dlg);
 			}
-			else if (cur_option->getType() & OPTION_SPOOF_FTP)
+			else if (m_cur_option->getType() & OPTION_SPOOF_FTP)
 			{
 				char display_buf[255];
-				bool new_value = !((bool)cur_option->getValue());
+				bool new_value = !((bool)m_cur_option->getValue());
 				sprintf(display_buf,"Turning FTP Spoofing %s requires\nthat we save the prefs and reboot.\nAre you sure you want to do that?",
 					new_value ? "ON" : "OFF");
 				// or the option value into the id==return value
@@ -237,25 +250,26 @@ void winConfig::onButton(int row, int col, int event)
 				yes_no_dlg.setMessage(display_buf);
 				the_system.startWindow(&yes_no_dlg);
 			}
-			else if (cur_option->getFirstChild())
+			else if (m_cur_option->getFirstChild())
 			{
-				display_option = 0;
-				cur_option->select(0);
-				cur_menu = cur_option;
-				cur_option = cur_menu->getFirstChild();
-				cur_option->select(1);
+				m_display_option = 0;
+				m_cur_option->select(0);
+				m_cur_menu = m_cur_option;
+				m_cur_option = m_cur_menu->getFirstChild();
+				m_cur_option->select(1);
 			}
-			else if (cur_option->hasValue())
+			else if (m_cur_option->hasValue())
 			{
 				display(0,"incValue()",0);
-				cur_option->incValue();
-				if (!strcmp(cur_option->getTitle(),DEBUG_DEVICE_NAME))
+				m_cur_option->incValue();
+				if (!strcmp(m_cur_option->getTitle(),DEBUG_DEVICE_NAME))
 					setDbgDeviceFromPref();
+				setChanged();
 			}
-			else if (cur_option->getSetterFxn())
+			else if (m_cur_option->getSetterFxn())
 			{
-				display(dbg_cfg,"calling setter fxn for %s",cur_option->getTitle());
-				(cur_option->getSetterFxn())(cur_option->getNum());
+				display(dbg_cfg,"calling setter fxn for %s",m_cur_option->getTitle());
+				(m_cur_option->getSetterFxn())(m_cur_option->getNum());
 			}
 		}
 
@@ -265,11 +279,16 @@ void winConfig::onButton(int row, int col, int event)
 			int inc = num == BUTTON_BRIGHTNESS_UP ? 5 : -5;
 			int bright = prefs.BRIGHTNESS + inc;
 
-			if (bright < cur_option->getMin())
-				bright = cur_option->getMin();
-			if (bright > cur_option->getMax())
-				bright = cur_option->getMax();
-			optBrightness->setValue(bright);
+			if (bright < m_cur_option->getMin())
+				bright = m_cur_option->getMin();
+			if (bright > m_cur_option->getMax())
+				bright = m_cur_option->getMax();
+
+			if (bright != prefs.BRIGHTNESS)
+			{
+				m_optBrightness->setValue(bright);
+				setChanged();
+			}
 		}
 	}	// enabled
 }
@@ -300,45 +319,45 @@ void winConfig::updateUI()
 
 	// redraw title and clear screen if we changed levels
 
-    if (display_menu != cur_menu)
+    if (m_display_menu != m_cur_menu)
     {
-		display(dbg_cfg+1,"winConfig::updateUI() cur_menu(%d:%s) != display_menu(%d:%s)",
-			cur_menu->getNum(),
-			cur_menu->getTitle(),
-			display_menu ? display_menu->getNum() : 238,
-			display_menu ? display_menu->getTitle() : "null");
+		display(dbg_cfg+1,"winConfig::updateUI() m_cur_menu(%d:%s) != m_display_menu(%d:%s)",
+			m_cur_menu->getNum(),
+			m_cur_menu->getTitle(),
+			m_display_menu ? m_display_menu->getNum() : 238,
+			m_display_menu ? m_display_menu->getTitle() : "null");
 
-        display_menu = cur_menu;
+        m_display_menu = m_cur_menu;
         draw_all = true;
 
         fillRect(full_client_rect,TFT_BLACK);
 
-        if (cur_menu == rootOption)
+        if (m_cur_menu == m_rootOption)
             the_system.setTitle(name());
         else
-            the_system.setTitle(cur_menu->getTitle());
+            the_system.setTitle(m_cur_menu->getTitle());
     }
 
 	// calculate the item that should show at top of screen
 
-	if (cur_option != last_option)
+	if (m_cur_option != m_last_option)
 	{
-		display(dbg_cfg+1,"winConfig::updateUI() cur_option(%d:%s) != last_option(%d:%s) m_scroll_top=%d",
-			cur_option->getNum(),
-			cur_option->getTitle(),
-			last_option ? last_option->getNum() : 237,
-			last_option ? last_option->getTitle() : "null",
+		display(dbg_cfg+1,"winConfig::updateUI() m_cur_option(%d:%s) != m_last_option(%d:%s) m_scroll_top=%d",
+			m_cur_option->getNum(),
+			m_cur_option->getTitle(),
+			m_last_option ? m_last_option->getNum() : 237,
+			m_last_option ? m_last_option->getTitle() : "null",
 			m_scroll_top);
 
-		last_option = cur_option;
-		int num = cur_option->getNum();
+		m_last_option = m_cur_option;
+		int num = m_cur_option->getNum();
 
 		// on a level change, start by assuming that we will
 		// just show the first n items
 
 		if (draw_all)
 		{
-			m_scroll_top = cur_menu->getFirstChild()->getNum();
+			m_scroll_top = m_cur_menu->getFirstChild()->getNum();
 			display(dbg_cfg+1,"init m_scroll_top=%d",m_scroll_top);
 		}
 
@@ -372,8 +391,8 @@ void winConfig::updateUI()
 	// items
 
 	int y = TOP_OFFSET;
-    int count = cur_menu->getNumChildren();
-    configOption *opt = cur_menu->getFirstChild();
+    int count = m_cur_menu->getNumChildren();
+    configOption *opt = m_cur_menu->getFirstChild();
 
 	mylcd.setFont(Arial_20);
 

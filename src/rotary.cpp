@@ -50,15 +50,17 @@ rotary_t rotary[NUM_ROTARY];
 
 
 void initRotary()
+    // The system is intended to be used with a rig.
+    // We assign a default name, port, channel, and CC
+    // that are not really meaningful
 {
     for (int i=0; i<4; i++)
     {
-        memcpy(rotary[i].name,prefs.ROTARY[i].NAME,MAX_PEDAL_NAME);
-        rotary[i].name[MAX_PEDAL_NAME] = 0;
+        sprintf(rotary[i].name,"Rotary%d",i);
 
-        rotary[i].port    = MIDI_ENUM_TO_PORT(prefs.ROTARY[i].PORT);
-        rotary[i].channel = prefs.ROTARY[i].CHANNEL;
-        rotary[i].cc      = prefs.ROTARY[i].CC;
+        rotary[i].port    = MIDI_PORT_USB1;
+        rotary[i].channel = 0;
+        rotary[i].cc      = 11 + i;
 
         pinMode(rotary_pin[i].pinA,INPUT_PULLDOWN);
         pinMode(rotary_pin[i].pinB,INPUT_PULLDOWN);

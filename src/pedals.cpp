@@ -45,6 +45,9 @@ void pedalManager::setPedal(int num, const char *name, uint8_t port, uint8_t cha
 //------------------------------------
 // expressionPedal
 //------------------------------------
+// The system is intended to be used with a rig.
+// We assign a default name, port, channel, and CC
+// that are not really meaningful
 
 void expressionPedal::init(
     int num,
@@ -53,11 +56,10 @@ void expressionPedal::init(
     m_num = num;
     m_pin = pin;
 
-
-    strcpy(m_name,prefs.PEDAL[num].NAME);
-    m_port    = MIDI_ENUM_TO_PORT(prefs.PEDAL[num].PORT);
-    m_channel = prefs.PEDAL[num].CHANNEL;
-    m_cc      = prefs.PEDAL[num].CC;
+    sprintf(m_name,"Pedal%d",m_num);
+    m_port    = MIDI_PORT_USB1;
+    m_channel = 0;
+    m_cc      = 7 + m_num;
 
     m_raw_value = -1;         // 0..1023
     m_direction = -1;

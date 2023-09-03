@@ -7,9 +7,9 @@
 #include "prefs.h"
 #include "myLeds.h"
 #include "theSystem.h"
-// #include "winDialogs.h"
 #include "winFtpTuner.h"
 #include "winFtpSensitivity.h"
+#include "winConfigPedal.h"
 
 
 #define dbg_opts	0
@@ -35,7 +35,13 @@ static void startFtpTuner(int i)
 	{ the_system.startWindow(&win_ftp_tuner); }
 static void startFtpSensitivity(int i)
 	{ the_system.startWindow(&win_ftp_sensitivity); }
-static void configPedal(int i) {}
+
+#define PEDAL0_OPT_NUM	10
+static void configPedal(int i)
+{
+	win_config_pedal.setPedal(i - PEDAL0_OPT_NUM);
+	the_system.startWindow(&win_config_pedal);
+}
 
 
 //-----------------------------------------------------
@@ -250,10 +256,6 @@ void configOption::init(const opt_desc_t *desc)
 
 	// not currently handling strings
 	m_value = getPref(desc->pref_offset, desc->title);
-
-    // m_value = desc->pref_offset >= 0 ? desc->type & OPTION_16BIT ?
-	// 	readPref16(desc->pref_offset) :
-	// 	readPref8 (desc->pref_offset) : -1;
 
 	display(dbg_opts+1,"init(%s) offset=%d  m_value=%d",getTitle(),desc->pref_offset,m_value);
 }

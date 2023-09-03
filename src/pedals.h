@@ -29,7 +29,6 @@ class expressionPedal
         void clearDisplayValueChanged() { m_last_display_value = m_display_value; }
             // completely separate display values
 
-
         inline float getRawValuePct()
         {
             float min = prefs.PEDAL[m_num].CALIB_MIN;
@@ -60,9 +59,6 @@ class expressionPedal
         void init(
             int num,
             int pin );
-            // const char *name,
-            // int cc_channel,
-            // int cc_num);
 
         void poll();
 

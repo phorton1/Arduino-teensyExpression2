@@ -10,11 +10,6 @@
 
 #define MAX_WINDOW_STACK     10
 
-#define WIN_FLAG_OWNER_TITLE        0x00001000
-    // window calls theSystem.setTitle() itself
-#define WIN_FLAG_SHOW_PEDALS        0x00002000
-    // pedal area shown by the system when window displayed
-
 // globally defined screen regions
 
 extern int_rect tft_rect;                   // the full screen
@@ -32,9 +27,7 @@ class sysWindow
 {
     public:
 
-        sysWindow()                 {m_flags = 0;}
-        sysWindow(uint32_t flags)   {m_flags = flags;}
-        virtual ~sysWindow()        {}
+        sysWindow() {}
 
         virtual const char *name() = 0;
         virtual const char *shortName() { return ""; }
@@ -59,7 +52,6 @@ class sysWindow
             // BEFORE begin() on this window
 
         uint16_t m_id;
-        uint16_t m_flags;
 };
 
 

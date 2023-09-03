@@ -30,8 +30,7 @@ prefs_t last_prefs;
 #define PREF_TYPE_NONE			0		// -1
 #define PREF_TYPE_8				1		// uint8_t
 #define PREF_TYPE_16			2		// uint16_t
-#define PREF_TYPE_PEDAL_NAME 	3		// char[MAX_PEDAL_NAME + 1]
-#define PREF_TYPE_RIG_NAME		4		// char[MAX_RIG_NAME + 1]
+#define PREF_TYPE_RIG_NAME		3		// char[MAX_RIG_NAME + 1]
 
 
 uint8_t prefType(int off)
@@ -39,18 +38,6 @@ uint8_t prefType(int off)
 	if (off == poff(RIG_NAME))
 	{
 		return PREF_TYPE_RIG_NAME;
-	}
-	else if (
-		off == poff(PEDAL[0].NAME)  ||
-		off == poff(PEDAL[1].NAME)  ||
-		off == poff(PEDAL[2].NAME)  ||
-		off == poff(PEDAL[3].NAME)  ||
-		off == poff(ROTARY[0].NAME) ||
-		off == poff(ROTARY[1].NAME) ||
-		off == poff(ROTARY[2].NAME) ||
-		off == poff(ROTARY[3].NAME) )
-	{
-		return PREF_TYPE_PEDAL_NAME;
 	}
 	else if (
 		off == poff(PEDAL[0].CALIB_MIN) ||
@@ -91,11 +78,6 @@ static const prefs_t default_prefs =
 
 	.PEDAL = {
 		{											// pedal 0 - Synth
-			.NAME 	 = {'s','y','n','t','h', 0},
-			.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_USB1),
-			.CHANNEL = SYNTH_VOLUME_CHANNEL-1,		// pref is zero based
-			.CC 	 = SYNTH_VOLUME_CC,
-
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
 			.CURVE_TYPE	= 0,						// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -105,10 +87,6 @@ static const prefs_t default_prefs =
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{											// pedal 1 = Looper
-			.NAME 	 = {'l','o','o','p', 0},
-			.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
-			.CHANNEL = 0,							// pref is zero based
-			.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME,
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
 			.CURVE_TYPE	= 0,						// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -118,10 +96,6 @@ static const prefs_t default_prefs =
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{											// pedal 2 = WAH
-			.NAME 	 = {'w','a','h', 0},
-			.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_USB1),
-			.CHANNEL = GUITAR_EFFECTS_CHANNEL-1,	// pref is zero based
-			.CC 	 = GUITAR_WAH_CONTROL_CC,
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
 			.CURVE_TYPE	= 0,						// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -131,10 +105,6 @@ static const prefs_t default_prefs =
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{											// pedal 3 = Guitar Volume
-			.NAME 	 = {'g','u','i','t','a','r', 0},
-			.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_USB1),
-			.CHANNEL = GUITAR_VOLUME_CHANNEL-1,		// pref iz zero based
-			.CC 	 = GUITAR_VOLUME_CC,
 			.CALIB_MIN	= 0,						// 0..1023 - default(0)
 			.CALIB_MAX	= 1023,						// 0..1023 - default(1023)
 			.CURVE_TYPE	= 0,						// 0=linear, 1=asymptotic, 2=scurve - default(0=;inear)
@@ -143,33 +113,6 @@ static const prefs_t default_prefs =
 			{ .POINTS = { {0,0}, {PP_HALF,PP_HALF}, {PP_MAX,PP_MAX}, {0,0} }, },
 			{ .POINTS = { {0,0}, {PP_ONE,PP_ONE}, {PP_TWO,PP_TWO}, {PP_MAX,PP_MAX}  }, }, },
         }, },
-
-	.ROTARY = {
-			{
-				.NAME    = {'i','n','p','u','t', 0},
-				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
-				.CHANNEL = 0,					// zero based
-				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_INPUT_GAIN,
-			},
-			{
-				.NAME    = {'o','u','t','p','u','t', 0},
-				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
-				.CHANNEL = 0,					// zero based
-				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN,
-			},
-			{
-				.NAME    = {'t','h','r','u', 0},
-				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
-				.CHANNEL = 0,					// zero based
-				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_THRU_VOLUME,
-			},
-			{
-				.NAME    = {'m','i','x', 0},
-				.PORT 	 = MIDI_PORT_TO_ENUM(MIDI_PORT_SERIAL),
-				.CHANNEL = 0,					// zero based
-				.CC 	 = LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME,
-			},
-		},
 
 	.MIDI_MONITOR					= OUTPUT_DEVICE_DEBUG,		// off, Debug, USB, Serial - default(0=off) 			DEBUG in testing
 	.MONITOR_INPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on		all on in testing
@@ -223,10 +166,6 @@ static const prefs_t prefs_max =
 	.FTP_PORT			= 2,					// off, USB, HOST
 	.PEDAL = {
 		{									// pedal 0
-			.NAME		= {0},
-			.PORT 		= MAX_MIDI_PORT,
-			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
-			.CC 		= MIDI_MAX_VALUE,
 			.CALIB_MIN	= 1023,				// 0..1023
 			.CALIB_MAX	= 1023,				// 0..1023
 			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve
@@ -236,10 +175,6 @@ static const prefs_t prefs_max =
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{									// pedal 1
-			.NAME		= {0},
-			.PORT 		= MAX_MIDI_PORT,
-			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
-			.CC 		= MIDI_MAX_VALUE,
 			.CALIB_MIN	= 1023,				// 0..1023
 			.CALIB_MAX	= 1023,				// 0..1023
 			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve
@@ -249,10 +184,6 @@ static const prefs_t prefs_max =
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{									// pedal 2
-			.NAME		= {0},
-			.PORT 		= MAX_MIDI_PORT,
-			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
-			.CC 		= MIDI_MAX_VALUE,
 			.CALIB_MIN	= 1023,				// 0..1023
 			.CALIB_MAX	= 1023,				// 0..1023
 			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve
@@ -262,10 +193,6 @@ static const prefs_t prefs_max =
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
 		},
 		{									// pedal 3
-			.NAME		= {0},
-			.PORT 		= MAX_MIDI_PORT,
-			.CHANNEL 	= MIDI_MAX_CHANNEL-1,
-			.CC 		= MIDI_MAX_VALUE,
 			.CALIB_MIN	= 1023,				// 0..1023
 			.CALIB_MAX	= 1023,				// 0..1023
 			.CURVE_TYPE	= 2,				// 0=linear, 1=asymptotic, 2=scurve
@@ -274,33 +201,6 @@ static const prefs_t prefs_max =
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {0,0} }, },
 			{ .POINTS = { {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}, {PP_MAX,PP_MAX}  }, }, },
         }, },
-
-	.ROTARY = {
-			{
-				.NAME	 = {0},
-				.PORT 	 = MAX_MIDI_PORT,
-				.CHANNEL = MIDI_MAX_CHANNEL-1,
-				.CC 	 = MIDI_MAX_VALUE,
-			},
-			{
-				.NAME	 = {0},
-				.PORT 	 = MAX_MIDI_PORT,
-				.CHANNEL = MIDI_MAX_CHANNEL-1,
-				.CC 	 = MIDI_MAX_VALUE,
-			},
-			{
-				.NAME	 = {0},
-				.PORT 	 = MAX_MIDI_PORT,
-				.CHANNEL = MIDI_MAX_CHANNEL-1,
-				.CC 	 = MIDI_MAX_VALUE,
-			},
-			{
-				.NAME	 = {0},
-				.PORT 	 = MAX_MIDI_PORT,
-				.CHANNEL = MIDI_MAX_CHANNEL-1,
-				.CC 	 = MIDI_MAX_VALUE,
-			},
-		},
 
 	.MIDI_MONITOR					= DEBUG_DEVICE_SERIAL,									// off, USB, Serial
 	.MONITOR_INPUT  				= { 1, 1, 1, 1, 1, 1, 1, },							 	// 7 ports     off, on
@@ -407,15 +307,11 @@ bool read_prefs()
 			last_ptr += 2;
 			offset += 2;
 		}
-		else if (type == PREF_TYPE_RIG_NAME ||
-				 type == PREF_TYPE_PEDAL_NAME )
+		else if (type == PREF_TYPE_RIG_NAME)
 		{
-			int len = (type == PREF_TYPE_RIG_NAME) ?
-				MAX_RIG_NAME + 1 :
-				MAX_PEDAL_NAME + 1;
-			uint8_t bytes[len];
+			uint8_t bytes[MAX_RIG_NAME+1];
 			bool is_default = 1;
-			for (int i=0; i<len; i++)
+			for (int i=0; i<=MAX_RIG_NAME; i++)
 			{
 				bytes[i] = EEPROM.read(PREF_VERSION_OFFSET + offset + i);
 				if (bytes[i] != 255)
@@ -423,19 +319,19 @@ bool read_prefs()
 			}
 			if (!is_default)
 			{
-				warning(dbg_prefs,"read_prefs non-default PREF_STRING(%d,%s) at offset %d=",len,(const char *)bytes,offset);
-				for (int i=0; i<len; i++)
+				warning(dbg_prefs,"read_prefs non-default PREF_RIG_NAME(%s) at offset %d=",(const char *)bytes,offset);
+				for (int i=0; i<=MAX_RIG_NAME; i++)
 				{
 					ptr[i] = bytes[i];
 				}
 			}
-			for (int i=0; i<len; i++)
+			for (int i=0; i<=MAX_RIG_NAME; i++)
 			{
 				last_ptr[i] = ptr[i];
 			}
-			ptr += len;
-			last_ptr += len;
-			offset += len;
+			ptr += MAX_RIG_NAME+1;
+			last_ptr += MAX_RIG_NAME+1;
+			offset += MAX_RIG_NAME+1;
 		}
 		else
 		{
@@ -506,21 +402,17 @@ void save_prefs()
 			last_ptr += 2;
 			offset += 2;
 		}
-		else if (type == PREF_TYPE_RIG_NAME ||
-				 type == PREF_TYPE_PEDAL_NAME )
+		else if (type == PREF_TYPE_RIG_NAME)
 		{
-			int len = (type == PREF_TYPE_RIG_NAME) ?
-				MAX_RIG_NAME + 1 :
-				MAX_PEDAL_NAME + 1;
-			uint8_t bytes[len];
-			for (int i=0; i<len; i++)
+			uint8_t bytes[MAX_RIG_NAME+1];
+			for (int i=0; i<=MAX_RIG_NAME; i++)
 			{
 				bytes[i] = ptr[i];
 				last_ptr[i] = ptr[i];
 			}
 
 			bool is_default = 1;
-			for (int i=0; i<len; i++)
+			for (int i=0; i<=MAX_RIG_NAME; i++)
 			{
 				if (bytes[i] != def_ptr[i])
 				{
@@ -530,24 +422,24 @@ void save_prefs()
 
 			if (is_default)
 			{
-				for (int i=0; i<len; i++)
+				for (int i=0; i<=MAX_RIG_NAME; i++)
 				{
 					bytes[i] = 255;
 				}
 			}
 			else
 			{
-				warning(dbg_prefs,"save_prefs non-default PREF_STRING(%d,%s) at offset %d=",len,(const char *)bytes,offset);
+				warning(dbg_prefs,"save_prefs non-default PREF_RIG_NAME(%s) at offset %d=",(const char *)bytes,offset);
 			}
-			for (int i=0; i<len; i++)
+			for (int i=0; i<=MAX_RIG_NAME; i++)
 			{
 				EEPROM.write(PREF_VERSION_OFFSET + offset + i, bytes[i]);
 			}
 
-			ptr += len;
-			def_ptr += len;
-			last_ptr += len;
-			offset += len;
+			ptr += MAX_RIG_NAME+1;
+			def_ptr += MAX_RIG_NAME+1;
+			last_ptr += MAX_RIG_NAME+1;
+			offset += MAX_RIG_NAME+1;
 		}
 		else
 		{
@@ -580,15 +472,11 @@ void setPref(uint16_t off, uint32_t value, const char *name)
 		uint16_t *ptr16 = (uint16_t *) &ptr[off];
 		*ptr16 = val;
 	}
-	else if (type == PREF_TYPE_RIG_NAME ||
-			 type == PREF_TYPE_PEDAL_NAME )
+	else if (type == PREF_TYPE_RIG_NAME)
 	{
-		int len = (type == PREF_TYPE_RIG_NAME) ?
-			MAX_RIG_NAME + 1 :
-			MAX_PEDAL_NAME + 1;
 		char *ptr = (char*) &prefs;
-		memcpy(&ptr[off],(const char *) value, len);
-		ptr[off + len] = 0;
+		memcpy(&ptr[off],(const char *) value, MAX_RIG_NAME+1);
+		ptr[MAX_RIG_NAME+1] = 0;
 	}
 	else
 	{
@@ -612,8 +500,7 @@ uint32_t getPref(uint16_t off, const char *name)
 		const uint16_t *ptr16 = (const uint16_t *) &ptr[off];
 		return *ptr16;
 	}
-	else if (type == PREF_TYPE_RIG_NAME ||
-			 type == PREF_TYPE_PEDAL_NAME )
+	else if (type == PREF_TYPE_RIG_NAME)
 	{
 		const uint8_t *ptr = (const uint8_t *) &prefs;
 		return (uint32_t) &ptr[off];
@@ -661,64 +548,15 @@ uint16_t getPrefMax(uint16_t off)
 }
 
 
-
-
-#if 0
-	//------------------------------------------------------------
-	// change detection and restore
-	//------------------------------------------------------------
-
-	// extern
-	bool prefs_dirty()
-	{
-		uint8_t *ptr = (uint8_t*) &prefs;
-		uint8_t *last_ptr = (uint8_t*) &last_prefs;
-		for (uint16_t i=0; i<sizeof(prefs_t); i++)
-			if (last_ptr[i] != ptr[i])
-				return true;
-		return false;
-	}
-
-	// extern
-	bool pref8_dirty(uint16_t off)
-	{
-		uint8_t *ptr = (uint8_t*) &prefs;
-		uint8_t *last_ptr = (uint8_t*) &last_prefs;
-		return last_ptr[off] != ptr[off];
-	}
-
-	// extern
-	bool pref16_dirty(uint16_t off)
-	{
-		uint8_t *ptr = (uint8_t*) &prefs;
-		uint8_t *last_ptr = (uint8_t*) &last_prefs;
-		uint16_t *ptr16 = (uint16_t *) &ptr[off];
-		uint16_t *last_ptr16 = (uint16_t *) &last_ptr[off];
-		return *last_ptr16 != *ptr16;
-	}
-
-	// extern
-	uint8_t pref8_restore(uint16_t off, const char *name)
-	{
-		uint8_t *ptr = (uint8_t*) &prefs;
-		uint8_t *last_ptr = (uint8_t*) &last_prefs;
-		last_ptr[off] = ptr[off] = EEPROM.read(off+1);
-		display(dbg_prefs + 1,"pref8_restore(%s, %d) to %d", name?name:"", off, ptr[off]);
-		return ptr[off];
-	}
-
-	// extern
-	uint16_t pref16_restore(uint16_t off, const char *name)
-	{
-		uint8_t *ptr = (uint8_t*) &prefs;
-		uint8_t *last_ptr = (uint8_t*) &last_prefs;
-		last_ptr[off] = ptr[off] = EEPROM.read(off+1);
-		last_ptr[off+1] = ptr[off+1] = EEPROM.read(off+2);
-		uint16_t *ptr16 = (uint16_t *) &ptr[off];
-		display(dbg_prefs + 1,"pref16_restore(%s, %d) to %d", name?name:"", off, *ptr16);
-		return *ptr16;
-	}
-
-#endif // 0
+// extern
+bool prefs_dirty()
+{
+	uint8_t *ptr = (uint8_t*) &prefs;
+	uint8_t *last_ptr = (uint8_t*) &last_prefs;
+	for (uint16_t i=0; i<sizeof(prefs_t); i++)
+		if (last_ptr[i] != ptr[i])
+			return true;
+	return false;
+}
 
 
