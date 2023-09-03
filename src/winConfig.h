@@ -30,6 +30,9 @@ class winConfig : public sysWindow
         int m_scroll_top;
         int m_opt_num;
         bool m_changed;
+        bool m_rig_changed;
+        bool m_rig_changed_this;
+
 
         configOption *m_rootOption;
         configOption *m_cur_menu;

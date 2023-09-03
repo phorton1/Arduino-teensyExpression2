@@ -9,10 +9,16 @@
 #include "buttons.h"
 #include "configOptions.h"
 #include "winDialogs.h"
+#include "winFileDialog.h"
+#include "rigParser.h"
+#include "rigMachine.h"
+
 
 #define dbg_cfg  0
 	// 0 == show important operations (begin, reboot, onButton)
 	// -1 == show drawing details
+#define dbg_changes 1
+	// 0 = show warnings on change detection logic
 
 
 #define BUTTON_BRIGHTNESS_DOWN  0
@@ -57,7 +63,7 @@ void winConfig::begin(bool cold)
 
 	if (cold)
 	{
-		m_changed = 0;
+		m_rig_changed_this = 0;
 		the_options.init();
 		m_cur_menu = m_rootOption;
 		m_cur_option = m_rootOption->getFirstChild();
@@ -81,6 +87,7 @@ void winConfig::begin(bool cold)
 	the_buttons.setButtonType(BUTTON_MOVE_RIGHT,		BUTTON_EVENT_PRESS,								LED_BLUE);
 	the_buttons.setButtonType(BUTTON_SELECT,			BUTTON_EVENT_CLICK, 							LED_GREEN);
 
+	m_changed = 0;
 	checkChanged();
 
 	display(dbg_cfg,"winConfig::begin() finished",0);
@@ -115,6 +122,7 @@ void winConfig::setChanged()
 {
 	if (!m_changed)
 	{
+		warning(dbg_changes,"setChanged()",0);
 		m_changed = 1;
 		the_buttons.setButtonType(BUTTON_EXIT_DONE,	  BUTTON_EVENT_CLICK | BUTTON_EVENT_LONG_CLICK,	LED_PURPLE);
 		the_buttons.setButtonType(BUTTON_EXIT_CANCEL, BUTTON_EVENT_CLICK | BUTTON_EVENT_LONG_CLICK,	LED_ORANGE);
@@ -124,6 +132,7 @@ void winConfig::setChanged()
 
 void winConfig::checkChanged()
 {
+	warning(dbg_changes,"checkChanged(%d)",m_changed);
 	if (!m_changed)
 	{
 		if (prefs_dirty())
@@ -136,8 +145,18 @@ void winConfig::checkChanged()
 void winConfig::onChildEnd(uint16_t param)
 	// called when modal dialogs are ended
 {
-    display(dbg_cfg,"winConfig::onChildEnd(%d)",param);
-	if (param == OPTION_FACTORY_RESET)
+    display(dbg_cfg,"winConfig::onChildEnd(0x%04x)",param);
+	if (param == OPTION_LOAD_RIG)
+	{
+		const char *rig_name = file_dlg.getSelectedFilename();
+		display(dbg_cfg,"new rig name = %s",rig_name);
+		if (parseRig(rig_name,1))
+		{
+			setPref(poff(RIG_NAME),(uint32_t) rig_name);
+			m_rig_changed_this = 1;
+		}
+	}
+	else if (param == OPTION_FACTORY_RESET)
 	{
 		reset_prefs();
 		reboot(THE_SYSTEM_BUTTON);
@@ -211,13 +230,26 @@ void winConfig::onButton(int row, int col, int event)
 			read_prefs();
 			setDbgDeviceFromPref();
             setLEDBrightness(prefs.BRIGHTNESS);
+			if (m_rig_changed)
+			{
+				m_rig_changed = 0;
+				rig_machine.invalidateRig();
+			}
 			endWindow(0);
         }
     }
     else if (num == BUTTON_EXIT_DONE)
     {
+		if (m_rig_changed_this)
+		{
+			m_rig_changed = 1;
+			rig_machine.invalidateRig();
+		}
         if (event == BUTTON_EVENT_LONG_CLICK)
+		{
 			save_prefs();
+			m_rig_changed = 0;
+		}
 		endWindow(0);
     }
 
@@ -231,7 +263,13 @@ void winConfig::onButton(int row, int col, int event)
 			// increment the value, call a dialog window,
 			// or do some special function
 
-			if (m_cur_option->getType() & OPTION_FACTORY_RESET)
+			if (m_cur_option->getType() & OPTION_LOAD_RIG)
+			{
+				display(dbg_cfg,"winConfig::onButtonSelect(OPTION_LOAD_RIG)",0);
+				file_dlg.setup(OPTION_LOAD_RIG,"Select Rig ...","/",".rig",DEFAULT_RIG_TOKEN);
+				the_system.startWindow(&file_dlg);
+			}
+			else if (m_cur_option->getType() & OPTION_FACTORY_RESET)
 			{
 				yes_no_dlg.setId(OPTION_FACTORY_RESET);
 				yes_no_dlg.setName("Confirm Factory Reset");
@@ -260,7 +298,7 @@ void winConfig::onButton(int row, int col, int event)
 			}
 			else if (m_cur_option->hasValue())
 			{
-				display(0,"incValue()",0);
+				display(dbg_cfg,"incValue()",0);
 				m_cur_option->incValue();
 				if (!strcmp(m_cur_option->getTitle(),DEBUG_DEVICE_NAME))
 					setDbgDeviceFromPref();

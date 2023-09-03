@@ -93,7 +93,7 @@ extern const statement_param_t *findParams(int tt);
 extern const char *argTypeToString(int i);
 	// return a string for displaying the above paremeter types
 
-extern const rig_t *parseRig(const char *rig_name);
+extern const rig_t *parseRig(const char *rig_name, bool base_only = 0);
 	// The main entry point.
 	// Allocates a temporary rig on the heap, and parses the rig.
 	// if that goes well, the rig is relocated and packed into the

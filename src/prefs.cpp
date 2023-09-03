@@ -12,6 +12,9 @@
 	// 0 = show file operations
 	// -1 = show restore operations and setPrefs
 	// -2 = show readPrefs
+#define dbg_changes 1
+	// 0 = show warnings on change detection
+
 
 #define PREF_VERSION_OFFSET		1
 #define NUM_EEPROM_USED	(sizeof(prefs_t) + PREF_VERSION_OFFSET)
@@ -73,8 +76,9 @@ static const prefs_t default_prefs =
 	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_DEBUG,		// off, Debug, USB, Serial - default(Debug)
 	.SPOOF_FTP          = 0,						// off, on
 	.FTP_PORT			= 1,						// off, USB, HOST
+	.DUMP_H_FILES		= 0,						// off,on - default(off)
 
-	.RIG_NAME		    = {'d','e','f','a','u','l','t','_','t','o','k','e','n', 0},
+	.RIG_NAME		    = {'S','y','s','t','e','m','_','D','e','f','a','u','l','t', 0},
 
 	.PEDAL = {
 		{											// pedal 0 - Synth
@@ -164,6 +168,8 @@ static const prefs_t prefs_max =
 	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_SERIAL, // off, Debug, USB, Serial
 	.SPOOF_FTP			= 1,					// off, on
 	.FTP_PORT			= 2,					// off, USB, HOST
+	.DUMP_H_FILES		= 1,					// off, on
+
 	.PEDAL = {
 		{									// pedal 0
 			.CALIB_MIN	= 1023,				// 0..1023
@@ -555,8 +561,10 @@ bool prefs_dirty()
 	uint8_t *last_ptr = (uint8_t*) &last_prefs;
 	for (uint16_t i=0; i<sizeof(prefs_t); i++)
 		if (last_ptr[i] != ptr[i])
+		{
+			warning(dbg_changes,"prefs_dirty returning 1",0);
 			return true;
+		}
+	warning(dbg_changes,"prefs_dirty returning 0",0);
 	return false;
 }
-
-

@@ -68,6 +68,7 @@ class rigMachine
 {
 public:
 
+	void invalidateRig();
 	void loadDefaultRig();
 	bool loadRig(const char *name);
 

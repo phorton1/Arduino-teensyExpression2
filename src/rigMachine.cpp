@@ -199,6 +199,18 @@ const uint16_t *rigMachine::inheritButtonRefs(int num, const rig_t **ret_context
 // loadRig(), startRig(), && restartRig()
 //-------------------------------------------------------
 
+void rigMachine::invalidateRig()
+{
+	if (m_load_state)
+	{
+		warning(0,"Attempt to call invalidateRig() in load_state(%d)",m_load_state);
+	}
+	m_load_state = LOAD_STATE_NONE;
+	m_stack_ptr = 0;
+	m_rig_loaded = 0;
+}
+
+
 bool rigMachine::loadRig(const char *rig_name)
 {
 	if (m_load_state)
@@ -776,11 +788,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 			case RIG_TOKEN_LOAD_RIG:
 				display(dbg_calls,"loadRig(%s)",
 					m_param_values[0].text);
-				ok = rigMachine::loadRig(
-					m_stack_ptr &&
-					!strcmp(m_param_values[0].text,"default_modal") &&
-					(m_stack[m_stack_ptr-1].rig->rig_type & RIG_TYPE_SYSTEM) ?
-						DEFAULT_MODAL_TOKEN : m_param_values[0].text);
+				ok = rigMachine::loadRig(m_param_values[0].text);
 				break;
 
 			case RIG_TOKEN_END_MODAL:
@@ -894,7 +902,7 @@ void rigMachine::onButton(int row, int col, int event)
 
 	int num = row * NUM_BUTTON_COLS + col;
 
-	display(dbg_rig,"onButton(%d) 0x%04x",num,event);
+	display(dbg_rig,"rigMachine::onButton(%d) 0x%04x",num,event);
 	proc_entry();
 
 	const rig_t *context;
@@ -929,7 +937,7 @@ void rigMachine::onButton(int row, int col, int event)
 	}
 
 	proc_leave();
-	display(dbg_rig,"onButton(%d) 0x%04x finished",num,event);
+	display(dbg_rig+1,"rigMachine::onButton(%d) 0x%04x finished",num,event);
 }
 
 

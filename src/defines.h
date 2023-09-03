@@ -10,12 +10,50 @@
 #define TEENSY_EXPRESSION_VERSION  	"v2.0"
 
 #define MAX_RIG_NAME   		31
+
 #define	DEFAULT_RIG_NAME	"rpiLooper"
 #define DEFAULT_MODAL_NAME	"clipVolumes"
-#define DEFAULT_RIG_TOKEN	"default_token"
-#define DEFAULT_MODAL_TOKEN "default_modal_token"
-
-
+#define DEFAULT_RIG_TOKEN	"System_Default"
+#define DEFAULT_MODAL_TOKEN	"default_modal"
+	// the default rig names can be confusing, and their behavior is spread out:
+	//
+	// 1. in the rigMachine if the 'name' of the top of the stack
+	//    is the same as the DEFAULT_TOKEN, we show the DEFAULT_NAME
+	// 2. in parsing rigs, if the DEFAULT_TOKEN is passed in,
+	//    or we have have a SYSTEM base_rig and the DEFAULT_MODAL_TOKEN
+	//    is passed in, then we load the default for either from memory
+	//    rather than parsing.
+	// 3. The prefs default is "System_Default" cuz that
+	//    looks nice in the winConfig system.
+	// 4. This is where it could be confusing.
+	//    We invariantly create H files during parse if the
+	//    actual filename is "default" or "default_modal".
+	//    It is intentional that "default_modal" is both
+	//    the name of a loadable rig file AND the default
+	//    modal token. This allows me to use it in the
+	//    default.rig FILE for loadRig("default_modal"),
+	//    and (if from a file), the default_modal.rig file
+	//    is loaded, but if that same loadRig("default_modal") is
+	//    called from the in-memory base rig, then
+	//    the in memory default_modal_rig gets loaded.
+	//
+	// As it stands, if a user loads a file called "default.rig",
+	// or "default_modal.rig", it will take longer ... as they will
+	// also write over the H files on the SD card .. and that file
+	// called "default_modal.rig" will show up as "clipVolumes" as
+	// the title.  They can also have files called "rpiLooper.rig"
+	// and "clipVolumes.rig", which are not really special names as
+	// far as the system is concerned, but will further confuse them.
+	// In all cases, the system will act correctly and consistently,
+	// even it is confusing to the user!
+	//
+	// The recommendation is
+	//
+	//   Don't use the names default.rig, default_modal.rig,
+	//   rpiLooper.rig, or clipVolumes.rig for custom rig files!
+	//   And then I could have a system option to "dump H files",
+	//   which would default to OFF, and there would be no extra
+	//   penalty if they wanted to try to load the default.rig file.
 
 #define SERIAL_DEVICE	   Serial3
 	// the serial port to use for our 'Serial' device
@@ -24,6 +62,8 @@
 
 extern void mem_check(const char *where = 0);
 	// in mem_check.cpp
+extern bool legalFilename(const char *name);
+	// in rigParser.cpp
 
 
 // basics

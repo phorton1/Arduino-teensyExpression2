@@ -361,7 +361,7 @@ sysWindow *theSystem::getTopWindow()
 
 void theSystem::startWindow(sysWindow *win)
 {
-	display(dbg_win,"startWindow(%s)",win->name());
+	display(dbg_win,"startWindow(%d:%s)",m_num_windows,win->name());
 	if (m_num_windows >= MAX_WINDOW_STACK)
 	{
 		my_error("WINDOW STACK OVERFLOW!!!",0);
@@ -374,7 +374,7 @@ void theSystem::startWindow(sysWindow *win)
 
 void theSystem::swapWindow(sysWindow *win, uint16_t param)
 {
-	display(dbg_win,"swapWindow(%s,0x%04x)",win->name(),param);
+	display(dbg_win,"swapWindow(%d:%s,0x%04x)",m_num_windows,win->name(),param);
 	if (!m_num_windows)		// hmmmm ... who would call this
 	{
 		warning(0,"swapWindow(%s,0x%04x) called with no windows on stack!",win->name(),param);
@@ -393,7 +393,7 @@ void theSystem::endWindow(sysWindow *cur, uint16_t param)
 	// as windows typically end themselves.  It *could*
 	// eventually be used to exit known subwindows.
 {
-	display(dbg_win,"theSystem::endWindow(%s,0x%04x) num=%d",cur->name(),param,m_num_windows);
+	display(dbg_win,"theSystem::endWindow(%d:%s,0x%04x)",m_num_windows,cur->name(),param);
 	if (!m_num_windows)
 	{
 		my_error("WINDOW STACK UNDERFLOW!!!",0);
@@ -409,13 +409,21 @@ void theSystem::endWindow(sysWindow *cur, uint16_t param)
 	old->end();
 
 	// we don't want to decrement m_num_windows to zero until
-	// after we call restartRig().
+	// after we call restartRig() ...
 
 	sysWindow *win = m_num_windows > 1 ? m_window_stack[m_num_windows-2] : 0;
+
+	// but there is also a case where onChildEnd can pop up an error
+	// window and if so, we DONT want to begin the parent or decrement
+	// the pointer.  In other words, we're really not ending the window
+
+	int save_num_windows = m_num_windows;
+
 	if (win)
 	{
 		win->onChildEnd(param);
-		win->begin(false);
+		if (m_num_windows == save_num_windows)
+			win->begin(false);
 	}
 
 	// restartRig() will correctly set m_rig_loaded or an RIG_LOAD_STATE_ERROR_STRT
@@ -428,7 +436,8 @@ void theSystem::endWindow(sysWindow *cur, uint16_t param)
 		rig_machine.restartRig();
 	}
 
-	m_num_windows--;
+	if (m_num_windows == save_num_windows)
+		m_num_windows--;
 }
 
 

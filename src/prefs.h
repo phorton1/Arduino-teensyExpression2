@@ -100,6 +100,7 @@ typedef struct
 	uint8_t			FILE_SYS_DEVICE;   			// off, Debug, USB, Serial - default(1=Debug)
 	uint8_t			SPOOF_FTP;         			// off, on - on implies FTP_PORT == HOST
 	uint8_t			FTP_PORT;         			// off, USB, HOST
+	uint8_t			DUMP_H_FILES;				// off, on - default (off)
 
 	char			RIG_NAME[MAX_RIG_NAME + 1];
 

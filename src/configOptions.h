@@ -6,25 +6,28 @@
 
 #pragma once
 
-#define NUM_CONFIG_OPTIONS		75
+#define NUM_CONFIG_OPTIONS		77
 
 // values which must agree with table setup
 
 #define BRIGHTNESS_OPT_NUM		1
 #define PEDAL0_OPT_NUM			10
 
+// OPTION FLAGS - these are set as the ID of the dialog.
 
-// OPTION FLAGS
-// YesNoDialog returns these values, which are set into it
-// with setID(), if they press yes
-
+#define OPTION_LOAD_RIG			0x2000
+	// Brings up the winFileDialog dialog and returns
+	// zero or OPTION_LOAD_RIG. if OPTION_LOAD_RIG the
+	// new rig name is gotten from the winFileDlg;
+	// Note that only base_rigs can be loaded directly by the user.
 #define OPTION_SPOOF_FTP		0x4000
-	// the spoof_ftp value is or'd into the bottom nibble,
+	// The spoof_ftp value is or'd into the bottom nibble,
 	// if if this bit is set when the yesNoDialog returns,
 	// the pref is set, they all are saved, and we reboot
 #define OPTION_FACTORY_RESET	0x8000
-	// if this bit is set in the return value,
-	// the preferences are reset and we reboot
+	// Is a yesNoDialog, so it returns 0 or OPTION_FACTORY_RESET.
+	// If OPTION_FACTORY_RESET is returned, the preferences are reset
+	// and we reboot
 
 #define DEBUG_DEVICE_NAME	"Debug Device"
 	// for matching option titles in winConfig

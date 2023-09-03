@@ -209,8 +209,11 @@ static void dumpArray(
 //-------------------------------------------------
 
 // extern
-void dumpRigCode(const rig_t *rig, const char *prefix)
+void dumpRigCode(const rig_t *rig)
 {
+	const char *prefix = rig->rig_type & RIG_TYPE_MODAL ?
+		"default_modal" : "default";
+
 	char filename[80];
 	sprintf(filename,"%s.rig.h",prefix);
 	display(0,"dumpRigCode(%s) = %s",prefix,filename);

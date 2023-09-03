@@ -6,6 +6,7 @@
 
 #include <myDebug.h>
 #include "rigParser.h"
+#include "prefs.h"
 #include "myTFT.h"		// for TFT sizes
 #include "theSystem.h"	// for client rect
 #include "rigExpression.h"
@@ -37,6 +38,22 @@ static uint8_t  rig_pool[RIG_POOL_SIZE];
 static const rig_t *base_rig = (const rig_t *) rig_pool;
 
 
+bool legalFilename(const char *name)
+	// public, extern'd in defines.h
+{
+	for (uint16_t i=0; i<strlen(name); i++)
+	{
+		if (!((name[i] == '-' || name[i] == '.' || name[i] == '_' ) ||
+			  (name[i] >= 'A' && name[i] <= 'Z') ||
+			  (name[i] >= 'a' && name[i] <= 'z') ||
+			  (name[i] >= '0' && name[i] <= '9') ))
+		{
+			return 0;
+		}
+	}
+	return 1;
+}
+
 
 static void init_parse()
 {
@@ -44,7 +61,7 @@ static void init_parse()
 	rig_error_found = 0;	 // in rigToken.cpp
 	suppress_rig_dialogs = 0;
 
-	display(0,"MAX_RIG_SIZE = %d", MAX_RIG_SIZE);
+	// display(0,"MAX_RIG_SIZE = %d", MAX_RIG_SIZE);
 
 	memset(parse_pool,0,MAX_RIG_SIZE);
 
@@ -70,7 +87,7 @@ static rig_t *relocate()
 	uint16_t relocate_to = (parse_rig->rig_type & RIG_TYPE_MODAL) ?
 		rig_pool_len : 0;
 
-	display(0,"relocate(%s, bytes=%d) to %d",
+	display(dbg_parse,"relocate(%s, bytes=%d) to %d",
 		parse_rig->rig_type & RIG_TYPE_MODAL ? "ModalRig":"BaseRig",
 		rig_size,
 		relocate_to);
@@ -642,25 +659,17 @@ static bool handleArg(int statement_type, int arg_type)
 				ok = ok && addStatementInt(value);
 				break;
 
-
 			case PARAM_RIG_NAME  :
 				text = getText("RIG_NAME",MAX_RIG_NAME);
 				if (!text)
 					ok = 0;
 				else
 				{
-					for (uint16_t i=0; i<strlen(text) && ok; i++)
+					if (!legalFilename(text))
 					{
-						if (!((text[i] == '-' || text[i] == '.' || text[i] == '_' ) ||
-							  (text[i] >= 'A' && text[i] <= 'Z') ||
-							  (text[i] >= 'a' && text[i] <= 'z') ||
-							  (text[i] >= '0' && text[i] <= '9') ))
-						{
-							rig_error("RIG_NAME(%s) may only contain A-Z,a-z,0-9,dash,period, or underscore characters");
-							ok = 0;
-						}
+						rig_error("RIG_NAME(%s) may only contain A-Z,a-z,0-9,dash,period, or underscore characters");
+						ok = 0;
 					}
-
 					if (ok)
 					{
 						ok = ok && addStatementInt(parse_rig->string_pool_len);
@@ -1030,6 +1039,7 @@ static bool handleButton()
 		memset(&rig_pool[offset],0,size);
 
 		rig_t *rig = (rig_t *) &rig_pool[offset];
+		rig->rig_type |= RIG_TYPE_SYSTEM;
 		memcpy(&rig_pool[offset],src_rig,sizeof(rig_t));
 		offset += sizeof(rig_t);
 
@@ -1069,13 +1079,18 @@ static bool handleButton()
 
 
 // extern
-const rig_t *parseRig(const char *rig_name)
+const rig_t *parseRig(const char *rig_name, bool base_only)
 	// generates the intermediate structure of a
 	// syntactically valid set of bytes that are
 	// RIG_ID's, and with inline TEXT and int_values;
 
 {
-	warning(dbg_parse,"ParseRig(%s.rig)",rig_name);
+	warning(dbg_parse,"ParseRig(%s.rig,%d)",rig_name,base_only);
+
+	// it just so happens that the DEFAULT_MODAL_TOKEN is the
+	// same as the embedded loadRig("default_modal") in the
+	// default rig, thus causing the default rig to load the
+	// default modal rig.
 
 	#if WITH_DEFAULT_RIG
 		if (!strcmp(rig_name,DEFAULT_RIG_TOKEN) || (
@@ -1106,14 +1121,23 @@ const rig_t *parseRig(const char *rig_name)
 		}
 		else if (tt == RIG_TOKEN_MODAL)
 		{
-			parse_rig->rig_type |= RIG_TYPE_MODAL;
+			if (base_only)
+			{
+				rig_error("only BaseRigs are allowed!");
+				ok = 0;
+			}
+			else
+				parse_rig->rig_type |= RIG_TYPE_MODAL;
 		}
 
-		tt = getRigToken();
-		if (!tt)
+		if (ok)
 		{
-			rig_error("unexpected end of program");
-			ok = false;
+			tt = getRigToken();
+			if (!tt)
+			{
+				rig_error("unexpected end of program");
+				ok = false;
+			}
 		}
 
 		// init_statements
@@ -1177,10 +1201,17 @@ const rig_t *parseRig(const char *rig_name)
 			if (new_rig)
 			{
 				dumpRig(new_rig);
-				if (!strcmp(rig_name,"default") ||
-					!strcmp(rig_name,"default_modal"))
+
+				// here we dump H files solely dependent on the actual filenames,
+				// this has nothing to do with what shows, or is passed around
+				// to accomplish things.
+
+				if (prefs.DUMP_H_FILES &&
+					!(new_rig->rig_type & RIG_TYPE_SYSTEM) && (
+					!strcmp(rig_name,"default") ||
+					!strcmp(rig_name,"default_modal")))
 				{
-					dumpRigCode(new_rig,rig_name);
+					dumpRigCode(new_rig);
 				}
 			}
 			else
