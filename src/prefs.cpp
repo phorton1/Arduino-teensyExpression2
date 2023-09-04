@@ -76,7 +76,6 @@ static const prefs_t default_prefs =
 	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_DEBUG,		// off, Debug, USB, Serial - default(Debug)
 	.SPOOF_FTP          = 0,						// off, on
 	.FTP_PORT			= 1,						// off, USB, HOST
-	.DUMP_H_FILES		= 0,						// off,on - default(off)
 
 	.RIG_NAME		    = {'S','y','s','t','e','m','_','D','e','f','a','u','l','t', 0},
 
@@ -168,7 +167,6 @@ static const prefs_t prefs_max =
 	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_SERIAL, // off, Debug, USB, Serial
 	.SPOOF_FTP			= 1,					// off, on
 	.FTP_PORT			= 2,					// off, USB, HOST
-	.DUMP_H_FILES		= 1,					// off, on
 
 	.PEDAL = {
 		{									// pedal 0

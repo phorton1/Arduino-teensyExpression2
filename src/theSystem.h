@@ -47,10 +47,12 @@ class sysWindow
 
         virtual void endWindow(uint16_t param);
             // end this window passing param to the parent, if any
-        virtual void onChildEnd(uint16_t param) {}
-            // called when a child window has ended
-            // BEFORE begin() on this window
-
+        virtual bool onChildEnd(uint16_t param) { return true; }
+            // called when a child window desires to end, before
+            //    the parent window begin(0) is called.
+            // parent window may return FALSE to prevent child from ending
+            //    esp in the case when parent window knows that there has
+            //    been another window popped up over the child
         uint16_t m_id;
 };
 

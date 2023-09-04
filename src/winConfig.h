@@ -22,7 +22,7 @@ class winConfig : public sysWindow
         virtual void begin(bool warm) override;
         virtual void updateUI() override;
         virtual void onButton(int row, int col, int event) override;
-        virtual void onChildEnd(uint16_t param) override;
+        virtual bool onChildEnd(uint16_t param) override;
 
         void setChanged();
         void checkChanged();

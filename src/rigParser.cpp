@@ -1079,18 +1079,18 @@ static bool handleButton()
 
 
 // extern
-const rig_t *parseRig(const char *rig_name, bool base_only)
+const rig_t *parseRig(const char *rig_name, uint16_t how)
 	// generates the intermediate structure of a
 	// syntactically valid set of bytes that are
 	// RIG_ID's, and with inline TEXT and int_values;
 
 {
-	warning(dbg_parse,"ParseRig(%s.rig,%d)",rig_name,base_only);
+	warning(dbg_parse,"ParseRig(%s.rig,%d)",rig_name,how);
 
 	#if WITH_DEFAULT_RIG
 		if (!strcmp(rig_name,DEFAULT_RIG_TOKEN) || (	// we WILL load the default base rig if called with base_only
-			!base_only &&		//						// but we will NOT load the default modal rig with base_only
-			rig_pool_len &&								// we only load the default modal rig if called from the
+			!how &&										// but we will NOT load the default_modal rig with any how.
+			rig_pool_len &&								// we only load the default modal rig if it is called from the
 			(base_rig->rig_type & RIG_TYPE_SYSTEM) &&	// SYSTEM base rig
 			!strcmp(rig_name,DEFAULT_MODAL_TOKEN)))
 		{
@@ -1117,7 +1117,7 @@ const rig_t *parseRig(const char *rig_name, bool base_only)
 		}
 		else if (tt == RIG_TOKEN_MODAL)
 		{
-			if (base_only)
+			if (how & PARSE_HOW_BASE_ONLY)
 			{
 				rig_error("You may only load a BaseRig!!\n'%s.rig' is a ModalRig.",rig_name);
 				ok = 0;
@@ -1193,7 +1193,10 @@ const rig_t *parseRig(const char *rig_name, bool base_only)
 		if (ok)
 		{
 			warning(dbg_parse,"parseRig(%s.rig) finished OK",rig_name);
-			new_rig = relocate();
+
+			// if any how flags are set, we don't relocate
+
+			new_rig = how ? parse_rig : relocate();
 			if (new_rig)
 			{
 				dumpRig(new_rig);
@@ -1202,13 +1205,8 @@ const rig_t *parseRig(const char *rig_name, bool base_only)
 				// this has nothing to do with what shows, or is passed around
 				// to accomplish things.
 
-				if (prefs.DUMP_H_FILES &&
-					!(new_rig->rig_type & RIG_TYPE_SYSTEM) && (
-					!strcmp(rig_name,"default") ||
-					!strcmp(rig_name,"default_modal")))
-				{
+				if (how & PARSE_HOW_DUMP_H_FILE)
 					dumpRigCode(new_rig);
-				}
 			}
 			else
 			{

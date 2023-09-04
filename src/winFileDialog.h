@@ -12,12 +12,6 @@ class winFileDialog : public sysWindow
 {
 	public:
 
-		const char *getSelectedFilename();
-			// if the window returns the ID,
-			// call this to get the selected filename
-
-    protected:
-
         winFileDialog() {}
 
 		void setup(uint16_t id,
@@ -33,8 +27,9 @@ class winFileDialog : public sysWindow
 			m_default = def;
 		}
 
-        virtual void begin(bool cold) override;
-        virtual void onButton(int row, int col, int event) override;
+		const char *getSelectedFilename();
+			// if the window returns the ID,
+			// call this to get the selected filename
 
     private:
 
@@ -47,6 +42,8 @@ class winFileDialog : public sysWindow
         virtual const char *short_name()    { return m_name; }
 
 		virtual void end() override;
+        virtual void begin(bool cold) override;
+        virtual void onButton(int row, int col, int event) override;
 		virtual void updateUI() override;
 
 		void getFilenames();
@@ -54,29 +51,7 @@ class winFileDialog : public sysWindow
 };
 
 
-
-//----------------------------------------------------
-// derived classes
-//----------------------------------------------------
-// exists to parse the rig on BUTTON_ACCEPT and NOT
-// end the window if there is an error.  It also encapsulates
-// the setup() parameters.
-
-class rigFileDialog : public winFileDialog
-{
-	public:
-
-		rigFileDialog()   {}
-
-	private:
-
-        virtual void begin(bool cold) override;
-        virtual void onButton(int row, int col, int event) override;
-};
-
-
-
-extern rigFileDialog rig_file_dlg;
+extern winFileDialog win_file_dlg;
 
 
 

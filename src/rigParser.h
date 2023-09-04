@@ -14,7 +14,6 @@
 #define RIG_TYPE_MODAL		0x0001		// rig is a modal rig
 #define RIG_TYPE_SYSTEM		0x0002		// rig was loaded from constants
 
-
 // These are fixed by architecture
 
 #define MAX_RIG_VALUE			255		// stored in uint8's
@@ -88,16 +87,21 @@ typedef struct
 // API available to the rigMachine et al:
 //--------------------------------------------------------
 
+#define PARSE_HOW_BASE_ONLY		0x0001
+#define PARSE_HOW_DUMP_H_FILE	0x0002
+	// in either case we don't relocate this rig to the pool
+
 extern const statement_param_t *findParams(int tt);
 	// returns the parameter list for a given statement token
 extern const char *argTypeToString(int i);
 	// return a string for displaying the above paremeter types
 
-extern const rig_t *parseRig(const char *rig_name, bool base_only = 0);
+extern const rig_t *parseRig(const char *rig_name, uint16_t how = 0);
 	// The main entry point.
 	// Allocates a temporary rig on the heap, and parses the rig.
 	// if that goes well, the rig is relocated and packed into the
 	// rig pool, and a pointer to the rig is returned.
+
 
 //----------------------------------------
 // param constants

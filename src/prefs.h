@@ -27,7 +27,7 @@
 // PRH - should implement debug port following (off, DEBUG, USB, SERIAL)
 //	   for FILE_SYS_DEVICE and MIDI_MONITOR
 
-#define TEENSY_EXPRESSION2_PREF_VERSION   238
+#define TEENSY_EXPRESSION2_PREF_VERSION   239
 	// EEPROM location 0 is magic
 	// it is 237 for teensyExpression1
 	// and 238 for teensyExpression2
@@ -100,7 +100,6 @@ typedef struct
 	uint8_t			FILE_SYS_DEVICE;   			// off, Debug, USB, Serial - default(1=Debug)
 	uint8_t			SPOOF_FTP;         			// off, on - on implies FTP_PORT == HOST
 	uint8_t			FTP_PORT;         			// off, USB, HOST
-	uint8_t			DUMP_H_FILES;				// off, on - default (off)
 
 	char			RIG_NAME[MAX_RIG_NAME + 1];
 

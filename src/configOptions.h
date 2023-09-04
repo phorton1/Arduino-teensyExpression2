@@ -15,11 +15,15 @@
 
 // OPTION FLAGS - these are set as the ID of the dialog.
 
-#define OPTION_LOAD_RIG			0x2000
+#define OPTION_LOAD_RIG			0x1000
 	// Brings up the winFileDialog dialog and returns
 	// zero or OPTION_LOAD_RIG. if OPTION_LOAD_RIG the
-	// new rig name is gotten from the winFileDlg;
+	// new rig name is gotten from the winFileDlg and parses it.
 	// Note that only base_rigs can be loaded directly by the user.
+#define OPTION_DUMP_H_FILE		0x2000
+	// Brings up the winFileDialog dialog and returns
+	// zero or OPTION_DUMP_H_FILES. if OPTION_LOAD_RIG the
+	// new rig name is gotten from the winFileDlg and it is dumped
 #define OPTION_SPOOF_FTP		0x4000
 	// The spoof_ftp value is or'd into the bottom nibble,
 	// if if this bit is set when the yesNoDialog returns,

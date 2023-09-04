@@ -154,7 +154,7 @@ D_ENUM(		71,	d_ftp_known,		"Known commands",  	&d_ftp_evts,	MONITOR_FTP_KNOWN_CO
 D_ENUM(		72,	d_ftp_unknown,		"Unknown commands",	&d_ftp_evts,	MONITOR_FTP_UNKNOWN_COMMANDS,	off_on );
 D_ENUM( 	73,	d_debug_device,		DEBUG_DEVICE_NAME,	&d_system,		DEBUG_DEVICE,		off_usb_serial );
 D_ENUM( 	74,	d_file_sys_device,	"File Sys Device",	&d_system,		FILE_SYS_DEVICE,	off_dbg_usb_host );
-D_ENUM( 	75,	d_dump_h_files,		"Dump H Files",		&d_system,		DUMP_H_FILES,		off_on );
+D_DLG_OPT( 	75,	d_dump_h_files,		"Dump H Files",		&d_system,		0,					OPTION_DUMP_H_FILE );
 D_DLG_OPT(	76,	d_factory_reset,	"Factory Reset",	&d_system,		0,					OPTION_FACTORY_RESET );
 
 

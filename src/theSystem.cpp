@@ -400,37 +400,53 @@ void theSystem::endWindow(sysWindow *cur, uint16_t param)
 		return;
 	}
 
-	sysWindow *old = getTopWindow();
-	if (old != cur)
+	// sanity check
+
+	sysWindow *tos = getTopWindow();
+	if (cur != tos)
 	{
-		my_error("Attempt to endWindow(%s) when TOS is win(%s)!",cur->name(), old->name());
+		my_error("Attempt to endWindow(%s) when TOS is win(%s)!",cur->name(), tos->name());
 		return;
 	}
-	old->end();
 
 	// we don't want to decrement m_num_windows to zero until
-	// after we call restartRig() ...
+	// after we call restartRig() so the loop doesn't start prematurely,
+	// so we look under the current tos with >1 and [-2] to get the parent
 
-	sysWindow *win = m_num_windows > 1 ? m_window_stack[m_num_windows-2] : 0;
+	sysWindow *parent = m_num_windows > 1 ? m_window_stack[m_num_windows-2] : 0;
 
-	if (win)
+	// call parent onChildEnd() if there's a perent and end the
+	// current tos if there's no parent, or the parent says ok.
+
+	bool parent_ok = !parent || parent->onChildEnd(param);
+	if (parent_ok)
 	{
-		win->onChildEnd(param);
-		win->begin(false);
+		cur->end();
+
+		// begin the parent if it exists
+
+		if (parent)
+			parent->begin(false);
 	}
 
-	// restartRig() will correctly set m_rig_loaded or an RIG_LOAD_STATE_ERROR_STRT
+	// now restart the rig if IT was the parent window
+	// restartRig() will correctly set m_rig_loaded or an RIG_LOAD_STATE_ERROR_START
 	// and thus it becomes safe to start calling rig_machine.updateUI again.
 
-	if (!win)
+	if (!parent)
 	{
 		m_draw_pedals = 1;
 		fillRect(full_client_rect, TFT_BLACK);
 		rig_machine.restartRig();
 	}
 
-	m_num_windows--;
-}
+	// and finally decrement the stack pointer if there
+	// was no parent, or if the parent onChildEnd returned true
+
+	if (parent_ok)
+		m_num_windows--;
+
+}	// endWindow()
 
 
 

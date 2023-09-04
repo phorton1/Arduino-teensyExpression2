@@ -11,8 +11,6 @@
 #include "fileSystem.h"
 
 
-
-
 #define dbg_fd		0
 	// debug the dialog itself
 #define dbg_files   1
@@ -49,49 +47,12 @@ static bool draw_needed;
 
 static char selected_filename[MAX_RIG_NAME + 1];
 
-
-//-------------------------------------------
-// DERIVED CLASSES
-//-------------------------------------------
-#include "configOptions.h"
-#include "rigParser.h"
-
-#define dbg_rfd  0
-
-rigFileDialog rig_file_dlg;
+winFileDialog win_file_dlg;
 
 
-void rigFileDialog::begin(bool cold)
-{
-	display(dbg_rfd,0,"rigFileDialog::begin(%d)",cold);
-	setup(OPTION_LOAD_RIG,"Load Rig ..","/",".rig",DEFAULT_RIG_TOKEN);
-	winFileDialog::begin(cold);
-}
-
-
-void rigFileDialog::onButton(int row, int col, int event)
-{
-    int num = row * NUM_BUTTON_COLS + col;
-	if (num == BUTTON_ACCEPT)
-	{
-		display(dbg_rfd,0,"rigFileDialog::onButton(%d) calling parseRig(%s)",num,selected_filename);
-		if (parseRig(selected_filename,1))
-		{
-			display(dbg_rfd,0,"rigFileDialog::onButton(%d) calling endWindow(0x%04x)",num,m_id);
-			endWindow(m_id);
-		}
-	}
-	else
-		winFileDialog::onButton(row,col,event);
-}
-
-
-
-
-//-------------------------------------------
-// BASE CLASS
 //-------------------------------------------
 // file access
+//-------------------------------------------
 
 static void addEntry(const char *name, bool is_default)
 {
@@ -203,7 +164,9 @@ void winFileDialog::getFilenames()
 					warning(dbg_files,"skipping file that maches default filename: %s",filename);
 				}
 				else if (legalFilename(filename))
+				{
 					addEntry(filename,0);
+				}
 				else
 				{
 					warning(dbg_files,"skipping illegal filename: %s",filename);
@@ -242,22 +205,24 @@ void winFileDialog::getFilenames()
         }
     }
 
+
+	// find the previously selected file if any
+
 	proc_leave();
+	display(dbg_files + 1,"sorted",0);
+	proc_entry();
 
-	if (dbg_files <= 0)
+	int num = 0;
+	at = first_entry;
+	while (at)
 	{
-		display(dbg_files + 1,"sorted",0);
-
-		proc_entry();
-		fileEntry_t *at = first_entry;
-		while (at)
-		{
-			display(dbg_files,"name = %s",at->name);
-			at = at->next;
-		}
-		proc_leave();
+		display(dbg_files,"name = %s",at->name);
+		if (!strcmp(at->name,selected_filename))
+			selected = num;
+		at = at->next;
+		num++;
 	}
-
+	proc_leave();
 }
 
 
@@ -293,7 +258,15 @@ void winFileDialog::begin(bool cold)
 		m_path,
 		m_ext,
 		m_default ? m_default : "null");
-	// mem_check("start");
+
+	top = 0;
+	selected = 0;
+	last_selected = -1;
+	draw_needed = 1;
+
+	if (cold)
+		selected_filename[0] = 0;
+
     sysWindow::begin(cold);
 	getFilenames();
 	// mem_check("after");
@@ -309,11 +282,7 @@ void winFileDialog::begin(bool cold)
 		}
 	}
 
-	top = 0;
-	selected = 0;
-	last_selected = -1;
-	draw_needed = 1;
-	selected_filename[0] = 0;
+
 }
 
 
@@ -330,17 +299,6 @@ void winFileDialog::onButton(int row, int col, int event)
 		selected = selected + inc;
 		if (selected < 0) selected = 0;
 		if (selected >= num_entries) selected = num_entries-1;
-
-		if (selected < top)
-		{
-			top = selected;
-			draw_needed = 1;
-		}
-		else if (selected >= top + NUM_PER_WINDOW)
-		{
-			top = selected - NUM_PER_WINDOW + 1;
-			draw_needed = 1;
-		}
 	}
 	else if (num == BUTTON_CANCEL)
 	{
@@ -367,6 +325,21 @@ void winFileDialog::updateUI()
 		draw_needed = 0;
 		return;
 	}
+
+	// bring the selected into view
+
+	if (selected < top)
+	{
+		top = selected;
+		draw_needed = 1;
+	}
+	else if (selected >= top + NUM_PER_WINDOW)
+	{
+		top = selected - NUM_PER_WINDOW + 1;
+		draw_needed = 1;
+	}
+
+	// draw the entries
 
 	int num = 0;
 	fileEntry *entry = first_entry;

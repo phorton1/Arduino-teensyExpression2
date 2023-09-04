@@ -1,6 +1,12 @@
 //--------------------------------------
 // winConfig.cpp
 //--------------------------------------
+// options are currently never disabled, but the drawing logic is in place.
+// 		examples include SPOOF_FTP --> disable(FTP_PORT) and maybe
+// 		!MIDI_MONITOR --> disables(all MIDI monitoring options)
+// disabled is only a visual clue. disabled options can (currently)
+//		still be modified
+
 #include <myDebug.h>
 #include "winConfig.h"
 #include "prefs.h"
@@ -142,16 +148,38 @@ void winConfig::checkChanged()
 
 
 // virtual
-void winConfig::onChildEnd(uint16_t param)
+bool winConfig::onChildEnd(uint16_t param)
 	// called when modal dialogs are ended
 {
     display(dbg_cfg,"winConfig::onChildEnd(0x%04x)",param);
 	if (param == OPTION_LOAD_RIG)
 	{
-		const char *rig_name = rig_file_dlg.getSelectedFilename();
+		const char *rig_name = win_file_dlg.getSelectedFilename();
 		display(dbg_cfg,"new rig name = %s",rig_name);
+
+		// if parseRig fails, there is an error dialog showing
+		// so this onChildEnd returns false to prevent ending of the
+		// win_file_dlg.
+
+		if (!parseRig(rig_name,PARSE_HOW_BASE_ONLY))
+			return false;
+
+		// otherwise, the pref is set and we fall through to return true
+
 		setPref(poff(RIG_NAME),(uint32_t) rig_name);
 		m_rig_changed_this = 1;
+	}
+	else if (param == OPTION_DUMP_H_FILE)
+	{
+		const char *rig_name = win_file_dlg.getSelectedFilename();
+		display(dbg_cfg,"dump rig name = %s",rig_name);
+
+		// dumping h files is a little different
+		// we dump the rig, and even if there is no errror
+		// we return false.  The user must cancel this window.
+
+		parseRig(rig_name,PARSE_HOW_DUMP_H_FILE);
+		return false;
 	}
 	else if (param == OPTION_FACTORY_RESET)
 	{
@@ -166,6 +194,7 @@ void winConfig::onChildEnd(uint16_t param)
 		reboot(THE_SYSTEM_BUTTON);
 	}
 	checkChanged();
+	return true;
 }
 
 
@@ -263,7 +292,14 @@ void winConfig::onButton(int row, int col, int event)
 			if (m_cur_option->getType() & OPTION_LOAD_RIG)
 			{
 				display(dbg_cfg,"winConfig::onButtonSelect(OPTION_LOAD_RIG)",0);
-				the_system.startWindow(&rig_file_dlg);
+				win_file_dlg.setup(OPTION_LOAD_RIG,"Load Rig ..","/",".rig",DEFAULT_RIG_TOKEN);
+				the_system.startWindow(&win_file_dlg);
+			}
+			else if (m_cur_option->getType() & OPTION_DUMP_H_FILE)
+			{
+				display(dbg_cfg,"winConfig::onButtonSelect(OPTION_DUMP_H_FILE)",0);
+				win_file_dlg.setup(OPTION_DUMP_H_FILE,"Dump H File ..","/",".rig",0);
+				the_system.startWindow(&win_file_dlg);
 			}
 			else if (m_cur_option->getType() & OPTION_FACTORY_RESET)
 			{
