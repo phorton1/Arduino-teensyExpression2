@@ -1,6 +1,7 @@
 //----------------------------------------------------------
 // fileSystem.cpp
 //----------------------------------------------------------
+// GET USES 20K of stack!!
 // Abstracted file system for use with serial IO protocol
 //
 // OLD NOTE:
@@ -62,16 +63,23 @@
 // So they are in:     /zip/_teensy/_SdFat_libraries
 
 
-
 #include "fileSystem.h"
 #include "prefs.h"
 #include <myDebug.h>
 #include <Base64.h>
 
-#define dbg_tfs    2
-    // This debugging *may* affect timing.
-	// 1 = show file commands
-	// 0 = show file operations
+// This debugging *may* affect timing.
+
+#define dbg_ts    1
+	// 0 = show timestamp operations
+	// -1 = show callback setting
+#define dbg_dir    1
+	// show recursive directory listings
+#define dbg_hdr	   1
+	// show a header for any file system command
+#define dbg_cmd	   0
+	// 0 = show file commands
+	// -1 = show details
 
 #if USE_OLD_FAT
 	SdFatSdio SD;
@@ -385,7 +393,7 @@ void setTimeStamp(myFileType_t the_file, char *ts)
     char *second = &ts[17];
     ts[19] = 0;
 
-    display(dbg_tfs,"setTimeStamp(%s,%s,%s,%s,%s,%s)",year,month,day,hour,minute,second);
+    display_level(dbg_ts,4,"setTimeStamp(%s,%s,%s,%s,%s,%s)",year,month,day,hour,minute,second);
 
     the_file.timestamp(
         T_ACCESS | T_CREATE | T_WRITE,
@@ -425,7 +433,7 @@ void dtCallback(uint16_t* date, uint16_t* time)
     char *second = &ts[17];
     ts[19] = 0;
 
-    display(dbg_tfs,"dtCallback(%s,%s,%s,%s,%s,%s)",year,month,day,hour,minute,second);
+    display_level(dbg_ts+1,3,"dtCallback(%s,%s,%s,%s,%s,%s)",year,month,day,hour,minute,second);
 
     *date = FAT_DATE(atoi(year),atoi(month),atoi(day));
     *time = FAT_TIME(atoi(hour),atoi(minute),atoi(second));
@@ -441,7 +449,7 @@ void doListRecursive(Stream *fsd, char *full_name, bool recurse, int level, myFi
 {
 	char dir_name[255];
 	the_dir.getName(dir_name, sizeof(dir_name));
-	display(dbg_tfs,"doListRecursive(%s,%d,%d,%s)",full_name,recurse,level,dir_name);
+	display_level(dbg_dir,3+level,"doListRecursive(%s,%d,%d,%s)",full_name,recurse,level,dir_name);
 
 	const char *ts = getDateTimeStamp(&the_dir,dir_name);
 
@@ -528,7 +536,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 		return;
 	}
 
-    display(dbg_tfs-1,"handleFileCommand %s",command);
+    display_level(dbg_hdr,0,"handleFileCommand %s",command);
 
     if (!strcmp(command,"list"))
     {
@@ -539,7 +547,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 		while (*dir_name && *dir_name != ',') dir_name++;
 		if (*dir_name == ',') *dir_name++ = 0;
 
-		display(dbg_tfs,"list command %s - %s",recurse,dir_name);
+		display_level(dbg_cmd,1,"fileSystem::list %s - %s",recurse,dir_name);
 
 		myFileType_t the_dir = SD.open(dir_name);
 		if (the_dir)
@@ -559,7 +567,8 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         while (*ts && *ts != ',') ts++;
         if (*ts == ',') *ts++ = 0;
 
-        display(dbg_tfs,"fileSystem::mkdir(%s,%s)",path,ts);
+        display_level(dbg_cmd,1,"fileSystem::mkdir(%s,%s)",path,ts);
+
         if (SD.exists(path))
         {
             fsd->print("file_reply:");
@@ -569,7 +578,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         }
         else
         {
-            display(dbg_tfs,"fileSystem::mkdir(%s) calling SD.mkdir()",param);
+            display_level(dbg_cmd+1,2,"fileSystem::mkdir(%s) calling SD.mkdir()",param);
 
             // this snippet is how you have to set the timestamp on a directory
 
@@ -615,7 +624,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
     else if (!strcmp(command,"get"))
     {
         const char *filename = param;
-        display(dbg_tfs,"fileSystem::get(%s)",filename);
+        display_level(dbg_cmd,1,"fileSystem::get(%s)",filename);
         myFileType_t the_file = SD.open(filename);
 
         // The result will be
@@ -639,8 +648,8 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
             fsd->print(filename);
             fsd->print("\r\n");
 
-            #define BUF_BYTES   80
-            #define BASE64_BYTES   120      // at least 4/3ds the size of buf bytes
+            #define BUF_BYTES     12000
+            #define BASE64_BYTES  8000      // at least 4/3ds the size of buf bytes
 
             unsigned char buf[BUF_BYTES];
             char b64_buf[BASE64_BYTES];
@@ -653,6 +662,8 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
             {
                 uint32_t bytes_to_read = size;
                 if (bytes_to_read > BUF_BYTES) bytes_to_read = BUF_BYTES;
+                display_level(dbg_cmd,2,"fsGet::read(%d,%d)",file_off,bytes_to_read);
+
                 uint32_t got_bytes = the_file.read(buf,bytes_to_read);
 
                 // got_bytes = 2;
@@ -700,7 +711,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         }
         else
         {
-            display(0,"error could not open file: %s - returning empty result",filename);
+            my_error("error could not open file: %s - returning empty result",filename);
         }
     }   // get command
 
@@ -730,14 +741,12 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         if (*filename == ',')
             *filename++ = 0;
 
-        display(dbg_tfs,"put ts=%s sz=%s dir=%s filename=%s",ts,sz,dir,filename);
+        display_level(dbg_cmd,1,"fileSystem::put ts=%s sz=%s dir=%s filename=%s",ts,sz,dir,filename);
 
         write_size = atoi(sz);
         write_offset = 0;
         write_checksum = 0;
         strcpy(write_ts,ts);
-
-        display(dbg_tfs,"write_size=%d",write_size);
 
         // make sure the directory exists
 
@@ -758,7 +767,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 }
                 else
                 {
-                    display(dbg_tfs,"directory %s exists",dir);
+                    display_level(dbg_cmd+1,2,"fsPut::directory %s exists",dir);
                 }
                 the_dir.close();
             }
@@ -767,6 +776,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 // prepare for setting timestamp in below call
                 // cannot call setTimeStamp() on dirs
 
+                display_level(dbg_cmd+1,2,"fsPut::mkdir %s",dir);
                 strcpy(write_ts,ts);
 
 				#if USE_OLD_FAT
@@ -826,7 +836,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
     else if (!strcmp(command,"BASE64"))
     {
-        display(dbg_tfs,"base64 offset=%d",write_offset);
+        display_level(dbg_cmd,1,"fileSystem::base64 offset=%d",write_offset);
 
         int decoded_size = base64_decode((char *)decode_buf,(char *)param,strlen(param));
         int bytes_written = write_file.write(decode_buf,decoded_size);
@@ -857,7 +867,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
     else if (!strcmp(command,"CHECKSUM"))
     {
         uint32_t got = atoi(param);
-        display(dbg_tfs,"CHECKSUM got=%d calculated=%d",got,write_checksum);
+        display_level(dbg_cmd,1,"fileSystem::CHECKSUM got=%d calculated=%d",got,write_checksum);
         if (got == write_checksum)
         {
             fsd->print("file_reply:OK CHECKSUM ");
@@ -885,7 +895,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
     else if (!strcmp(command,"delete"))
     {
-        display(dbg_tfs,"delete %s",param);
+        display_level(dbg_cmd,1,"fileSystem::delete %s",param);
         myFileType_t the_file = SD.open(param);
         if (the_file)
         {
@@ -935,7 +945,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         char *new_path = old_path;
         while (*new_path && *new_path != ',') new_path++;
         if (*new_path == ',') *new_path++ = 0;
-        display(dbg_tfs,"rename(%s) to '%s'",old_path,new_path);
+        display_level(dbg_cmd,1,"fileSystem::rename(%s) to '%s'",old_path,new_path);
 
         myFileType_t the_file = SD.open(old_path);
         if (the_file)
@@ -945,7 +955,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
             const char *ts = getDateTimeStamp(&the_file,old_path);
             the_file.close();
 
-            display(dbg_tfs,"rename is_dir=%d size=%d ts=%s",is_dir,size,ts);
+            display_level(dbg_cmd+1,2,"fsRename::is_dir=%d size=%d ts=%s",is_dir,size,ts);
 
             if (SD.rename(old_path,new_path))
             {
