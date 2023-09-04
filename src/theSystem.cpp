@@ -163,9 +163,6 @@ void theSystem::timer_handler()
 {
 	the_pedals.task();
 	pollRotary();
-
-	the_system.handleSerialData();
-
 	dequeueMidi();
 }
 
@@ -191,8 +188,8 @@ void theSystem::critical_timer_handler()
 		// (possibly) enqueue the message from the USB port
 
 		enqueueMidi(false, msg32 & MIDI_PORT_NUM_MASK, msg32);
-
 	}
+	the_system.handleSerialData();
 }
 
 
@@ -218,133 +215,119 @@ void theSystem::critical_timer_handler()
 #define MAX_SERIAL_TEXT_LINE (MAX_BASE64_BUF+32)
 	// allow for "file_command:BASE64 " (13 + 6 + 1)
 
+static int usb_buf_ptr;
+static int serial_buf_ptr;
+elapsedMillis usb_timeout = 0;
+elapsedMillis serial_timeout = 0;
+static char usb_buffer[MAX_SERIAL_TEXT_LINE+1];
+static char serial_buffer[MAX_SERIAL_TEXT_LINE+1];
+
+
+static void doFileCommand(bool serial, char *buffer, int len)
+	// not so sure of doing file commands from
+	// timer_handler ... may want to enqueue them
+{
+	if (!strncmp(buffer,"file_command:",13))
+	{
+		char *p_command = &buffer[13];
+		char *p_param = p_command;
+		while (*p_param && *p_param != ' ') p_param++;
+		if (*p_param == ' ') *p_param++ = 0;
+		fileSystem::handleFileCommand(p_command,p_param);
+	}
+	else
+	{
+		my_error("unexpected serial(%d) data(%d)",serial,len);
+		if (len > 255) len = 255;		// don't display too much
+		display_bytes(0,"BUF",(uint8_t*)buffer,len);
+	}
+}
+
 
 void theSystem::handleSerialData()
 {
 	// The main USB Serial is only expected to contain lines of text
 	// SERIAL_DEVICE may contain either text or serial midi data
 
-	int buf_ptr = 0;
-	bool is_midi = false;
-	bool started = false;
-	bool finished = false;
-	bool from_serial = 0;
-	elapsedMillis line_timeout = 0;
-	static char static_serial_buffer[MAX_SERIAL_TEXT_LINE+1];
+	if (usb_buf_ptr && usb_timeout > SERIAL_TIMEOUT)
+	{
+		my_error("usb serial timeout at char(%d)",usb_buf_ptr);
+		usb_buf_ptr = 0;
+	}
+	if (serial_buf_ptr && serial_timeout > SERIAL_TIMEOUT)
+	{
+		my_error("serial timeout at char(%d)",serial_buf_ptr);
+		serial_buf_ptr = 0;
+	}
 
 	if (Serial.available())
 	{
-		started = true;
-		while (!finished && buf_ptr<MAX_SERIAL_TEXT_LINE && line_timeout<SERIAL_TIMEOUT)
+		int c = Serial.read();
+		if (c == 0x0A || usb_buf_ptr >= MAX_SERIAL_TEXT_LINE-1)				// LF comes last
 		{
-			if (Serial.available())
-			{
-				int c = Serial.read();
-				if (c == 0x0A)				// LF comes last
-				{
-					static_serial_buffer[buf_ptr++] = 0;
-					finished = 1;
-
-				}
-				else if (c != 0x0D)			// skip CR
-				{
-					static_serial_buffer[buf_ptr++] = c;
-					line_timeout = 0;
-				}
-			}
+			usb_buffer[usb_buf_ptr++] = 0;
+			doFileCommand(0,usb_buffer,usb_buf_ptr);
+			usb_buf_ptr = 0;
+			usb_timeout = 0;
+		}
+		else if (c != 0x0D )// skip CR
+		{
+			usb_buffer[usb_buf_ptr++] = c;
+			usb_timeout = 0;
 		}
 	}
-	else if (SERIAL_DEVICE.available())
-	{
-		started = true;
-		from_serial = 1;
 
+	// only serialMidi sends 0x0B!!
+	// and they can be sent in the middle of regular lines of text
+
+	if (SERIAL_DEVICE.available())
+	{
 		int c = SERIAL_DEVICE.read();
-		if (c == 0x0B)		// ONLY CC commands on channel 0
+		if (c == 0x0B)
 		{
-			is_midi = 1;
-			finished = true;
-			static_serial_buffer[buf_ptr++] = c;
-			for (int i=0; i<3; i++)
-			{
-				static volatile int fu = 0;
-				while (!SERIAL_DEVICE.available()) {fu++;}
-				c = SERIAL_DEVICE.read();
-				static_serial_buffer[buf_ptr++] = c;
-			}
+			uint8_t midi_buf[4];
+			midi_buf[0] = c;
 
-		}
-		else
-		{
-			line_timeout = 0;
-			while (!finished && buf_ptr<MAX_SERIAL_TEXT_LINE)
+			int i = 1;
+			serial_timeout = 0;
+			while (i < 4 && serial_timeout < SERIAL_TIMEOUT)
 			{
-				if (c == 0x0A)			// LF comesl last
+				if (SERIAL_DEVICE.available())
 				{
-					static_serial_buffer[buf_ptr++] = 0;
-					finished = 1;
-				}
-				else
-				{
-					if (c != 0x0D)			// skip CR
-					{
-						static_serial_buffer[buf_ptr++] = c;
-						line_timeout = 0;
-
-					}
-					while (!SERIAL_DEVICE.available())
-					{
-						if (line_timeout>=SERIAL_TIMEOUT)
-							break;
-					}
- 					c = SERIAL_DEVICE.read();
+					midi_buf[i++] = SERIAL_DEVICE.read();
+					serial_timeout = 0;
 				}
 			}
+
+			if (i < 4)
+				my_error("serial midi timeout(%d)",i);
+			else
+			{
+				if (dbg_raw_midi <= 0)
+					display_level(dbg_raw_midi,0,"serial: 0x%02x%02x%02x%02x",
+						midi_buf[3],
+						midi_buf[2],
+						midi_buf[1],
+						midi_buf[0]);
+				enqueueMidi(false, MIDI_PORT_SERIAL,midi_buf);
+			}
+			serial_timeout = 0;		// JIC
 		}
-	}	// SERIAL_DEVICE.available()
 
-
- 	if (started && !finished)
-	{
-		my_error("Could not finish serial input from_serial(%d) is_midi(%d) buf_ptr(%d) %s",
-			from_serial,
-			is_midi,
-			buf_ptr,
-			line_timeout>SERIAL_TIMEOUT ? "TIMEOUT" : "");
-		display_bytes(0,"BUF",(uint8_t*)static_serial_buffer,buf_ptr);
-	}
-	else if (is_midi)		// is_midi invariantly sets finished
-	{
-		uint8_t *p = (uint8_t *) static_serial_buffer;
-
-		if (dbg_raw_midi <= 0)
-			display_level(dbg_raw_midi,0,"serial: 0x%02x%02x%02x%02x",p[3],p[2],p[1],p[0]);
-
-		enqueueMidi(false, MIDI_PORT_SERIAL,p);
-
-	}
-	else if (finished)
-	{
-		if (!strncmp(static_serial_buffer,"file_command:",13))
+		else if (c == 0x0A || serial_buf_ptr >= MAX_SERIAL_TEXT_LINE-1)				// LF comes last
 		{
-			char *p_command = &static_serial_buffer[13];
-			char *p_param = p_command;
-			while (*p_param && *p_param != ' ') p_param++;
-			if (*p_param == ' ') *p_param++ = 0;
-			fileSystem::handleFileCommand(p_command,p_param);
+			usb_buffer[serial_buf_ptr++] = 0;
+			doFileCommand(1,serial_buffer,serial_buf_ptr);
+			serial_buf_ptr = 0;
+			serial_timeout = 0;
 		}
-		else
+		else if (c != 0x0D )// skip CR
 		{
-			static_serial_buffer[buf_ptr+1] = 0;
-			my_error("theSystem got unexpected serial data from_serial(%d) is_midi(%d) buf_ptr(%d) %s",
-				from_serial,
-				is_midi,
-				buf_ptr,
-				line_timeout>SERIAL_TIMEOUT ? "TIMEOUT" : "");
-			display_bytes(0,"BUF",(uint8_t*)static_serial_buffer,buf_ptr);
+			serial_buffer[serial_buf_ptr++] = c;
+			serial_timeout = 0;
 		}
-	}
-}
+	}	// SERIAL_DEVICE.available();
+}	// handleSerialData()
 
 
 //-----------------------------------------

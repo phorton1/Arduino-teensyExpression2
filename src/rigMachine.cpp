@@ -302,36 +302,40 @@ bool rigMachine::startRig(const rig_t *rig, bool cold)
 
 	// setup the buttons
 
-	for (int i=0; i<NUM_BUTTONS && ok; i++)
+	if (ok)
 	{
-		#define SUBSECTION_LAST_CODE  (RIG_TOKEN_REPEAT - RIG_TOKEN_COLOR)
-
-		// invariantly add the long click for the system button
-		// which *may* be inherited by this rig
-
-		int mask = (i == THE_SYSTEM_BUTTON) ? BUTTON_EVENT_LONG_CLICK : 0;
-
-		const rig_t *context;
-		const uint16_t *refs = inheritButtonRefs(i,&context);
-		for (uint16_t j=RIG_TOKEN_PRESS; j<=RIG_TOKEN_REPEAT && ok; j++)
+		for (int i=0; i<NUM_BUTTONS; i++)
 		{
-			if (refs[j - RIG_TOKEN_COLOR])
-			{
-				// prh - parser should only allow click on THE_SYSTEM_BUTTON
-				// and should not allow REPEAT on CLICKS or PRESS
-				if (j == RIG_TOKEN_PRESS)	mask |= BUTTON_EVENT_PRESS;
-				if (j == RIG_TOKEN_CLICK)   mask |= BUTTON_EVENT_CLICK;
-				if (j == RIG_TOKEN_LONG)	mask |= BUTTON_EVENT_LONG_CLICK;
-				if (j == RIG_TOKEN_RELEASE) mask |= BUTTON_EVENT_RELEASE;
-				if (j == RIG_TOKEN_REPEAT)  mask |= BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT;
-			}
-		}
+			#define SUBSECTION_LAST_CODE  (RIG_TOKEN_REPEAT - RIG_TOKEN_COLOR)
 
-		display(dbg_rig+1,"setButton(%d,0x%04x)",i,mask);
-		the_buttons.setButtonType(i,mask);
+			// invariantly add the long click for the system button
+			// which *may* be inherited by this rig
+
+			int mask = (i == THE_SYSTEM_BUTTON) ? BUTTON_EVENT_LONG_CLICK : 0;
+
+			const rig_t *context;
+			const uint16_t *refs = inheritButtonRefs(i,&context);
+			for (uint16_t j=RIG_TOKEN_PRESS; j<=RIG_TOKEN_REPEAT; j++)
+			{
+				if (refs[j - RIG_TOKEN_COLOR])
+				{
+					// prh - parser should only allow click on THE_SYSTEM_BUTTON
+					// and should not allow REPEAT on CLICKS or PRESS
+					if (j == RIG_TOKEN_PRESS)	mask |= BUTTON_EVENT_PRESS;
+					if (j == RIG_TOKEN_CLICK)   mask |= BUTTON_EVENT_CLICK;
+					if (j == RIG_TOKEN_LONG)	mask |= BUTTON_EVENT_LONG_CLICK;
+					if (j == RIG_TOKEN_RELEASE) mask |= BUTTON_EVENT_RELEASE;
+					if (j == RIG_TOKEN_REPEAT)  mask |= BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT;
+				}
+			}
+
+			display(dbg_rig+1,"setButton(%d,0x%04x)",i,mask);
+			the_buttons.setButtonType(i,mask);
+		}
 	}
+
 	proc_leave();
-	display(dbg_rig,"startRig() finished",0);
+	display(dbg_rig,"startRig() returning  %d",ok);
 	return ok;
 }
 
@@ -842,26 +846,16 @@ bool rigMachine::executeStatementList(const rig_t *rig, int statement_num)
 //--------------------------------------------------
 
 void rigMachine::onMidiCC(const msgUnion &msg)
-	// for now, within the language, we will allow
-	// output or th given port set the value, thus
-	// allowing programs to monitor their own pedals, etc.
+	// Note that this may be called even when no rig is loaded!
+	// (a) midiQueue only sends us message on ports that match our m_listen_mask.
+	// (b) we accept output OR input ports
 {
-	if (!m_rig_loaded)
-		return;
-
-	uint16_t mask = 1 << msg.portEnum();
-
 	if (dbg_midi <= -1)
-		display(dbg_midi+1,"onMidiCC(0x%02x,%d,0x%02x,0x%02x) lmask(0x%04x) mask(0x%04x)",
+		display_level(dbg_midi+1,0,"onMidiCC(0x%02x,%d,0x%02x,0x%02x)",
 			msg.port(),
 			msg.channel(),
 			msg.param1(),
-			msg.param2(),
-			m_listen_mask,
-			mask);
-
-	if (!(m_listen_mask & mask))
-		return;
+			msg.param2());
 
 	// set the value into any SERIAL Listens for the given CC number
 	// with the convention that listening to channel 0 accepts all channels
@@ -871,7 +865,7 @@ void rigMachine::onMidiCC(const msgUnion &msg)
 		rigListen_t *listen = &m_rig_state.listens[num];
 
 		if (dbg_midi <= -2 && listen->active)
-			display(dbg_midi+1,"checking(0x%02x,%d,0x%02x)",
+			display_level(dbg_midi+1,1,"checking(0x%02x,%d,0x%02x)",
 				listen->port,
 				listen->channel,
 				listen->cc);
@@ -883,7 +877,7 @@ void rigMachine::onMidiCC(const msgUnion &msg)
 			listen->channel == msg.channel()))
 		{
 			if (dbg_midi <= 0)
-				display(dbg_midi,"onMidiCC(0x%02x,%d,0x%02x) --> setting value(%d) to 0x%02x",
+				display_level(dbg_midi,2,"onMidiCC(0x%02x,%d,0x%02x) --> setting value(%d) to 0x%02x",
 					msg.port(),
 					msg.channel(),
 					msg.param1(),

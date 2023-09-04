@@ -39,13 +39,15 @@ void setup()
     // start the
 
     SERIAL_DEVICE.begin(115200);
-    elapsedMillis serial_started = 0;
-    while (serial_started<1000 && !SERIAL_DEVICE) {}
-    if (SERIAL_DEVICE)
-    {
-        delay(1000);
-        SERIAL_DEVICE.println("hello from teensyExpressionsetup() " TEENSY_EXPRESSION_VERSION " Serial port");
-    }
+    delay(500);
+
+    // elapsedMillis serial_started = 0;
+    // while (serial_started<1000 && !SERIAL_DEVICE) {}
+    // if (SERIAL_DEVICE)
+    // {
+    //     delay(1000);
+    //     SERIAL_DEVICE.println("hello from teensyExpressionsetup() " TEENSY_EXPRESSION_VERSION " Serial port");
+    // }
 
     // set the debug output to SERIAL_DEVICE, or possibly nothing
 
@@ -73,8 +75,9 @@ void setup()
     //----------------------------------------
 
     Serial.begin(115200);
-    serial_started = 0;
-    while (serial_started<1000 && !Serial) {}
+    delay(500);
+    // serial_started = 0;
+    // while (serial_started<1000 && !Serial) {}
 
     display(0,"teensyExpression.ino " TEENSY_EXPRESSION_VERSION " setup() started",0);
     // mem_check("after serial port started");

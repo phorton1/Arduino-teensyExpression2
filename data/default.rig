@@ -63,6 +63,7 @@ define(20,	GUITAR_ECHO_CC, 		30 );	# GUITAR_ECHO_CC 		= 30
 #------------------------------------------------------
 # Looper Constants (as defined by my Looper program)
 #------------------------------------------------------
+# Following defines incorporated from commonDefines.h
 # The looper Serial midi sends, and expects only CC messages on Channel 1,
 # which is 0 or'd into the first byte of the message.
 
@@ -75,27 +76,29 @@ define(20,	GUITAR_ECHO_CC, 		30 );	# GUITAR_ECHO_CC 		= 30
 # TRACK_STATE_PENDING_STOP        = 32 = 0x20;
 # TRACK_STATE_PENDING			  = 56 = 0x38  TRACK_STATE_PENDING_RECORD | TRACK_STATE_PENDING_PLAY | TRACK_STATE_PENDING_STOP;
 #
-# LOOP_COMMAND_NONE               = 0  = 0x00;
+													# LOOP_COMMAND_NONE               = 0  = 0x00;
 define(22, LOOP_COMMAND_CLEAR_ALL,	1);				# LOOP_COMMAND_CLEAR_ALL          = 1  = 0x01;
-# LOOP_COMMAND_STOP_IMMEDIATE     = 2  = 0x02;      # stop the looper immediately
-# LOOP_COMMAND_STOP               = 3  = 0x03       # stop at next cycle point
-define(23, LOOP_COMMAND_DUB, 		4);				# LOOP_COMMAND_DUB_MODE           = 4  = 0x04;     	# the dub mode is handled by rPi and modeled here
-# LOOP_COMMAND_ABORT_RECORDING    = 6  = 0x06;      # NOT_USED YET - abort the current recording if any
-# LOOP_COMMAND_LOOP_IMMEDIATE     = 6  = 0x08;      # NOT_USED YET - immediatly loop back to all clip starts ...
-# LOOP_COMMAND_SET_LOOP_START     = 6  = 0x09;      # NOT_USED YET - immediatly set the "restart point" for the clips in the track
-# LOOP_COMMAND_CLEAR_LOOP_START   = 6  = 0x0A;      # NOT_USED YET - immediatly set the "restart point" for the clips in the track
-define(24, LOOP_COMMAND_TRACK_BASE,	16);			# LOOP_COMMAND_TRACK_BASE         = 16 = 0x10;     	# the four used "track" buttons are 0x10..0x13 (although the protocol can support upto 8 buttons 0..7)
-													# LOOP_COMMAND_ERASE_TRACK_BASE   = 32 = 0x20;      # NOT USED YET - erase the given track (stops it if playing)
+													# LOOP_COMMAND_STOP_IMMEDIATE     = 2  = 0x02;      // stop the looper immediately
+													# LOOP_COMMAND_STOP               = 3  = 0x03       // stop at next cycle point
+define(23, LOOP_COMMAND_DUB, 		4);				# LOOP_COMMAND_DUB_MODE           = 4  = 0x04;     	// the dub mode is handled by rPi and modeled here
+													# LOOP_COMMAND_ABORT_RECORDING    = 6  = 0x06;      // abort the current recording if any
+													# LOOP_COMMAND_LOOP_IMMEDIATE     = 6  = 0x08;      // immediatly loop back to all clip starts ...
+													# LOOP_COMMAND_SET_LOOP_START     = 6  = 0x09;      // immediatly set the "restart point" for the clips in the track
+													# LOOP_COMMAND_CLEAR_LOOP_START   = 6  = 0x0A;      // immediatly set the "restart point" for the clips in the track
+define(24, LOOP_COMMAND_TRACK_BASE,	16);			# LOOP_COMMAND_TRACK_BASE         = 16 = 0x10;     	// the four used "track" buttons are 0x10..0x13 (although the protocol can support upto 8 buttons 0..7)
+													# LOOP_COMMAND_ERASE_TRACK_BASE   = 32 = 0x20;      // erase the given track (stops it if playing)
+define(25, LOOP_COMMAND_GET_STATE, 	48);			# LOOP_COMMAND_GET_STATE		  = 48 = 0x30	  	// NEW the looper will dump all state
 
+													# Looper Serial CC numbers             				// TE       rPi         descrip
+define(30,	LOOP_COMMAND_CC,		1 );			# LOOP_COMMAND_CC        		  = 1  = 0x01		// send     recv        the value is the LOOP command
+define(31,	LOOP_STOP_CMD_STATE_CC,	2 );			# LOOP_STOP_CMD_STATE_CC 		  = 2  = 0x02		// recv     send        the value is 0, LOOP_COMMAND_STOP or STOP_IMMEDIATE
+define(32,	LOOP_DUB_STATE_CC,		3 );			# LOOP_DUB_STATE_CC      		  = 3  = 0x03		// recv     send        value is currently only the DUB state
+													# NOTIFY_LOOP            		  = 5  = 0x05     	// recv     send        value=number of pending loop notifies
+define(33,	LOOP_CONTROL_BASE_CC,	8 );			# LOOP_CONTROL_BASE_CC   		  = 8  = 0x08     	// send     recv        RANGED for 0..LOOPER_NUM_CONTROLS the value is the volume control (Looper pedal == 0x67)
+define(34,	TRACK_STATE_BASE_CC,	16 );			# TRACK_STATE_BASE_CC    		  = 16 = 0x10		// recv     send        RANGED for NUM_TRACKS, upto 16 tracks, value is track state
+define(35,	CLIP_VOL_BASE_CC,		32 );			# CLIP_VOL_BASE_CC       		  = 32 = 0x20		// both     both        RANGED for NUM_TRACKS * NUM_LAYERS, upto 32 total - value is the clip volume
+define(36,	CLIP_MUTE_BASE_CC,		64 );			# CLIP_MUTE_BASE_CC      		  = 64 = 0x40		// both     both        RANGED for NUM_TRACKS * NUM_LAYERS, upto 24 total - value is mute state
 
-define(30,	LOOP_CONTROL_BASE_CC,	101 );			# LOOP_CONTROL_BASE_CC   		  = 101 = 0x65      # te_send     looper_recv        for 0..LOOPER_NUM_CONTROLS the value is the volume control (Looper pedal == 0x67)
-define(31,	LOOP_STOP_CMD_STATE_CC,	38 );			# LOOP_STOP_CMD_STATE_CC 		  = 38  = 0x26;		# te_recv     looper_send        the value is 0, LOOP_COMMAND_STOP or STOP_IMMEDIATE
-define(32,	LOOP_DUB_STATE_CC,		37 );			# LOOP_DUB_STATE_CC      		  = 37  = 0x25;		# te_recv     looper_send        value is currently only the DUB state
-define(33,	LOOP_COMMAND_CC,		36 );			# LOOP_COMMAND_CC        		  = 36  = 0x24;		# te_send     looper_recv        the value is the LOOP command
-define(34,	TRACK_STATE_BASE_CC,	20 );			# TRACK_STATE_BASE_CC    		  = 20  = 0x14;		# te_recv     looper_send        for 0..3 tracks, value is track state
-define(35,	CLIP_VOL_BASE_CC,		48 );			# CLIP_VOL_BASE_CC       		  = 48  = 0x30;		# te_send     looper_recv        NOT_USED_YET - for 4 tracks * 3 clips - value is volume 0..127
-define(36,	CLIP_MUTE_BASE_CC,		80 );			# CLIP_MUTE_BASE_CC      		  = 80  = 0x50;		# both    	  both        		 NOT_USED_YET - for 4 tracks * 3 clips - value is mute state
-													# NOTIFY_LOOP            		  = 100 = 0x64;     # te_recv     looper_send        NOT_USED_YET - value=number of pending loop notifies
 
 define(40, LOOPER_CONTROL_INPUT_GAIN,	0);			# LOOPER_CONTROL_INPUT_GAIN       = 0
 define(41, LOOPER_CONTROL_THRU_VOLUME,	1);			# LOOPER_CONTROL_THRU_VOLUME      = 1
@@ -248,29 +251,33 @@ LISTEN(_clip_vol_base + 9,		SERIAL, 0,	CLIP_VOL_BASE_CC + 9);
 LISTEN(_clip_vol_base + 10,		SERIAL, 0,	CLIP_VOL_BASE_CC + 10);
 LISTEN(_clip_vol_base + 11,		SERIAL, 0,	CLIP_VOL_BASE_CC + 11);
 LISTEN(_clip_vol_base + 12,		SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
-LISTEN(_clip_vol_base + 13,		SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
+LISTEN(_clip_vol_base + 13,		SERIAL, 0,	CLIP_VOL_BASE_CC + 13);
 LISTEN(_clip_vol_base + 14,		SERIAL, 0,	CLIP_VOL_BASE_CC + 14);
 LISTEN(_clip_vol_base + 15,		SERIAL, 0,	CLIP_VOL_BASE_CC + 15);
 
-LISTEN(_clip_mute_base + 0,		SERIAL, 0,	CLIP_VOL_BASE_CC + 0);
-LISTEN(_clip_mute_base + 1,		SERIAL, 0,	CLIP_VOL_BASE_CC + 1);
-LISTEN(_clip_mute_base + 2,		SERIAL, 0,	CLIP_VOL_BASE_CC + 2);
-LISTEN(_clip_mute_base + 3,		SERIAL, 0,	CLIP_VOL_BASE_CC + 3);
-LISTEN(_clip_mute_base + 4,		SERIAL, 0,	CLIP_VOL_BASE_CC + 4);
-LISTEN(_clip_mute_base + 5,		SERIAL, 0,	CLIP_VOL_BASE_CC + 5);
-LISTEN(_clip_mute_base + 6,		SERIAL, 0,	CLIP_VOL_BASE_CC + 6);
-LISTEN(_clip_mute_base + 7,		SERIAL, 0,	CLIP_VOL_BASE_CC + 7);
-LISTEN(_clip_mute_base + 8,		SERIAL, 0,	CLIP_VOL_BASE_CC + 8);
-LISTEN(_clip_mute_base + 9,		SERIAL, 0,	CLIP_VOL_BASE_CC + 9);
-LISTEN(_clip_mute_base + 10,	SERIAL, 0,	CLIP_VOL_BASE_CC + 10);
-LISTEN(_clip_mute_base + 11,	SERIAL, 0,	CLIP_VOL_BASE_CC + 11);
-LISTEN(_clip_mute_base + 12,	SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
-LISTEN(_clip_mute_base + 13,	SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
-LISTEN(_clip_mute_base + 14,	SERIAL, 0,	CLIP_VOL_BASE_CC + 14);
-LISTEN(_clip_mute_base + 15,	SERIAL, 0,	CLIP_VOL_BASE_CC + 15);
+LISTEN(_clip_mute_base + 0,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 0);
+LISTEN(_clip_mute_base + 1,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 1);
+LISTEN(_clip_mute_base + 2,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 2);
+LISTEN(_clip_mute_base + 3,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 3);
+LISTEN(_clip_mute_base + 4,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 4);
+LISTEN(_clip_mute_base + 5,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 5);
+LISTEN(_clip_mute_base + 6,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 6);
+LISTEN(_clip_mute_base + 7,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 7);
+LISTEN(_clip_mute_base + 8,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 8);
+LISTEN(_clip_mute_base + 9,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 9);
+LISTEN(_clip_mute_base + 10,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 10);
+LISTEN(_clip_mute_base + 11,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 11);
+LISTEN(_clip_mute_base + 12,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 12);
+LISTEN(_clip_mute_base + 13,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 13);
+LISTEN(_clip_mute_base + 14,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 14);
+LISTEN(_clip_mute_base + 15,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 15);
 
 display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
+
+sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_GET_STATE);
+	# Tell the looper to dump it's state for our LISTEN's
+
 
 #=======================================================
 # Buttons

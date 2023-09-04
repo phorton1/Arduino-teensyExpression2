@@ -75,6 +75,9 @@ public:
 	void updateUI();
     void onButton(int row, int col, int event);
 	void onMidiCC(const msgUnion &msg);
+	uint16_t getListenMask()  { return m_listen_mask; }
+		// returns a mask of 1<<msg.portEnum() of any ports
+		// which have listen statements
 
 	void restartRig();
 

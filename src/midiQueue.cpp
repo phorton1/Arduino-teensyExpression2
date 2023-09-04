@@ -221,18 +221,19 @@ void enqueueMidi(msgUnion &msg)
 
 	the_system.midiActivity(msg.activityIndex());
 
-	// Rig machine uses a port mask quick return if the port doesn't match
-
-	if (msg.type() == MIDI_TYPE_CC)
-	{
-		rig_machine.onMidiCC(msg);
-	}
-
-	// determine whether to enqueue it for processing
+	// Determine whether to enqueue the message or not
+	// Rig machine builds a port mask for use here ...
+	// We have to enqueue everything from the FTP port,
+	// and otherwise, we filter on MONITOR_PORT and CHANNEL
 
 	bool enqueue_it = false;
 
-	if (FTP_PORT_IS_ACTIVE)
+	if (msg.type() == MIDI_TYPE_CC &&
+		(rig_machine.getListenMask() & (1 << msg.portEnum())))
+	{
+		enqueue_it = true;
+	}
+	else if (FTP_PORT_IS_ACTIVE)
 	{
 		uint8_t ftp_port = FTP_ACTIVE_PORT;
 		if (ftp_port && msg.port() == ftp_port)
@@ -253,14 +254,10 @@ void enqueueMidi(msgUnion &msg)
 	if (enqueue_it)
 	{
 		if (dbg_queue <= 0)
-			display_level(dbg_queue,4,"_enqueueMidi(0x%08x) out(%d) port(0x%02x) channel(%-2d) type(0x%02x) param1(0x%02x) param2(0x%02x)",
+			display_level(dbg_queue,4,"_enqueueMidi(0x%08x) head(%d) tail(%d)",
 				msg.i,
-				msg.isOutput(),
-				msg.portEnum(),
-				msg.channel(),
-				msg.type(),
-				msg.param1(),
-				msg.param2());
+				queue_head,
+				queue_tail);
 
 		__disable_irq();
 		midi_queue[queue_head++] = msg.i;
@@ -448,8 +445,8 @@ static void _processMsg(uint32_t msg32)
 {
 	msgUnion msg(msg32);
 
-	if (dbg_queue <= 0)
-		display_level(dbg_queue,4,"_processMsg (0x%08x) out(%d) port(0x%02x) channel(%-2d) type(0x%02x) param1(0x%02x) param2(0x%02x)",
+	if (dbg_queue <= -1)
+		display_level(dbg_queue,4,"_processMsg(0x%08x) out(%d) port(0x%02x) channel(%-2d) type(0x%02x) param1(0x%02x) param2(0x%02x)",
 			msg.i,
 			msg.isOutput(),
 			msg.portEnum(),
@@ -458,7 +455,15 @@ static void _processMsg(uint32_t msg32)
 			msg.param1(),
 			msg.param2());
 
-	// I believe I cannot limit the checks to channel 8
+	// dequeue messages to listen statements in the rigMachine
+
+	if (msg.type() == MIDI_TYPE_CC &&
+		(rig_machine.getListenMask() & (1 << msg.portEnum())))
+	{
+		rig_machine.onMidiCC(msg);
+	}
+
+	// for FTP I cannot limit the checks to channel 8
 	// due to the fact that I want notes ...
 
 	if (FTP_PORT_IS_ACTIVE &&
@@ -472,12 +477,20 @@ static void _processMsg(uint32_t msg32)
 
 void dequeueMidi()
 {
-    uint32_t msg32 = 0;
-    while (queue_tail != queue_head)
+    // while (queue_tail != queue_head)
+    if (queue_tail != queue_head)
     {
-        msg32 = midi_queue[queue_tail++];
+		if (dbg_queue <= 0)
+			display_level(dbg_queue,4,"_processMsg(0x%08x) head(%d) tail(%d)",
+				midi_queue[queue_tail],
+				queue_head,
+				queue_tail);
+
+		__disable_irq();
+        uint32_t msg32 = midi_queue[queue_tail++];
         if (queue_tail == MAX_QUEUE)
             queue_tail = 0;
+		__enable_irq();
 		if (msg32)
 			_processMsg(msg32);
 	}
