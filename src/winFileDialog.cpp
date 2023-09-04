@@ -11,6 +11,8 @@
 #include "fileSystem.h"
 
 
+
+
 #define dbg_fd		0
 	// debug the dialog itself
 #define dbg_files   1
@@ -47,13 +49,49 @@ static bool draw_needed;
 
 static char selected_filename[MAX_RIG_NAME + 1];
 
-winFileDialog file_dlg;
+
+//-------------------------------------------
+// DERIVED CLASSES
+//-------------------------------------------
+#include "configOptions.h"
+#include "rigParser.h"
+
+#define dbg_rfd  0
+
+rigFileDialog rig_file_dlg;
 
 
+void rigFileDialog::begin(bool cold)
+{
+	display(dbg_rfd,0,"rigFileDialog::begin(%d)",cold);
+	setup(OPTION_LOAD_RIG,"Load Rig ..","/",".rig",DEFAULT_RIG_TOKEN);
+	winFileDialog::begin(cold);
+}
+
+
+void rigFileDialog::onButton(int row, int col, int event)
+{
+    int num = row * NUM_BUTTON_COLS + col;
+	if (num == BUTTON_ACCEPT)
+	{
+		display(dbg_rfd,0,"rigFileDialog::onButton(%d) calling parseRig(%s)",num,selected_filename);
+		if (parseRig(selected_filename,1))
+		{
+			display(dbg_rfd,0,"rigFileDialog::onButton(%d) calling endWindow(0x%04x)",num,m_id);
+			endWindow(m_id);
+		}
+	}
+	else
+		winFileDialog::onButton(row,col,event);
+}
+
+
+
+
+//-------------------------------------------
+// BASE CLASS
 //-------------------------------------------
 // file access
-//-------------------------------------------
-
 
 static void addEntry(const char *name, bool is_default)
 {

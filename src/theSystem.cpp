@@ -413,17 +413,10 @@ void theSystem::endWindow(sysWindow *cur, uint16_t param)
 
 	sysWindow *win = m_num_windows > 1 ? m_window_stack[m_num_windows-2] : 0;
 
-	// but there is also a case where onChildEnd can pop up an error
-	// window and if so, we DONT want to begin the parent or decrement
-	// the pointer.  In other words, we're really not ending the window
-
-	int save_num_windows = m_num_windows;
-
 	if (win)
 	{
 		win->onChildEnd(param);
-		if (m_num_windows == save_num_windows)
-			win->begin(false);
+		win->begin(false);
 	}
 
 	// restartRig() will correctly set m_rig_loaded or an RIG_LOAD_STATE_ERROR_STRT
@@ -436,8 +429,7 @@ void theSystem::endWindow(sysWindow *cur, uint16_t param)
 		rig_machine.restartRig();
 	}
 
-	if (m_num_windows == save_num_windows)
-		m_num_windows--;
+	m_num_windows--;
 }
 
 

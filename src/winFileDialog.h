@@ -1,9 +1,8 @@
 //------------------------------------------------
 // winFileDialog.h
 //------------------------------------------------
-// Contains common dialog windows
-// Note that these cannot be stacked on top of the same kind!
-// YesNoDialog returns 0 or the ID that is passed in.
+// Contains the winFileDialog base class and specific
+// derived classes.
 
 #pragma once
 
@@ -11,7 +10,13 @@
 
 class winFileDialog : public sysWindow
 {
-    public:
+	public:
+
+		const char *getSelectedFilename();
+			// if the window returns the ID,
+			// call this to get the selected filename
+
+    protected:
 
         winFileDialog() {}
 
@@ -28,9 +33,8 @@ class winFileDialog : public sysWindow
 			m_default = def;
 		}
 
-		const char *getSelectedFilename();
-			// if the window returns the ID,
-			// call this to get the selected filename
+        virtual void begin(bool cold) override;
+        virtual void onButton(int row, int col, int event) override;
 
     private:
 
@@ -43,8 +47,6 @@ class winFileDialog : public sysWindow
         virtual const char *short_name()    { return m_name; }
 
 		virtual void end() override;
-        virtual void begin(bool cold) override;
-        virtual void onButton(int row, int col, int event) override;
 		virtual void updateUI() override;
 
 		void getFilenames();
@@ -52,9 +54,31 @@ class winFileDialog : public sysWindow
 };
 
 
-extern winFileDialog file_dlg;
+
+//----------------------------------------------------
+// derived classes
+//----------------------------------------------------
+// exists to parse the rig on BUTTON_ACCEPT and NOT
+// end the window if there is an error.  It also encapsulates
+// the setup() parameters.
+
+class rigFileDialog : public winFileDialog
+{
+	public:
+
+		rigFileDialog()   {}
+
+	private:
+
+        virtual void begin(bool cold) override;
+        virtual void onButton(int row, int col, int event) override;
+};
+
+
+
+extern rigFileDialog rig_file_dlg;
 
 
 
 
-// end of winDialogs.h
+// end of winFileDialog.h

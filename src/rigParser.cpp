@@ -1087,15 +1087,11 @@ const rig_t *parseRig(const char *rig_name, bool base_only)
 {
 	warning(dbg_parse,"ParseRig(%s.rig,%d)",rig_name,base_only);
 
-	// it just so happens that the DEFAULT_MODAL_TOKEN is the
-	// same as the embedded loadRig("default_modal") in the
-	// default rig, thus causing the default rig to load the
-	// default modal rig.
-
 	#if WITH_DEFAULT_RIG
-		if (!strcmp(rig_name,DEFAULT_RIG_TOKEN) || (
-			rig_pool_len &&
-			(base_rig->rig_type & RIG_TYPE_SYSTEM) &&
+		if (!strcmp(rig_name,DEFAULT_RIG_TOKEN) || (	// we WILL load the default base rig if called with base_only
+			!base_only &&		//						// but we will NOT load the default modal rig with base_only
+			rig_pool_len &&								// we only load the default modal rig if called from the
+			(base_rig->rig_type & RIG_TYPE_SYSTEM) &&	// SYSTEM base rig
 			!strcmp(rig_name,DEFAULT_MODAL_TOKEN)))
 		{
 			return loadDefaultRig(rig_name);
@@ -1123,7 +1119,7 @@ const rig_t *parseRig(const char *rig_name, bool base_only)
 		{
 			if (base_only)
 			{
-				rig_error("only BaseRigs are allowed!");
+				rig_error("You may only load a BaseRig!!\n'%s.rig' is a ModalRig.",rig_name);
 				ok = 0;
 			}
 			else

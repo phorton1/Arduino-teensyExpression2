@@ -148,13 +148,10 @@ void winConfig::onChildEnd(uint16_t param)
     display(dbg_cfg,"winConfig::onChildEnd(0x%04x)",param);
 	if (param == OPTION_LOAD_RIG)
 	{
-		const char *rig_name = file_dlg.getSelectedFilename();
+		const char *rig_name = rig_file_dlg.getSelectedFilename();
 		display(dbg_cfg,"new rig name = %s",rig_name);
-		if (parseRig(rig_name,1))
-		{
-			setPref(poff(RIG_NAME),(uint32_t) rig_name);
-			m_rig_changed_this = 1;
-		}
+		setPref(poff(RIG_NAME),(uint32_t) rig_name);
+		m_rig_changed_this = 1;
 	}
 	else if (param == OPTION_FACTORY_RESET)
 	{
@@ -266,8 +263,7 @@ void winConfig::onButton(int row, int col, int event)
 			if (m_cur_option->getType() & OPTION_LOAD_RIG)
 			{
 				display(dbg_cfg,"winConfig::onButtonSelect(OPTION_LOAD_RIG)",0);
-				file_dlg.setup(OPTION_LOAD_RIG,"Select Rig ...","/",".rig",DEFAULT_RIG_TOKEN);
-				the_system.startWindow(&file_dlg);
+				the_system.startWindow(&rig_file_dlg);
 			}
 			else if (m_cur_option->getType() & OPTION_FACTORY_RESET)
 			{
