@@ -450,7 +450,8 @@ static uint16_t genericExpression(rig_t *rig, const char *what, int expected, in
 	int type = exp(rig, tt);
 	if (type != expected)
 	{
-		rig_error("%s expression expected",what);
+		if (type != EXP_TYPE_ILLEGAL)	// already reported
+			rig_error("%s expression expected",what);
 		proc_level = save_proc_level;
 		return 0;
 	}
