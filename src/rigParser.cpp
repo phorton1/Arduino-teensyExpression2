@@ -2,7 +2,7 @@
 // rigParser.cpp
 //-------------------------------------------------------
 
-#define WITH_DEFAULT_RIG  1
+#define WITH_DEFAULT_RIG  0
 
 #include <myDebug.h>
 #include "rigParser.h"
@@ -35,7 +35,10 @@ static bool any_end_modal;
 
 static uint16_t rig_pool_len;
 static uint8_t  rig_pool[RIG_POOL_SIZE];
-static const rig_t *base_rig = (const rig_t *) rig_pool;
+
+
+int parse_button_num = -1;
+
 
 
 bool legalFilename(const char *name)
@@ -146,6 +149,7 @@ const char *argTypeToString(int i)
 		case PARAM_END_X        	: return "END_X";
 		case PARAM_END_Y        	: return "END_Y";
 
+		case PARAM_BUTTON_NUM		: return "BUTTON_NUM";
 		case PARAM_PEDAL_NUM 		: return "PEDAL_NUM";
 		case PARAM_PEDAL_NAME   	: return "PEDAL_NAME";
 		case PARAM_ROTARY_NUM 		: return "ROTARY_NUM";
@@ -228,6 +232,16 @@ static const int SETVALUE_ARGS[] = {		// setValue(20, VALUE[0] + 2);
 	PARAM_VALUE,
 	0 };
 
+static const int SET_BUTTON_COLOR_ARGS[] = {
+	PARAM_BUTTON_NUM,
+	PARAM_LED_COLOR_EXPRESSION,
+	0 };
+
+static const int SET_BUTTON_BLINK_ARGS[] = {
+	PARAM_BUTTON_NUM,
+	PARAM_VALUE,
+	0 };
+
 static const int DISPLAY_ARGS[] = {			// display(AREA, VALUE[0] ? BLUE : BLACK, "test");
 	PARAM_AREA_NUM,
 	PARAM_DISPLAY_COLOR_EXPRESSION,
@@ -275,11 +289,6 @@ static const int LOAD_RIG_ARGS[] = {		// LoadRig("modal")
 	0
 };
 
-static const int END_MODAL_ARGS[] = {		// LoadRig("modal")
-	PARAM_VALUE_NUM,
-	PARAM_VALUE,
-	0
-};
 
 static const int NO_ARGS[] = {
 	0
@@ -288,27 +297,29 @@ static const int NO_ARGS[] = {
 
 
 static const statement_param_t statement_params[] = {
-	{ RIG_TOKEN_DEFINE_DEF,		DEFINE_ARGS },
-	{ RIG_TOKEN_STRING_DEF, 	STRING_DEF_ARGS },
+	{ RIG_TOKEN_DEFINE_DEF,			DEFINE_ARGS },
+	{ RIG_TOKEN_STRING_DEF, 		STRING_DEF_ARGS },
 
-	{ RIG_TOKEN_AREA, 			AREA_ARGS },
-	{ RIG_TOKEN_LISTEN, 		LISTEN_ARGS },
+	{ RIG_TOKEN_AREA, 				AREA_ARGS },
+	{ RIG_TOKEN_LISTEN, 			LISTEN_ARGS },
 
-	{ RIG_TOKEN_PEDAL, 			PEDAL_ARGS },
-	{ RIG_TOKEN_ROTARY, 		ROTARY_ARGS },
-	{ RIG_TOKEN_SETVALUE, 		SETVALUE_ARGS },
-	{ RIG_TOKEN_DISPLAY, 		DISPLAY_ARGS },
-	{ RIG_TOKEN_SEND_CC, 		SEND_CC_ARGS },
-	{ RIG_TOKEN_SEND_PGM_CHG,	SEND_PGM_CHG_ARGS },
-	{ RIG_TOKEN_NOTE_ON,		NOTE_ON_ARGS },
-	{ RIG_TOKEN_NOTE_OFF,		NOTE_OFF_ARGS },
-	{ RIG_TOKEN_ALL_NOTES_OFF,	ALL_NOTE_OFF_ARGS },
+	{ RIG_TOKEN_PEDAL, 				PEDAL_ARGS },
+	{ RIG_TOKEN_ROTARY, 			ROTARY_ARGS },
+	{ RIG_TOKEN_SETVALUE, 			SETVALUE_ARGS },
+	{ RIG_TOKEN_SET_BUTTON_COLOR,	SET_BUTTON_COLOR_ARGS },
+	{ RIG_TOKEN_SET_BUTTON_BLINK,	SET_BUTTON_BLINK_ARGS },
+	{ RIG_TOKEN_DISPLAY, 			DISPLAY_ARGS },
+	{ RIG_TOKEN_SEND_CC, 			SEND_CC_ARGS },
+	{ RIG_TOKEN_SEND_PGM_CHG,		SEND_PGM_CHG_ARGS },
+	{ RIG_TOKEN_NOTE_ON,			NOTE_ON_ARGS },
+	{ RIG_TOKEN_NOTE_OFF,			NOTE_OFF_ARGS },
+	{ RIG_TOKEN_ALL_NOTES_OFF,		ALL_NOTE_OFF_ARGS },
 
-	{ RIG_TOKEN_LOAD_RIG,		LOAD_RIG_ARGS },
-	{ RIG_TOKEN_END_MODAL,		END_MODAL_ARGS },
+	{ RIG_TOKEN_LOAD_RIG,			LOAD_RIG_ARGS },
+	{ RIG_TOKEN_END_MODAL,			NO_ARGS },
 
-	{ RIG_TOKEN_FTP_TUNER,		NO_ARGS },
-	{ RIG_TOKEN_FTP_SENSITIVITY,NO_ARGS },
+	{ RIG_TOKEN_FTP_TUNER,			NO_ARGS },
+	{ RIG_TOKEN_FTP_SENSITIVITY,	NO_ARGS },
 	{ 0, 0 } };
 
 
@@ -572,6 +583,11 @@ static bool handleArg(int statement_type, int arg_type)
 		{
 			// AREA(areaExpression, FONT_SIZE, FONT_TYPE, STARTX, STARTY, ENDX, ENDY )
 
+			case PARAM_BUTTON_NUM :	// prh - to become an expression
+				if (!getNumber(&value,"BUTTON_NUM",NUM_BUTTONS-1))
+					ok = 0;
+				ok = ok && addStatementByte(value);
+				break;
 			case PARAM_AREA_NUM :
 				value = rigAreaNumExpression(parse_rig,rig_token.id);
 				ok = ok && value;
@@ -827,7 +843,7 @@ static bool handleStatement(int tt)
 	// the parse WILL end on an eof in the button section
 	// at the semi-colon at the end of a statement.
 
-	if (!skip(RIG_TOKEN_SEMICOLON, parse_section == 2))
+	if (!skip(RIG_TOKEN_SEMICOLON, parse_section == PARSE_SECTION_BUTTONS))
 	{
 		proc_leave();
 		return false;
@@ -842,7 +858,7 @@ static bool handleStatement(int tt)
 
 static bool handleStatementList(int tt)
 {
-	display(dbg_parse + 2,"handleStatementList(%d) %s",parse_rig->num_statements,rigTokenToString(tt));
+	display(dbg_parse + 1,"handleStatementList(%d) %s",parse_rig->num_statements,rigTokenToString(tt));
 	proc_entry();
 
 	// set pool offset into statements array
@@ -850,7 +866,7 @@ static bool handleStatementList(int tt)
 
 	if (parse_rig->num_statements >= MAX_STATEMENTS - 1)
 	{
-		rig_error("implementation error: too many STATMENTS (lists)");
+		rig_error("implementation error: too many STATMENTS_LISTS(%d)",parse_rig->num_statements);
 		proc_leave();
 		return false;
 	}
@@ -877,80 +893,78 @@ static bool handleStatementList(int tt)
 
 
 
-static bool handleSubsection(int button_num, int sub_id)
-{
-	bool ok = 1;
-	int sub_num = SUBSECTION_NUM(sub_id);
-	display(dbg_parse + 1,"handleSubsection(%d,%s)",button_num,rigTokenToText(sub_id));
-	proc_entry();
-
-	ok = getRigToken();					// skip the ID
-	ok = ok && skip(RIG_TOKEN_COLON);	// skip the colon
-
-	if (sub_id >= RIG_TOKEN_PRESS)
-	{
-		if (!IS_BUTTON_STATEMENT(rig_token.id))
-		{
-			rig_error("Button statement expected");
-			proc_leave();
-			return false;
-		}
-
-		// set this button's statement list index for the given subsection
-		// to the next statement list that will be parsed.
-
-		display(dbg_parse + 1,"    uses statement(%d)",parse_rig->num_statements);
-		display(dbg_parse + 1,"    button_ref set to %d",parse_rig->num_statements+1);
-
-		parse_rig->button_refs[button_num][sub_num] = parse_rig->num_statements + 1;
-			// 1 based so that we can identify a used statement list
-
-		ok = handleStatementList(rig_token.id);
-	}
-	else if (sub_id == RIG_TOKEN_COLOR)
-	{
-		uint16_t offset = rigLedColorExpression(parse_rig,rig_token.id);
-		ok = offset;
-		if (ok)
-			parse_rig->button_refs[button_num][sub_num] = offset;
-		ok = ok && skip(RIG_TOKEN_SEMICOLON);
-	}
-	else	// BLINK
-	{
-		uint16_t offset = rigNumericExpression(parse_rig,rig_token.id);
-		ok = offset;
-		if (ok)
-			parse_rig->button_refs[button_num][sub_num] = offset;
-		ok = ok && skip(RIG_TOKEN_SEMICOLON);
-	}
-
-	proc_leave();
-	if (ok)
-		display(dbg_parse + 2,"handleSubsection(%d,%s) finished",button_num,rigTokenToText(sub_id));
-	return ok;
-}
-
-
 static bool handleSubsections(int button_num)
 {
-	bool done[NUM_SUBSECTIONS];
-	for (int i=0; i<NUM_SUBSECTIONS; i++)
-		done[i] =0;
-
 	display(dbg_parse + 2,"handleSubsections(%d) %s",button_num,rigTokenToText(rig_token.id));
 
 	bool ok = 1;
-	while (ok && IS_SUBSECTION(rig_token.id))
+	while (ok && (IS_SUBSECTION(rig_token.id) || IS_STATEMENT(rig_token.id)))
 	{
-		if (done[SUBSECTION_NUM(rig_token.id)])
+		int ref_num = 0;
+		uint16_t type = 0;
+
+		if (IS_SUBSECTION(rig_token.id))
 		{
-			rig_error("Multiple definitions of BUTTON Subsection(%s)",rigTokenToString(rig_token.id));
-			ok = 0;
+			display(dbg_parse + 1,"parsing subsections(%d,%s)",button_num,rigTokenToText(rig_token.id));
+			type =
+				rig_token.id == RIG_TOKEN_RELEASE ? BUTTON_TYPE_RELEASE :
+				rig_token.id == RIG_TOKEN_REPEAT ? BUTTON_TYPE_REPEAT :
+				rig_token.id == RIG_TOKEN_PRESS ? BUTTON_TYPE_PRESS :
+				rig_token.id == RIG_TOKEN_LONG ? BUTTON_TYPE_LONG :
+				BUTTON_TYPE_CLICK;
+
+			uint16_t existing_type = parse_rig->button_type[button_num] & ~BUTTON_TYPE_UPDATE;
+			bool type_is_clicky = (type == BUTTON_TYPE_CLICK || type == BUTTON_TYPE_LONG);
+			bool existing_is_clicky = (existing_type == BUTTON_TYPE_CLICK || existing_type == BUTTON_TYPE_LONG);
+			bool type_is_release = (type == BUTTON_TYPE_RELEASE);
+			bool existing_is_release = (existing_type == BUTTON_TYPE_RELEASE);
+
+			if ((parse_rig->rig_type & RIG_TYPE_MODAL) &&
+				button_num == THE_SYSTEM_BUTTON &&
+				type != BUTTON_TYPE_CLICK)
+			{
+				rig_error("Only CLICK can be specified for THE_SYSTEM_BUTTON(4) in BaseRigs",0);
+				ok = 0;
+			}
+			else if (existing_type && type_is_clicky != existing_is_clicky)
+			{
+				rig_error("CLICK can only be used with LONG");
+				ok = 0;
+			}
+			else if (existing_type && !type_is_clicky &&
+					 type_is_release == existing_is_release)
+			{
+				rig_error("PRESS/REPEAT can only be used with RELEASE");
+				ok = 0;
+			}
+
+			ref_num = type & BUTTON_TYPE_MASK_REF1 ? 1 : 2;
+
+			if (ok)
+				ok = getRigToken();			// skip the section identifier
+			if (ok)
+				ok = skip(RIG_TOKEN_COLON);	// skip the colon
+
 		}
-		else
+		else if (IS_STATEMENT(rig_token.id))
 		{
-			done[SUBSECTION_NUM(rig_token.id)] = 1;
-			ok = handleSubsection(button_num,rig_token.id);
+			display(dbg_parse + 1,"parsing update list(%d,%s)",button_num,rigTokenToText(rig_token.id));
+			type = BUTTON_TYPE_UPDATE;
+			if (parse_rig->button_type[button_num] & BUTTON_TYPE_UPDATE)
+			{
+				rig_error("There is already an update section defined for this button");
+				ok = 0;
+			}
+		}
+
+		if (ok)
+		{
+			parse_button_num = button_num;
+			parse_rig->button_type[button_num] |= type;
+			parse_rig->button_refs[button_num][ref_num] = parse_rig->num_statements + 1;
+				// statement refs are 1 based
+			ok = handleStatementList(rig_token.id);
+			parse_button_num = -1;
 		}
 	}
 
@@ -960,56 +974,135 @@ static bool handleSubsections(int button_num)
 }
 
 
+
 static bool handleButton()
 {
 	display(dbg_parse + 1,"handleButton()",0);
 	proc_entry();
 
+	int button_idx = 0;
+	uint32_t button_mask = 0;
+
 	bool ok = getRigToken();
 	ok = ok && skip(RIG_TOKEN_LEFT_PAREN);
-	if (ok && rig_token.id != RIG_TOKEN_NUMBER)
-	{
-		ok = 0;
-		rig_error("BUTTON number expected");
-	}
-	int button_num = rig_token.int_value;
-	if (button_num < 0 || button_num >= NUM_BUTTONS)
-	{
-		ok = 0;
-		rig_error("BUTTON number must be between 0 and 24");
-	}
-	if (ok)
-	{
-		display(dbg_parse + 1,"BUTTON_NUM = %d",button_num);
 
-		ok = getRigToken();		// skip the BUTTON number
-		ok = ok && skip(RIG_TOKEN_RIGHT_PAREN);
-		ok = ok && skip(RIG_TOKEN_COLON);
-
-		bool is_inherit = rig_token.id == RIG_TOKEN_INHERIT;
-
-		if (ok && is_inherit)
+	while (ok && rig_token.id == RIG_TOKEN_NUMBER)
+	{
+		if (!button_idx && rig_token.id != RIG_TOKEN_NUMBER)
 		{
-			display(dbg_parse,"    INHERIT(%d)",button_num);
-			parse_rig->button_refs[button_num][0] = BUTTON_INHERIT_FLAG;
-			ok = getRigToken();							// skip the INHERIT
-			ok = ok && skip(RIG_TOKEN_SEMICOLON, true);	// may end on this
+			rig_error("at least one BUTTON number expected");
+			ok = 0;
 		}
 		else
 		{
-			if (ok && !IS_SUBSECTION(rig_token.id))
+			int button_num = rig_token.int_value;
+			if (button_num < 0 || button_num >= NUM_BUTTONS)
 			{
+				rig_error("BUTTON number must be between 0 and 24");
 				ok = 0;
-				rig_error("BUTTON subsection expected");
 			}
+			else
+			{
+				display(dbg_parse + 2,"BUTTON_NUM = %d",button_num);
+				button_idx++;
+				uint32_t mask = 1 << button_num;
+				display(dbg_parse + 2,"added button_num(0x%02x) to mask(0x%02x)",button_num,mask);
+				// PRH still need to check that this button was not previously defined
+
+				if (button_mask)
+				{
+					rig_error("BUTTON number listed more than once");
+					ok = 0;
+				}
+				else
+				{
+					button_mask |= mask;
+				}
+			}
+
 			if (ok)
-				ok = handleSubsections(button_num);
+			{
+				ok = getRigToken();		// skip the BUTTON number
+				if (ok && rig_token.id == RIG_TOKEN_COMMA)
+				{
+					ok = getRigToken();		// skip the COMMA
+					if (ok && rig_token.id != RIG_TOKEN_NUMBER)
+					{
+						rig_error("BUTTON number expected");
+						ok = 0;
+					}
+				}
+			}
 		}
+	}
+
+	ok = ok && skip(RIG_TOKEN_RIGHT_PAREN);
+	ok = ok && skip(RIG_TOKEN_COLON);
+
+	bool is_inherit = 0;
+
+	if (ok)
+	{
+		uint32_t parse_offset = rig_token.offset;
+		int		 parse_line_num = rig_token.line_num;
+		int		 parse_char_num = rig_token.char_num;
+
+		for (int idx=0; idx<button_idx && ok; idx++)
+		{
+			if (idx && !is_inherit)
+				rewindRigFile(parse_offset,parse_line_num,parse_char_num);
+
+			int num = 0;
+			int button_num = -1;
+			int skip_mask = idx;
+			uint32_t mask = button_mask;
+			while (mask && parse_button_num == -1)
+			{
+				if (mask & 1)
+				{
+					if (!skip_mask--)	// this is the one we're looking for
+					{
+						button_num = num;
+						break;
+					}
+				}
+				num++;
+				mask >>= 1;
+			}
+
+			display(dbg_parse + 1,"PARSING BUTTON(%d) at offset(%d) line(%d) char(%d)",
+				button_num,parse_offset,parse_line_num,parse_char_num);
+
+			is_inherit = rig_token.id == RIG_TOKEN_INHERIT;
+			if (is_inherit)
+			{
+				if (!(parse_rig->rig_type & RIG_TYPE_MODAL))
+				{
+					rig_error("INHERIT may only be used in ModalRigs");
+					ok = 0;
+				}
+				else
+				{
+					display(dbg_parse + 1,"    INHERIT(%d)",button_num);
+					parse_rig->button_type[button_num] = BUTTON_TYPE_INHERIT;
+				}
+			}
+			else
+			{
+				ok = handleSubsections(button_num);
+			}
+		}
+	}
+
+	if (ok && is_inherit)
+	{
+		ok = getRigToken();							// skip the INHERIT
+		ok = ok && skip(RIG_TOKEN_SEMICOLON, true);	// may end on this
 	}
 
 	proc_leave();
 	if (ok)
-		display(dbg_parse + 2,"handleButton(%d) finished",button_num);
+		display(dbg_parse + 2,"handleButton() returning %d",ok);
 	return ok;
 }
 
@@ -1136,12 +1229,24 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 			}
 		}
 
-		// init_statements
+		// init_statements and onUpdate statements
+		// note that we SET the num_statements after each try
+		// regardless if any were parsed
 
 		if (ok && IS_INIT_STATEMENT(tt))
 			ok = ok && handleStatementList(tt);
+
 		parse_rig->num_statements = 1;
-			// even if empty
+		parse_rig->statements[parse_rig->num_statements] = parse_rig->statement_pool_len;
+
+		if (ok && tt == RIG_TOKEN_ON_UPDATE)
+		{
+			ok = skip(RIG_TOKEN_COLON);
+			ok = ok && handleStatementList(tt);
+		}
+
+		parse_rig->num_statements = 2;
+		parse_rig->statements[parse_rig->num_statements] = parse_rig->statement_pool_len;
 
 		// buttons
 
@@ -1151,12 +1256,13 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 			if (tt == RIG_TOKEN_EOF)
 			{
 				ok = false;
+				// this is no longer technically true
 				rig_error("At least one BUTTON must be implemented");
 			}
 			else if (tt != RIG_TOKEN_BUTTON)
 			{
 				ok = false;
-				rig_error("BUTTON expected NOT %s",rigTokenToString(tt));
+				rig_error("first BUTTON expected, NOT %d=%s",tt,rigTokenToString(tt));
 			}
 		}
 		else if (ok)
@@ -1168,7 +1274,7 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 			if (ok && rig_token.id != RIG_TOKEN_EOF)
 			{
 				ok = false;
-				rig_error("BUTTON expected NOT %",rigTokenToString(rig_token.id));
+				rig_error("BUTTON expected, NOT %d=%s",tt,rigTokenToString(rig_token.id));
 			}
 		}
 

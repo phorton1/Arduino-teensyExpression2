@@ -10,9 +10,16 @@
 #define MAX_PARAMS			8		// from AREA statement
 #define MAX_RIG_STACK  		10
 
+#define AREA_TYPE_NONE		0
+#define AREA_TYPE_STRING	1
+#define AREA_TYPE_VMETER	2
+#define AREA_TYPE_HMETER    3
+
 
 typedef struct
 {
+	uint8_t		type;
+
 	uint8_t		font_size;
 	uint8_t     font_type;		// NORMAL, BOLD
 	uint8_t		font_just;		// LEFT, CENTER, RIGHT
@@ -20,6 +27,10 @@ typedef struct
 	int16_t		ys;
 	int16_t		xe;
 	int16_t		ye;
+
+	int			last_display_value;
+	const char *last_display_string;
+
 } rigArea_t;	// 10 bytes
 
 

@@ -69,7 +69,7 @@ static void dumpDisplay(const char *line)
 #define DT_STOP_ZERO	0x010		// stop on first zero found
 #define DT_CONST_CHAR   0x020		// it's a const char * declaration
 #define DT_CONST_UINT8  0x040		// it's a const uint8_t * declaration
-#define DT_GROUP_BY7	0x080		// group button_refs by 7's
+#define DT_GROUP_BY_REFS	0x080		// group button_refs by 3's
 
 
 static void dumpArray(
@@ -104,7 +104,7 @@ static void dumpArray(
 			how & DT_16 ? 7 : 5 ;
 
 	int num_per_line =
-		how & DT_GROUP_BY7 ? 7 :
+		how & DT_GROUP_BY_REFS ? NUM_REFS_PER_BUTTON :
 		how & DT_16 ? 10 : 16;
 
 	char format1[12];
@@ -155,14 +155,14 @@ static void dumpArray(
 			{
 				if (dump_buf[0])
 				{
-					if (how & DT_GROUP_BY7)
+					if (how & DT_GROUP_BY_REFS)
 						sprintf(&dump_buf[strlen(dump_buf)],"},");
 					rig_file.println(dump_buf);
 					dump_buf[0] = 0;
 				}
 				dump_buf[0] = 0;
 				displayIndent();
-				if (how & DT_GROUP_BY7)
+				if (how & DT_GROUP_BY_REFS)
 					rig_file.print("{ ");
 			}
 
@@ -184,7 +184,7 @@ static void dumpArray(
 
 	if (dump_buf[0])
 	{
-		if (how & DT_GROUP_BY7)
+		if (how & DT_GROUP_BY_REFS)
 			sprintf(&dump_buf[strlen(dump_buf)],"},");
 		rig_file.println(dump_buf);
 	}
@@ -270,8 +270,8 @@ void dumpRigCode(const rig_t *rig)
 		prefix,".define_values",rig->define_values,RIG_NUM_DEFINES);
 	dumpArray( DT_16 | DT_STOP_ZERO,
 		prefix,".statements",rig->statements,MAX_STATEMENTS+1);
-	dumpArray( DT_16 | DT_HEX | DT_GROUP_BY7,
-		prefix,".button_refs",(const uint16_t *)rig->button_refs,NUM_BUTTONS*NUM_SUBSECTIONS);
+	dumpArray( DT_16 | DT_HEX | DT_GROUP_BY_REFS,
+		prefix,".button_refs",(const uint16_t *)rig->button_refs,NUM_BUTTONS*NUM_REFS_PER_BUTTON);
 	dumpArray( DT_16,
 		prefix,".strings",rig->strings,RIG_NUM_STRINGS);
 

@@ -85,9 +85,9 @@ static int atom(rig_t *rig, int tt)
 		type = EXP_TYPE_LED_COLOR;
 		uint8_t byte = EXP_INLINE | EXP_LED_COLOR;
 		ok = addExpByte(rig, byte);
-		ok = ok && addExpByte(rig, LED_COLOR(tt));
+		ok = ok && addExpByte(rig, RIG_LED_COLOR(tt));
 		ok = ok && getRigToken();
-		dbg_ret = (byte << 8) | LED_COLOR(tt);
+		dbg_ret = (byte << 8) | RIG_LED_COLOR(tt);
 	}
 	else if (IS_DISPLAY_COLOR(tt))
 	{
@@ -95,9 +95,9 @@ static int atom(rig_t *rig, int tt)
 		type = EXP_TYPE_DISPLAY_COLOR;
 		uint8_t byte = EXP_INLINE | EXP_DISPLAY_COLOR;
 		ok = addExpByte(rig, byte);
-		ok = ok && addExpByte(rig, DISPLAY_COLOR(tt));
+		ok = ok && addExpByte(rig, RIG_DISPLAY_COLOR(tt));
 		ok = ok && getRigToken();
-		dbg_ret = (byte << 8) | DISPLAY_COLOR(tt);
+		dbg_ret = (byte << 8) | RIG_DISPLAY_COLOR(tt);
 	}
 	else if (tt == RIG_TOKEN_NUMBER)
 	{

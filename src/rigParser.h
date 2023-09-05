@@ -1,6 +1,43 @@
 //-------------------------------------------------------
 // rigParser.h
 //-------------------------------------------------------
+// add tokens
+//		BUTTON_NUM
+//      VERT
+//      HORZ
+// add section
+//		onUpdate
+// add statments
+//		setButtonColor
+//		setButtonBlink
+//				these may be included anywhere, but only once per button
+//				the button number MUST evaluate to a constant.
+//              they set a new button type BUTTON_DISPLAYABLE
+//      Meter (derivative of Area)
+//      setMeter
+//	    displayNumber
+// Color and Blink now to be represented a single per-button statement list
+//		that get executed in addition to the onUpdate statement list
+//      on each update cycle.
+// Add a button type array
+//      with bits defining whether it has an update section
+//      or any button refs, that also makes it easy to generate buttons
+// There are now three refs for a button and the are all statement lists
+//      update   (statments before click or long)
+//		click    OR    press/repeat
+//      long	 OR    release
+// Buttons may now be "display only" .. which replaces how we do
+//      the ftpTuner
+// The parser will now parse BUTTON(n,n,n,n) into a mask
+//      and remember the token_offset of the 0th button parsed.
+//      it will pass -1 or the button number into any expression evaulation
+//      which gets interpreted as a numerical constant
+// The expression parser will do constant folding through defines
+// rigMachine
+//		areas & meters remember their last displayed value
+//      	and only re-display them if changed.  They are re-displayed
+//      	to their previous values on begin(warm).
+
 
 #pragma once
 
@@ -9,8 +46,6 @@
 
 // Special constants
 
-#define BUTTON_INHERIT_FLAG		0xFFFF
-
 #define RIG_TYPE_MODAL		0x0001		// rig is a modal rig
 #define RIG_TYPE_SYSTEM		0x0002		// rig was loaded from constants
 
@@ -18,7 +53,8 @@
 
 #define MAX_RIG_VALUE			255		// stored in uint8's
 #define MAX_DEFINE_VALUE		255		// stored in uint8's
-#define MAX_STATEMENTS 			(1 + NUM_BUTTONS * NUM_SUBSECTIONS)
+#define NUM_REFS_PER_BUTTON		3
+#define MAX_STATEMENTS 			(2 + NUM_BUTTONS*NUM_REFS_PER_BUTTON + 1)
 
 // These can be increased upto 255 (uint18_t)
 // as needed to accomodate larger programs
@@ -47,6 +83,19 @@
 	MAX_STATEMENT_POOL + \
 	MAX_EXPRESSION_POOL )
 
+// BUTTON types
+
+#define BUTTON_TYPE_UPDATE		0x0001		// button has update statements
+#define BUTTON_TYPE_CLICK		0x0010		// only one of these three can be set
+#define BUTTON_TYPE_PRESS		0x0020		// PRESS/REPEAT must go with RELEASE
+#define BUTTON_TYPE_REPEAT		0x0040
+#define BUTTON_TYPE_LONG		0x0100		// only none of these two can be set
+#define BUTTON_TYPE_RELEASE		0x0200		// CLICK must go with LONG
+#define BUTTON_TYPE_INHERIT     0x1000		// must be by itself
+
+#define BUTTON_TYPE_MASK_REF1	0x00f0
+#define BUTTON_TYPE_MASK_REF2	0x0f00
+
 
 typedef struct
 {
@@ -69,10 +118,14 @@ typedef struct
 	uint8_t  define_values[RIG_NUM_DEFINES+1];
 	uint16_t statements[MAX_STATEMENTS + 1];
 
-	uint16_t button_refs[NUM_BUTTONS][NUM_SUBSECTIONS];
-		// button_refs are 1 based indexes into statement lists
-		// and 1 based offsets into the expression pool, so that
-		// we can identify used buttons.
+	uint16_t button_type[NUM_BUTTONS];
+	uint16_t button_refs[NUM_BUTTONS][3];
+		// The 0th ref is the update statment list, if any
+		// The 1st ref is the click or press/repeat statement list, if any
+		// The 2nd ref is the long or release statement list, if any
+		// We no longer need to make these 1 based, as the button_type
+		// 		defines whether these are used or not.
+
 	uint16_t strings[RIG_NUM_STRINGS];
 
 	const char 	*define_pool;
@@ -128,9 +181,10 @@ extern const rig_t *parseRig(const char *rig_name, uint16_t how = 0);
 
 // general statements
 
-#define PARAM_PEDAL_NUM      20
-#define PARAM_PEDAL_NAME     21		// lmited to 7 in length
-#define PARAM_ROTARY_NUM	 22
+#define PARAM_BUTTON_NUM	 20
+#define PARAM_PEDAL_NUM      21
+#define PARAM_PEDAL_NAME     22		// lmited to 7 in length
+#define PARAM_ROTARY_NUM	 23
 
 #define PARAM_VALUE_NUM      30		// LISTEN, setValue, and endModal
 #define PARAM_VALUE			 31		// setValue value

@@ -8,7 +8,6 @@
 // from onButton, and evalauating it's parameters, at the same time as we
 // try to evaluate a COLOR/BLINK expression.
 
-
 #include <myDebug.h>
 #include "rigMachine.h"
 #include "rigExpression.h"
@@ -22,15 +21,20 @@
 #include "winFtpSensitivity.h"
 
 
-#define dbg_rig 	0
+#define AUTO_START_RIGS	 0
+
+
+#define dbg_rig 	-1
 	// 0 = show loadRig() and onButton() calls
 	// -1 = show rig setButtonType() calls
-#define dbg_stmt    0
+#define dbg_stmt    1
 	// 0  = show executeStatementList()
 	// -1 = show individual Statements
 #define dbg_calls	0
 	// 0 = show functions actually called by statements
-	// -1 = show rigDisplay() details
+	// -1 = show functions called during update cycle
+#define dbg_display  1
+	// 0 = show rigDisplay() details
 #define dbg_param	1
 	// 0  = just show final param value
 	// -1 = show param details and expression header
@@ -39,9 +43,8 @@
 	// 0  = show onMidiCC setting of Listen Values
 	// -1 = show onMidiCC header
 	// -2 = show onMidiCC checking each listen
-#define dbg_btns	1
-	// show calls to setButtonColor and setButtonBlink during loop() expression handling
-
+#define dbg_refs	1
+	// show calls to inheritRefs
 
 
 //------------------------------------
@@ -54,6 +57,8 @@
 #define LOAD_STATE_ERR_START 	3
 
 rigMachine rig_machine;
+
+int in_update_cycle = 0;
 
 
 //------------------------------------------------------
@@ -170,14 +175,12 @@ const uint16_t *rigMachine::inheritButtonRefs(int num, const rig_t **ret_context
 {
 	int use_ptr = m_stack_ptr;
 	const rig_t *context = m_stack[use_ptr-1].rig;
+	uint16_t type = context->button_type[num];
 	const uint16_t *refs = context->button_refs[num];
-	uint16_t ref = refs[0];
 
-	// somehow need to implement inherit
-
-	while (ref == BUTTON_INHERIT_FLAG)
+	while (type == BUTTON_TYPE_INHERIT)
 	{
-		display(dbg_btns,"rig(%d,%s) updateUI(%d) INHERITING from rig(%d,%s)",
+		display(dbg_refs,"rig(%d,%s) updateUI(%d) INHERITING from rig(%d,%s)",
 			use_ptr-1,
 			m_stack[use_ptr-1].name,
 			num,
@@ -185,8 +188,8 @@ const uint16_t *rigMachine::inheritButtonRefs(int num, const rig_t **ret_context
 			m_stack[use_ptr-2].name);
 		use_ptr--;
 		context = m_stack[use_ptr-1].rig;
+		type = context->button_type[num];
 		refs = context->button_refs[num];
-		ref = refs[0];
 	}
 
 	*ret_context = context;
@@ -304,33 +307,28 @@ bool rigMachine::startRig(const rig_t *rig, bool cold)
 
 	if (ok)
 	{
-		for (int i=0; i<NUM_BUTTONS; i++)
+		for (int button_num=0; button_num<NUM_BUTTONS; button_num++)
 		{
-			#define SUBSECTION_LAST_CODE  (RIG_TOKEN_REPEAT - RIG_TOKEN_COLOR)
+			const rig_t *context;
+			inheritButtonRefs(button_num,&context);
+			uint16_t type = context->button_type[button_num];
 
 			// invariantly add the long click for the system button
-			// which *may* be inherited by this rig
+			// in the base rig
 
-			int mask = (i == THE_SYSTEM_BUTTON) ? BUTTON_EVENT_LONG_CLICK : 0;
+			uint16_t mask = (button_num == THE_SYSTEM_BUTTON) && !(context->rig_type & RIG_TYPE_MODAL) ?
+				BUTTON_EVENT_LONG_CLICK : 0;
 
-			const rig_t *context;
-			const uint16_t *refs = inheritButtonRefs(i,&context);
-			for (uint16_t j=RIG_TOKEN_PRESS; j<=RIG_TOKEN_REPEAT; j++)
-			{
-				if (refs[j - RIG_TOKEN_COLOR])
-				{
-					// prh - parser should only allow click on THE_SYSTEM_BUTTON
-					// and should not allow REPEAT on CLICKS or PRESS
-					if (j == RIG_TOKEN_PRESS)	mask |= BUTTON_EVENT_PRESS;
-					if (j == RIG_TOKEN_CLICK)   mask |= BUTTON_EVENT_CLICK;
-					if (j == RIG_TOKEN_LONG)	mask |= BUTTON_EVENT_LONG_CLICK;
-					if (j == RIG_TOKEN_RELEASE) mask |= BUTTON_EVENT_RELEASE;
-					if (j == RIG_TOKEN_REPEAT)  mask |= BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT;
-				}
-			}
+			// display only button type not implemented yet
 
-			display(dbg_rig+1,"setButton(%d,0x%04x)",i,mask);
-			the_buttons.setButtonType(i,mask);
+			if (type & BUTTON_TYPE_CLICK)  	mask |= BUTTON_EVENT_CLICK;
+			if (type & BUTTON_TYPE_LONG) 	mask |= BUTTON_EVENT_LONG_CLICK;
+			if (type & BUTTON_TYPE_REPEAT) 	mask |= BUTTON_EVENT_PRESS | BUTTON_MASK_REPEAT;
+			if (type & BUTTON_TYPE_PRESS) 	mask |= BUTTON_EVENT_PRESS;
+			if (type & BUTTON_TYPE_RELEASE)	mask |= BUTTON_EVENT_RELEASE;
+
+			display(dbg_rig+1,"setButton(%d,0x%04x) type(0x%04x)",button_num,mask,type);
+			the_buttons.setButtonType(button_num,mask);
 		}
 	}
 
@@ -374,7 +372,7 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 	proc_entry();
 	rigArea_t *area = &m_rig_state.areas[area_num];
 
-	display(dbg_calls+1,"rigDisplay(%d,%d=%s,\"%s\") font_size=%d",
+	display(dbg_display,"rigDisplay(%d,%d=%s,\"%s\") font_size=%d",
 		area_num,
 		color,
 		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
@@ -427,7 +425,7 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 		}
 	}
 
-	display(dbg_calls+1,"calling print_justified(%d,%d,%d,%d,  %d, %d=%s,BLACK,1,\"%s\")",
+	display(dbg_display,"calling print_justified(%d,%d,%d,%d,  %d, %d=%s,BLACK,1,\"%s\")",
 		client_rect.xs + area->xs,
 		client_rect.ys + area->ys,
 		area->xe - area->xs + 1,
@@ -600,6 +598,7 @@ bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, c
 			*offset += 2;
 			break;
 
+		case PARAM_BUTTON_NUM :
 		case PARAM_FONT_TYPE :
 		case PARAM_FONT_JUST :
 		case PARAM_FONT_SIZE :
@@ -624,7 +623,7 @@ bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, c
 			break;
 
 		default:
-			rig_error("evalParam - unknown arg_type(%d) at offset%d)",arg_type,*offset);
+			rig_error("evalParam - unknown arg_type(%d) at offset(%d)",arg_type,*offset);
 			ok = 0;
 			break;
 	}
@@ -665,10 +664,24 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 		switch (tt)
 		{
 			case RIG_TOKEN_SETVALUE:
-				display(dbg_calls,"setValue(%d,%d)",
+				display(dbg_calls+in_update_cycle,"setValue(%d,%d)",
 					m_param_values[0].value,
 					m_param_values[1].value);
 				m_rig_state.values[m_param_values[0].value] = m_param_values[1].value;
+				break;
+
+			case RIG_TOKEN_SET_BUTTON_COLOR:
+				display(dbg_calls+in_update_cycle,"setButtonColor(%d,%d=%s)",
+					m_param_values[0].value,
+					m_param_values[1].value,
+					rigTokenToText(m_param_values[1].value + RIG_TOKEN_LED_BLACK));
+				the_buttons.setButtonColor(m_param_values[0].value,LED_COLORS[m_param_values[1].value]);
+				break;
+			case RIG_TOKEN_SET_BUTTON_BLINK:
+				display(dbg_calls+in_update_cycle,"setButtonBlink(%d,%d)",
+					m_param_values[0].value,
+					m_param_values[1].value);
+				the_buttons.setButtonBlink(m_param_values[0].value,m_param_values[1].value);
 				break;
 
 			case RIG_TOKEN_AREA:
@@ -682,6 +695,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 					m_param_values[6].value,
 					m_param_values[7].value);
 				idx = m_param_values[0].value;
+				m_rig_state.areas[idx].type      = AREA_TYPE_STRING;
 				m_rig_state.areas[idx].font_size = m_param_values[1].value;
 				m_rig_state.areas[idx].font_type = m_param_values[2].value;
 				m_rig_state.areas[idx].font_just = m_param_values[3].value;
@@ -738,7 +752,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				break;
 
 			case RIG_TOKEN_DISPLAY:
-				display(dbg_calls,"display(%d,%d=%s,\"%s\")",
+				display(dbg_calls+in_update_cycle,"display(%d,%d=%s,\"%s\")",
 					m_param_values[0].value,
 					m_param_values[1].value,
 					rigTokenToText(m_param_values[1].value + RIG_TOKEN_DISPLAY_BLACK),
@@ -901,34 +915,18 @@ void rigMachine::onButton(int row, int col, int event)
 
 	const rig_t *context;
 	const uint16_t *refs = inheritButtonRefs(num,&context);
-
+	int ref_num = 1;
 	// process the button
 
-	uint16_t tt = 0;
-	if (event == BUTTON_EVENT_PRESS)
+	if (event == BUTTON_EVENT_LONG_CLICK ||
+		event == BUTTON_TYPE_RELEASE)
 	{
-		if (refs[SUBSECTION_NUM(RIG_TOKEN_REPEAT)])		// press should not be allowed with repeat; repeat takes precedence
-			tt = RIG_TOKEN_PRESS;
-		else
-			tt = RIG_TOKEN_PRESS;
+		ref_num = 2;
 	}
-	else if (event == BUTTON_EVENT_CLICK)
-		tt = RIG_TOKEN_CLICK;
-	else if (event == BUTTON_EVENT_LONG_CLICK)
-		tt = RIG_TOKEN_LONG;
-	else if (event == BUTTON_EVENT_RELEASE)
-		tt = RIG_TOKEN_RELEASE;
-
-	if (tt)
-	{
-		int ref_num = SUBSECTION_NUM(tt);
-		uint16_t ref = refs[ref_num];
-		display(dbg_rig,"checking tt(%s=%d) ref=%d",rigTokenToText(tt),ref_num,ref);
-		if (ref)
-		{
-			executeStatementList(context,ref-1);
-		}
-	}
+	uint16_t ref = refs[ref_num];
+	display(dbg_rig+1,"checking button(%d) ref_num(%d) ref(%d)",num,ref_num,ref);
+	if (ref)
+		executeStatementList(context,ref-1);
 
 	proc_leave();
 	display(dbg_rig+1,"rigMachine::onButton(%d) 0x%04x finished",num,event);
@@ -942,10 +940,12 @@ void rigMachine::onButton(int row, int col, int event)
 
 static bool pref_rig_failed;
 static bool default_rig_failed;
+static bool update_failed;
 	// rigs shall not fail twice
 
 void rigMachine::updateUI()
 {
+
 	//---------------------------------------------
 	// asynchronous rig loading
 	//---------------------------------------------
@@ -978,31 +978,35 @@ void rigMachine::updateUI()
 		m_load_state = LOAD_STATE_NONE;
 	}
 
-	// if no rig is loaded, try to load the
-	// preferred rig and if that fails try
-	// to load the default rig
+	#if AUTO_START_RIGS
+		// if no rig is loaded, try to load the
+		// preferred rig and if that fails try
+		// to load the default rig
 
-	if (m_load_state == LOAD_STATE_NONE &&
-		!m_rig_loaded &&
-		!pref_rig_failed)
-	{
-		display(dbg_rig,"updateUI() loading preferred rig: %s",prefs.RIG_NAME);
-		if (!loadRig(prefs.RIG_NAME))
-			pref_rig_failed = 1;
-	}
+		if (m_load_state == LOAD_STATE_NONE &&
+			!m_rig_loaded &&
+			!pref_rig_failed)
+		{
+			display(dbg_rig,"updateUI() loading preferred rig: %s",prefs.RIG_NAME);
+			if (!loadRig(prefs.RIG_NAME))
+				pref_rig_failed = 1;
+		}
 
-	// This means that if the default rig IS
-	// the pref rig, and I have a problem in the
-	// default rig, it will try to load it twice
+		// This means that if the default rig IS
+		// the pref rig, and I have a problem in the
+		// default rig, it will try to load it twice
 
-	if (m_load_state == LOAD_STATE_NONE &&
-		!m_rig_loaded &&
-		!default_rig_failed)
-	{
-		display(dbg_rig,"updateUI() loading default rig: %s",DEFAULT_RIG_TOKEN);
-		if (!loadRig(DEFAULT_RIG_TOKEN))
-			default_rig_failed = 1;
-	}
+		if (m_load_state == LOAD_STATE_NONE &&
+			!m_rig_loaded &&
+			!default_rig_failed)
+		{
+			display(dbg_rig,"updateUI() loading default rig: %s",DEFAULT_RIG_TOKEN);
+			if (!loadRig(DEFAULT_RIG_TOKEN))
+				default_rig_failed = 1;
+		}
+
+
+	#endif
 
 	// and finally, return if no rig loaded
 
@@ -1012,52 +1016,24 @@ void rigMachine::updateUI()
 	//-------------------------------------
 	// rig loaded
 	//-------------------------------------
-	// evaulate and act on any defined button color or blink expression
-	// if a button has a color expression, evaluate it and set it to the button.
-	// and then if it has a blink, evaluate that, and set that into the button
+	// for safety we only allow one update error
 
-	suppress_rig_dialogs = 1;
-
-	evalResult_t rslt;
-	for (int num=0; num<NUM_BUTTONS; num++)
+	if (!update_failed)
 	{
-		const rig_t *context;
-		const uint16_t *refs = inheritButtonRefs(num,&context);
-		uint16_t ref = refs[SUBSECTION_NUM(RIG_TOKEN_COLOR)];
-
-		if (ref)		// REFS[0] IS COLOR !!!
+		bool ok = 1;
+		in_update_cycle = 1;
+		const rig_t *rig = m_stack[m_stack_ptr-1].rig;
+		if (rig->statements[1] < rig->statements[2])
+			ok = executeStatementList(rig,1);
+		for (int num=0; num<NUM_BUTTONS && ok; num++)
 		{
-			if (evalCodeExpression(context, &rslt, "LED_COLOR", ref))
-			{
-				// these checks are only to generate change debug messags
-				if (the_buttons.getButtonColor(num) != LED_COLORS[rslt.value])
-				{
-					display(dbg_btns,"rigMachine calling setButtonColor(%d) to index %d=0x%06x  old=0x%06x",
-						num,
-						rslt.value,
-						LED_COLORS[rslt.value],
-						the_buttons.getButtonColor(num));
-					the_buttons.setButtonColor(num,LED_COLORS[rslt.value]);
-				}
-
-				ref = refs[SUBSECTION_NUM(RIG_TOKEN_BLINK)];
-				if (ref)
-				{
-					if (evalCodeExpression(context, &rslt, "BLINK", ref))
-					{
-						if (the_buttons.getButtonBlink(num) != rslt.value)
-						{
-							display(dbg_btns,"rigMachine calling setButtonBlink(%d,%d)",
-								num,
-								rslt.value);
-							the_buttons.setButtonBlink(num,rslt.value);
-						}
-					}
-				}
-			}
+			const rig_t *context;
+			const uint16_t *refs = inheritButtonRefs(num,&context);
+			if (refs[0])
+				ok = executeStatementList(context,refs[0]-1);
 		}
+		if (!ok)
+			update_failed = 1;
+		in_update_cycle = 0;
 	}
-
-	suppress_rig_dialogs = 0;
-
 }

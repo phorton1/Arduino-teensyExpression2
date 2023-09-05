@@ -8,8 +8,9 @@
 #include "rigExpression.h"
 
 
-#define dbg_code 1
-	// show the statements and exptessions code
+#define dbg_code 0
+	// 0 = show header details (arrrays)
+	// -1 = show bytes of code
 #define dbg_dump 1
 	// 1 = basic state
 	// 0 = dump
@@ -204,7 +205,7 @@ static bool dumpCodeExpression(const rig_t *rig, const char *what, uint16_t offs
 }
 
 
-static bool dumpParam(const rig_t *rig, bool button_section, int arg_type, bool last, const uint8_t *code, uint16_t *offset)
+static bool dumpParam(const rig_t *rig, int arg_type, bool last, const uint8_t *code, uint16_t *offset)
 {
 	uint8_t byte;
 	uint16_t *ptr16;
@@ -243,6 +244,7 @@ static bool dumpParam(const rig_t *rig, bool button_section, int arg_type, bool 
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_USB1));
 			break;
 
+		case PARAM_BUTTON_NUM :
 		case PARAM_FONT_SIZE :
 			byte = code[(*offset)++];
 			sprintf(&dump_buf[strlen(dump_buf)],"%d",byte);
@@ -274,14 +276,11 @@ static bool dumpParam(const rig_t *rig, bool button_section, int arg_type, bool 
 }
 
 
-static bool dumpStatement(const rig_t *rig, bool button_section, uint16_t *offset, uint16_t last_offset)
+static bool dumpStatement(const rig_t *rig, uint16_t *offset, uint16_t last_offset)
 {
-	dump_buf[0] = 0;
-
 	const uint8_t *code = rig->statement_pool;
 	uint8_t tt = code[(*offset)++];
 
-	proc_level = button_section ? 2 : 0;
 	display(dbg_dump+1,"# dumping statement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
 
 	sprintf(dump_buf,"%s(",rigTokenToText(tt));
@@ -293,7 +292,7 @@ static bool dumpStatement(const rig_t *rig, bool button_section, uint16_t *offse
 		while (*arg)
 		{
 			const int *args = arg++;
-			if (!dumpParam(rig, button_section,*args,!*arg,code,offset))
+			if (!dumpParam(rig,*args,!*arg,code,offset))
 			{
 				proc_level = 0;
 				return false;
@@ -302,18 +301,17 @@ static bool dumpStatement(const rig_t *rig, bool button_section, uint16_t *offse
 	}
 
 	display(0,dump_buf,0);
-	proc_level = 0;
 	return true;
 }
 
 
-static bool dumpStatementList(const rig_t *rig, bool button_section, int statement_num)
+static bool dumpStatementList(const rig_t *rig, int indent, int statement_num)
 {
 	uint16_t offset = rig->statements[statement_num];
 	uint16_t last_offset  = rig->statements[statement_num+1];
 
-	proc_level = button_section ? 2 : 0;
-	display(dbg_dump+1,"# dumping statments list(%d) from %d to %d (%d bytes)",
+	proc_level = indent;
+	display(dbg_dump+1,"# dumping statement list(%d) from %d to %d (%d bytes)",
 		statement_num,
 		offset,
 		last_offset,
@@ -321,7 +319,7 @@ static bool dumpStatementList(const rig_t *rig, bool button_section, int stateme
 
 	while (offset < last_offset)
 	{
-		if (!dumpStatement(rig, button_section,&offset,last_offset))
+		if (!dumpStatement(rig,&offset,last_offset))
 			return false;
 	}
 	return true;
@@ -352,25 +350,27 @@ void dumpRig(const rig_t *rig)
 	for (int i=0; i<=rig->num_statements; i++)
 		display(dbg_code,"    statement[%d] = %d",i,rig->statements[i]);
 
+	display(dbg_code,"button_types",0);
+	for (int i=0; i<NUM_BUTTONS; i++)
+	{
+		display(dbg_code,"    button_type(%d) = 0x%04x",i,rig->button_type[i]);
+	}
+
 	display(dbg_code,"button_refs",0);
-	for (int i=0; i<=NUM_BUTTONS; i++)
+	for (int i=0; i<NUM_BUTTONS; i++)
 	{
 		const uint16_t *refs = rig->button_refs[i];
-		display(dbg_code,"    refs(%d)  0x%04x  0x%04x  0x%04x  0x%04x  0x%04x  0x%04x  0x%04x ",
+		display(dbg_code,"    refs(%d)  0x%04x  0x%04x  0x%04x",
 			i,
 			refs[0],
 			refs[1],
-			refs[2],
-			refs[3],
-			refs[4],
-			refs[5],
-			refs[6]);
+			refs[2]);
 	}
 
-	display(dbg_code,"statements",0);
-	display_bytes_long(dbg_code,0,rig->statement_pool,rig->statement_pool_len);
-	display(dbg_code,"expressions",0);
-	display_bytes_long(dbg_code,0,rig->expression_pool,rig->expression_pool_len);
+	display(dbg_code+1,"statements",0);
+	display_bytes_long(dbg_code+1,0,rig->statement_pool,rig->statement_pool_len);
+	display(dbg_code+1,"expressions",0);
+	display_bytes_long(dbg_code+1,0,rig->expression_pool,rig->expression_pool_len);
 
 	// dump the program
 
@@ -429,46 +429,53 @@ void dumpRig(const rig_t *rig)
 
 	if (any)
 		display(0,"",0);
-	ok = ok && dumpStatementList(rig,0,0);
-	if (ok)
-		display(0,"",0);
+	if (rig->statements[0] < rig->statements[0])
+	{
+		ok = ok && dumpStatementList(rig,0,0);
+		if (ok)	display(0,"",0);
+	}
+	if (rig->statements[1] < rig->statements[2])
+	{
+		display(0,"onUpdate:",0);
+		ok = ok && dumpStatementList(rig,1,1);
+		if (ok)	display(0,"",0);
+	}
 
-	// to dump buttons we check if any off it's sections exist
-	// there is no single indicator for whether a button is defined
-
+	bool started = 0;
 	for (int i=0; i<NUM_BUTTONS && ok; i++)
 	{
-		bool started = 0;
-		for (int j=0; j<NUM_SUBSECTIONS && ok; j++)
+		uint16_t type = rig->button_type[i];
+		if (type)
 		{
-			if (rig->button_refs[i][j])
+			if (started)
+				display(0,"",0);
+			started = 1;
+
+			if (type == BUTTON_TYPE_INHERIT)
 			{
-				if (!started)
-				{
-					started = 1;
-					display(0,"BUTTON(%d):",i);
-				}
+				display(0,"BUTTON(%d): INHERIT",i);
+				continue;
+			}
 
-				display(0,"    %s:", rigTokenToText(j + RIG_TOKEN_COLOR));
-
-				if (j >= SUBSECTION_FIRST_CODE)	// statement lists
-				{
-					// statement list num is 1 based
-					// so that we can identify a used statement list
-					ok = dumpStatementList(rig, 1,rig->button_refs[i][j] - 1);
-				}
-				else
-				{
-					// on the other hand, we only decrement the exprssion
-					// offset if the high order is NOT set
-
-					uint16_t offset = rig->button_refs[i][j];
-					dump_buf[0] = 0;
-					ok = dumpCodeExpression(rig, rigTokenToText(j + RIG_TOKEN_COLOR), offset);
-					proc_level = 2;
-					display(0,"%s;",dump_buf);
-					proc_level = 0;
-				}
+			display(0,"BUTTON(%d):",i);
+			if (type & BUTTON_TYPE_UPDATE)
+			{
+				ok = dumpStatementList(rig,1,rig->button_refs[i][0]-1);
+			}
+			if (ok && (type & BUTTON_TYPE_MASK_REF1))
+			{
+				display(0,"    %s:",
+					type & BUTTON_TYPE_CLICK ? "repeat" :
+					type & BUTTON_TYPE_PRESS ? "press" :
+					"click");
+				ok = dumpStatementList(rig,2,rig->button_refs[i][1]-1);
+			}
+			if (ok && (type & BUTTON_TYPE_MASK_REF2))
+			{
+				display(0,"    %s:",
+					type & BUTTON_TYPE_CLICK ? "release" :
+					"long");
+				ok = dumpStatementList(rig,2,rig->button_refs[i][2]-1);
 			}
 		}
 	}

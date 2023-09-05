@@ -444,8 +444,9 @@ void theSystem::onButton(int row, int col, int event)
 		num == THE_SYSTEM_BUTTON &&
 		event == BUTTON_EVENT_LONG_CLICK)
 	{
-		startWindow(&win_config);
-		// rig_machine.loadRig("default");
+		// startWindow(&win_config);
+
+		rig_machine.loadRig("default");
 		// m_draw_pedals = 1;
 	}
 	else if (m_num_windows)

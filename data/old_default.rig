@@ -1,58 +1,148 @@
 #--------------------------------------------
 # default.rig
 #--------------------------------------------
-# The client area is 480 wide (ends at 479) and 230 high (ends at 229)
-# Does NOT currently use buttons 9 or 14
-# I use symbolic constants (defines) to make the code more readable.
-# This base rig reserves variable slots 0..69
-
+# does NOT currently use buttons 9 or 14
+# externally defined constants have comments
 
 BaseRig		 # required initial rig type
 
-define(0, AREA_MSG,	2);		# upper right big message
-	# a general purpose area of the screen
-	# I currently use it to report each button press
+#-------------------------------------------------
+# Internal Constants (defined by rig design)
+#-------------------------------------------------
+# NUM_BANKS = 2
+# NUM_PATCHES = 24
+# - NUM_PATCH_ROWS = 3
+# - NUM_PATCH_COLS = 4
+# NUM_BANK_PATCHES = NUM_PATCH_ROWS * NUM_PATCH_COLS
 
+define(0, NUM_BANK_PATCHES, 12);	# patches per my _bank
+define(1, FIRST_SHORT_NAME, 0);		# first short name STRING_DEF
+define(2, FIRST_LONG_NAME, 	24);	# first long name STRING_DEF
+
+# Area numbers
+
+define(4, AREA_SHORT_NAME,  0);		# upper left big patch name
+define(5, AREA_LONG_NAME,  	1);		# upper left long patch name
+define(6, AREA_MSG,			2);		# upper right big message
 
 #-----------------------------------------------------
 # Synth Constants (SampleTank as I have it on iPad)
 #-----------------------------------------------------
-
-define(10, SYNTH_VOLUME_CHANNEL,  1);
-define(11, SYNTH_VOLUME_CC, 	  7);
-define(12, SYNTH_PROGRAM_CHANNEL, 7);
-
-# These constants define AREA numbers that are used to
-# display Patch short and long names on the screen
-
-define(14, AREA_SHORT_NAME,  0);		# upper left big patch name
-define(15, AREA_LONG_NAME,  	1);		# upper left long patch name
-
-# Mapping of buttons to SampleTank Patch numbers and our internal
-# Patch Name strings is described by these constants. There are
-# three rows of four buttons for selecting patches, and one
-# button for for selecting the bank number.
+# The MULTI_OFFSET is vestigial since, at some point, I didn't want to
+# re-organize SampleTank's Multi-Patches, I just created a whole new
+# set starting at 16 (which is one based, or #17 in Sample Tank).
 #
-# 		NUM_BANKS = 2
-# 		NUM_PATCH_ROWS = 3
-# 		NUM_PATCH_COLS = 4
-# 		NUM_BANK_PATCHES = NUM_PATCH_ROWS * NUM_PATCH_COLS
-# 		NUM_PATCHES = NUM_BANK_PATCHES * NUM_BANKS
-#
-# I also define and use a constant called MULTI_OFFSET that is vestigial
-# to my personal sampleTank iPad setup.
+# Futhermore, in that scheme, the patch buttons are thought to
+# be colums that start at 0 on the 3rd row.  So patch 0 is
+# button 10, patch 1 is button 5, patch 3 is button 0, then
+# in the second column, patch 4 is button 11, and so on.
+# This is a bit wonky and definitely related to my own personal
+# SampleTank setup.
 
-define(17, NUM_BANK_PATCHES, 12);	# patches per my _bank
-define(18, FIRST_SHORT_NAME, 0);	# first short name STRING_DEF
-define(19, FIRST_LONG_NAME,  24);	# first long name STRING_DEF
-define(20, MULTI_OFFSET, 	 16);	# my patches start at 16 (17 one based) in Sample tank
+define(8,  MULTI_OFFSET, 16);
+define(9,  SYNTH_VOLUME_CHANNEL,  1);
+define(10, SYNTH_VOLUME_CC, 	  7);
+define(11, SYNTH_PROGRAM_CHANNEL, 7);
 
-# Synth Variables (Symbolic Value Slot Defines)
 
-define(22, _bank, 0);				# BANK number (0..1)
-define(23, _patch_button, 1);		# PATCH_BUTTON number (0..3, 5..8, 10..13)
-define(24, _patch_number, 2);		# ACTUAL_PATCH number (0..23) sent to Synth
+#------------------------------------------------------------
+# Guitar Effect Constants (ToneStack as I have it on iPad)
+#------------------------------------------------------------
 
+define(13,	GUITAR_VOLUME_CHANNEL,  7 );
+define(14,	GUITAR_VOLUME_CC,       7 );
+define(15,	GUITAR_EFFECTS_CHANNEL, 9 );
+define(16,	GUITAR_WAH_CONTROL_CC,  11 );
+
+define(17,	GUITAR_DISTORTION_CC,	26 );
+define(18,	GUITAR_WAH_CC, 			27 );
+define(19,	GUITAR_CHOR_CC, 		29 );
+define(20,	GUITAR_ECHO_CC, 		30 );
+
+
+#------------------------------------------------------
+# Looper Constants (as defined by my Looper program)
+#------------------------------------------------------
+# Following defines incorporated from commonDefines.h
+# The looper Serial midi sends, and expects only CC messages on Channel 1.
+# which is 0 or'd into the first byte of the message.
+
+# TRACK_STATE_EMPTY               = 0  = 0x00;
+# TRACK_STATE_RECORDING           = 1  = 0x01;
+# TRACK_STATE_PLAYING             = 2  = 0x02;
+# TRACK_STATE_STOPPED             = 4  = 0x04;
+# TRACK_STATE_PENDING_RECORD      = 8  = 0x08;
+# TRACK_STATE_PENDING_PLAY        = 16 = 0x10;
+# TRACK_STATE_PENDING_STOP        = 32 = 0x20;
+# TRACK_STATE_PENDING			  = 56 = 0x38; // TRACK_STATE_PENDING_RECORD | TRACK_STATE_PENDING_PLAY | TRACK_STATE_PENDING_STOP;
+
+													# LOOP_COMMAND_NONE               = 0  = 0x00;
+define(22, LOOP_COMMAND_CLEAR_ALL,	1);				# LOOP_COMMAND_CLEAR_ALL          = 1  = 0x01;
+													# LOOP_COMMAND_STOP_IMMEDIATE     = 2  = 0x02;      // stop the looper immediately
+													# LOOP_COMMAND_STOP               = 3  = 0x03       // stop at next cycle point
+define(23, LOOP_COMMAND_DUB, 		4);				# LOOP_COMMAND_DUB_MODE           = 4  = 0x04;     	// the dub mode is handled by rPi and modeled here
+													# LOOP_COMMAND_ABORT_RECORDING    = 6  = 0x06;      // abort the current recording if any
+													# LOOP_COMMAND_LOOP_IMMEDIATE     = 6  = 0x08;      // immediatly loop back to all clip starts ...
+													# LOOP_COMMAND_SET_LOOP_START     = 6  = 0x09;      // immediatly set the "restart point" for the clips in the track
+													# LOOP_COMMAND_CLEAR_LOOP_START   = 6  = 0x0A;      // immediatly set the "restart point" for the clips in the track
+define(24, LOOP_COMMAND_TRACK_BASE,	16);			# LOOP_COMMAND_TRACK_BASE         = 16 = 0x10;     	// the four used "track" buttons are 0x10..0x13 (although the protocol can support upto 8 buttons 0..7)
+													# LOOP_COMMAND_ERASE_TRACK_BASE   = 32 = 0x20;      // erase the given track (stops it if playing)
+define(25, LOOP_COMMAND_GET_STATE, 	48);			# LOOP_COMMAND_GET_STATE		  = 48 = 0x30	  	// NEW the looper will dump all state
+
+													# Looper Serial CC numbers             				// TE       rPi         descrip
+define(30,	LOOP_COMMAND_CC,		1 );			# LOOP_COMMAND_CC        		  = 1  = 0x01		// send     recv        the value is the LOOP command
+define(31,	LOOP_STOP_CMD_STATE_CC,	2 );			# LOOP_STOP_CMD_STATE_CC 		  = 2  = 0x02		// recv     send        the value is 0, LOOP_COMMAND_STOP or STOP_IMMEDIATE
+define(32,	LOOP_DUB_STATE_CC,		3 );			# LOOP_DUB_STATE_CC      		  = 3  = 0x03		// recv     send        value is currently only the DUB state
+													# NOTIFY_LOOP            		  = 5  = 0x05     	// recv     send        value=number of pending loop notifies
+define(33,	LOOP_CONTROL_BASE_CC,	8 );			# LOOP_CONTROL_BASE_CC   		  = 8  = 0x08     	// send     recv        RANGED for 0..LOOPER_NUM_CONTROLS the value is the volume control (Looper pedal == 0x67)
+define(34,	TRACK_STATE_BASE_CC,	16 );			# TRACK_STATE_BASE_CC    		  = 16 = 0x10		// recv     send        RANGED for NUM_TRACKS, upto 16 tracks, value is track state
+define(35,	CLIP_VOL_BASE_CC,		32 );			# CLIP_VOL_BASE_CC       		  = 32 = 0x20		// both     both        RANGED for NUM_TRACKS * NUM_LAYERS, upto 32 total - value is the clip volume
+define(36,	CLIP_MUTE_BASE_CC,		64 );			# CLIP_MUTE_BASE_CC      		  = 64 = 0x40		// both     both        RANGED for NUM_TRACKS * NUM_LAYERS, upto 24 total - value is mute state
+
+
+define(40, LOOPER_CONTROL_INPUT_GAIN,	0);			# LOOPER_CONTROL_INPUT_GAIN       = 0
+define(41, LOOPER_CONTROL_THRU_VOLUME,	1);			# LOOPER_CONTROL_THRU_VOLUME      = 1
+define(42, LOOPER_CONTROL_LOOP_VOLUME,	2);			# LOOPER_CONTROL_LOOP_VOLUME      = 2
+define(43, LOOPER_CONTROL_MIX_VOLUME,	3);			# LOOPER_CONTROL_MIX_VOLUME       = 3
+define(44, LOOPER_CONTROL_OUTPUT_GAIN,	4);			# LOOPER_CONTROL_OUTPUT_GAIN      = 4
+
+
+
+#----------------------------------------
+# Variable Slot Defines
+#----------------------------------------
+# Synth Variables
+
+define(100, _bank,  0);				# BANK number (0..1)
+define(101, _patch_button, 1);		# PATCH_BUTTON number (0..3, 5..8, 10..13)
+define(102, _patch_number, 2);		# ACTUAL_PATCH number (0..23) sent to Synth
+
+# Guitar Effect Variables
+
+define(104, _dist_effect_on, 3);	# DIST_EFFECT_ON
+define(105, _wah_effect_on,  4);	# WAH_EFFECT_ON
+define(106, _chor_effect_on, 5);	# CHOR_EFFECT_ON
+define(107, _echo_effect_on, 6);	# ECHO_EFFECT_ON
+
+# Looper Variables
+
+define(109, _dub_mode,		7);		# DUB_MODE
+define(110, _stop_cmd,		8);		# STOP_BUTTON_COMMAND
+define(111, _track1_state,	9);		# TRACK1 STATE
+define(112, _track2_state,	10);	# TRACK2 STATE
+define(113, _track3_state,	11);	# TRACK3 STATE
+define(114, _track4_state,	12);	# TRACK4 STATE
+
+define(115, _clip_vol_base,		20);
+define(116, _clip_mute_base,	40);
+define(117, _selected_track,	60);
+
+define(127, _end_modal_value,	127);
+
+
+#----------------------------
+# String Definition
+#----------------------------
 # These strings are in the same order as the patches on SampleTank,
 # starting at MULTI_OFFSET (which is one based, and 17 in the
 # SampleTank UI).
@@ -108,98 +198,6 @@ define_string(46,	"Marimba" );
 define_string(47,	"SFX Collection" );
 
 
-
-#------------------------------------------------------------
-# Guitar Effect Constants (ToneStack as I have it on iPad)
-#------------------------------------------------------------
-
-define(30,	GUITAR_VOLUME_CHANNEL,  7 );
-define(31,	GUITAR_VOLUME_CC,       7 );
-define(32,	GUITAR_EFFECTS_CHANNEL, 9 );
-define(33,	GUITAR_WAH_CONTROL_CC,  11 );
-
-define(35,	GUITAR_DISTORTION_CC,	26 );
-define(36,	GUITAR_WAH_CC, 			27 );
-define(37,	GUITAR_CHOR_CC, 		29 );
-define(38,	GUITAR_ECHO_CC, 		30 );
-
-# Guitar Effect Variables
-
-define(40, _dist_effect_on, 3);	# DIST_EFFECT_ON
-define(41, _wah_effect_on,  4);	# WAH_EFFECT_ON
-define(42, _chor_effect_on, 5);	# CHOR_EFFECT_ON
-define(43, _echo_effect_on, 6);	# ECHO_EFFECT_ON
-
-
-
-#------------------------------------------------------
-# Looper Constants (as defined by my Looper program)
-#------------------------------------------------------
-# Following defines incorporated from commonDefines.h
-# The looper Serial midi sends, and expects only CC messages on Channel 1.
-# which is 0 or'd into the first byte of the message.
-
-# TRACK_STATE_EMPTY               = 0  = 0x00;
-# TRACK_STATE_RECORDING           = 1  = 0x01;
-# TRACK_STATE_PLAYING             = 2  = 0x02;
-# TRACK_STATE_STOPPED             = 4  = 0x04;
-# TRACK_STATE_PENDING_RECORD      = 8  = 0x08;
-# TRACK_STATE_PENDING_PLAY        = 16 = 0x10;
-# TRACK_STATE_PENDING_STOP        = 32 = 0x20;
-# TRACK_STATE_PENDING			  = 56 = 0x38; // TRACK_STATE_PENDING_RECORD | TRACK_STATE_PENDING_PLAY | TRACK_STATE_PENDING_STOP;
-
-define(50, TRACK_STATE_RED, 		9);		# TRACK_STATE_RECORDING | TRACK_STATE_PENDING_RECORD
-define(51, TRACK_STATE_YELLOW, 		18);	# TRACK_STATE_PLAYING | TRACK_STATE_PENDING_PLAY
-define(52, TRACK_STATE_GREEN,		36);	# TRACK_STATE_STOPPED | TRACK_STATE_PENDING_STOP
-define(53, TRACK_STATE_BLINK, 		56);	# TRACK_STATE_PENDING
-
-
-													# LOOP_COMMAND_NONE               = 0  = 0x00;
-define(60, LOOP_COMMAND_CLEAR_ALL,	1);				# LOOP_COMMAND_CLEAR_ALL          = 1  = 0x01;
-													# LOOP_COMMAND_STOP_IMMEDIATE     = 2  = 0x02;      // stop the looper immediately
-													# LOOP_COMMAND_STOP               = 3  = 0x03       // stop at next cycle point
-define(61, LOOP_COMMAND_DUB, 		4);				# LOOP_COMMAND_DUB_MODE           = 4  = 0x04;     	// the dub mode is handled by rPi and modeled here
-													# LOOP_COMMAND_ABORT_RECORDING    = 6  = 0x06;      // abort the current recording if any
-													# LOOP_COMMAND_LOOP_IMMEDIATE     = 6  = 0x08;      // immediatly loop back to all clip starts ...
-													# LOOP_COMMAND_SET_LOOP_START     = 6  = 0x09;      // immediatly set the "restart point" for the clips in the track
-													# LOOP_COMMAND_CLEAR_LOOP_START   = 6  = 0x0A;      // immediatly set the "restart point" for the clips in the track
-define(62, LOOP_COMMAND_TRACK_BASE,	16);			# LOOP_COMMAND_TRACK_BASE         = 16 = 0x10;     	// the four used "track" buttons are 0x10..0x13 (although the protocol can support upto 8 buttons 0..7)
-													# LOOP_COMMAND_ERASE_TRACK_BASE   = 32 = 0x20;      // erase the given track (stops it if playing)
-define(63, LOOP_COMMAND_GET_STATE, 	48);			# LOOP_COMMAND_GET_STATE		  = 48 = 0x30	  	// NEW the looper will dump all state
-
-													# Looper Serial CC numbers             				// TE       rPi         descrip
-define(65,	LOOP_COMMAND_CC,		1 );			# LOOP_COMMAND_CC        		  = 1  = 0x01		// send     recv        the value is the LOOP command
-define(66,	LOOP_STOP_CMD_STATE_CC,	2 );			# LOOP_STOP_CMD_STATE_CC 		  = 2  = 0x02		// recv     send        the value is 0, LOOP_COMMAND_STOP or STOP_IMMEDIATE
-define(67,	LOOP_DUB_STATE_CC,		3 );			# LOOP_DUB_STATE_CC      		  = 3  = 0x03		// recv     send        value is currently only the DUB state
-													# NOTIFY_LOOP            		  = 5  = 0x05     	// recv     send        value=number of pending loop notifies
-define(68,	LOOP_CONTROL_BASE_CC,	8 );			# LOOP_CONTROL_BASE_CC   		  = 8  = 0x08     	// send     recv        RANGED for 0..LOOPER_NUM_CONTROLS the value is the volume control (Looper pedal == 0x67)
-define(69,	TRACK_STATE_BASE_CC,	16 );			# TRACK_STATE_BASE_CC    		  = 16 = 0x10		// recv     send        RANGED for NUM_TRACKS, upto 16 tracks, value is track state
-define(70,	CLIP_VOL_BASE_CC,		32 );			# CLIP_VOL_BASE_CC       		  = 32 = 0x20		// both     both        RANGED for NUM_TRACKS * NUM_LAYERS, upto 32 total - value is the clip volume
-define(71,	CLIP_MUTE_BASE_CC,		64 );			# CLIP_MUTE_BASE_CC      		  = 64 = 0x40		// both     both        RANGED for NUM_TRACKS * NUM_LAYERS, upto 24 total - value is mute state
-
-
-define(73, LOOPER_CONTROL_INPUT_GAIN,	0);			# LOOPER_CONTROL_INPUT_GAIN       = 0
-define(74, LOOPER_CONTROL_THRU_VOLUME,	1);			# LOOPER_CONTROL_THRU_VOLUME      = 1
-define(75, LOOPER_CONTROL_LOOP_VOLUME,	2);			# LOOPER_CONTROL_LOOP_VOLUME      = 2
-define(76, LOOPER_CONTROL_MIX_VOLUME,	3);			# LOOPER_CONTROL_MIX_VOLUME       = 3
-define(77, LOOPER_CONTROL_OUTPUT_GAIN,	4);			# LOOPER_CONTROL_OUTPUT_GAIN      = 4
-
-
-# Looper Listen Variables
-
-define(80, dub_mode,			7);		# DUB_MODE
-define(81, stop_cmd,			8);		# STOP_BUTTON_COMMAND
-define(82, track_state_base,	10);	# TRACK1..4 STATE
-define(83, clip_vol_base,		20);	# 16 CLIP VOLUMES
-define(84, clip_mute_base,		40);	# 16 CLIP MUTES
-
-# Looper Actual Variables
-
-define(90, _selected_track,		60);	# The most recently selected track
-
-# We reserve values 0..69
-
-
 #----------------------------------------
 # Rig initialization section
 #----------------------------------------
@@ -219,20 +217,20 @@ AREA(AREA_LONG_NAME,	18,  BOLD,	LEFT,	 5,  43, 475, 68);		# patch lobng name 3 p
 AREA(AREA_MSG,  		32,  NORMAL,  RIGHT, 300, 5, 475, 40);		# General Purpose area in upper right
 
 
-LISTEN(dub_mode, SERIAL, 0, LOOP_DUB_STATE_CC);
+LISTEN(_dub_mode, SERIAL, 0, LOOP_DUB_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_DUB_STATE_CC=37 messages and stick
-	# their values in the dub_mode value
+	# their values in the _dub_mode value
 
-LISTEN(stop_cmd, SERIAL, 0, LOOP_STOP_CMD_STATE_CC);
+LISTEN(_stop_cmd, SERIAL, 0, LOOP_STOP_CMD_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_STOP_CMD_STATE_CC=38 messages and stick
-	# their values in the stop_cmd value
+	# their values in the _stop_cmd value
 
-LISTEN(track_state_base + 0, SERIAL, 0, TRACK_STATE_BASE_CC + 0);
-LISTEN(track_state_base + 1, SERIAL, 0, TRACK_STATE_BASE_CC + 1);
-LISTEN(track_state_base + 2, SERIAL, 0, TRACK_STATE_BASE_CC + 2);
-LISTEN(track_state_base + 3, SERIAL, 0, TRACK_STATE_BASE_CC + 3);
+LISTEN(_track1_state, SERIAL, 0, TRACK_STATE_BASE_CC + 0);
+LISTEN(_track2_state, SERIAL, 0, TRACK_STATE_BASE_CC + 1);
+LISTEN(_track3_state, SERIAL, 0, TRACK_STATE_BASE_CC + 2);
+LISTEN(_track4_state, SERIAL, 0, TRACK_STATE_BASE_CC + 3);
 	# Listen on the Serial Midi Port for
 	# TRACK_STATE_BASE_CC(20..23) messages
 	# and stick their values into the appropriate
@@ -240,39 +238,39 @@ LISTEN(track_state_base + 3, SERIAL, 0, TRACK_STATE_BASE_CC + 3);
 
 # LISTEN for the 16 possible clip volumes and mute states
 
-LISTEN(clip_vol_base + 0,		SERIAL, 0,	CLIP_VOL_BASE_CC + 0);
-LISTEN(clip_vol_base + 1,		SERIAL, 0,	CLIP_VOL_BASE_CC + 1);
-LISTEN(clip_vol_base + 2,		SERIAL, 0,	CLIP_VOL_BASE_CC + 2);
-LISTEN(clip_vol_base + 3,		SERIAL, 0,	CLIP_VOL_BASE_CC + 3);
-LISTEN(clip_vol_base + 4,		SERIAL, 0,	CLIP_VOL_BASE_CC + 4);
-LISTEN(clip_vol_base + 5,		SERIAL, 0,	CLIP_VOL_BASE_CC + 5);
-LISTEN(clip_vol_base + 6,		SERIAL, 0,	CLIP_VOL_BASE_CC + 6);
-LISTEN(clip_vol_base + 7,		SERIAL, 0,	CLIP_VOL_BASE_CC + 7);
-LISTEN(clip_vol_base + 8,		SERIAL, 0,	CLIP_VOL_BASE_CC + 8);
-LISTEN(clip_vol_base + 9,		SERIAL, 0,	CLIP_VOL_BASE_CC + 9);
-LISTEN(clip_vol_base + 10,		SERIAL, 0,	CLIP_VOL_BASE_CC + 10);
-LISTEN(clip_vol_base + 11,		SERIAL, 0,	CLIP_VOL_BASE_CC + 11);
-LISTEN(clip_vol_base + 12,		SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
-LISTEN(clip_vol_base + 13,		SERIAL, 0,	CLIP_VOL_BASE_CC + 13);
-LISTEN(clip_vol_base + 14,		SERIAL, 0,	CLIP_VOL_BASE_CC + 14);
-LISTEN(clip_vol_base + 15,		SERIAL, 0,	CLIP_VOL_BASE_CC + 15);
+LISTEN(_clip_vol_base + 0,		SERIAL, 0,	CLIP_VOL_BASE_CC + 0);
+LISTEN(_clip_vol_base + 1,		SERIAL, 0,	CLIP_VOL_BASE_CC + 1);
+LISTEN(_clip_vol_base + 2,		SERIAL, 0,	CLIP_VOL_BASE_CC + 2);
+LISTEN(_clip_vol_base + 3,		SERIAL, 0,	CLIP_VOL_BASE_CC + 3);
+LISTEN(_clip_vol_base + 4,		SERIAL, 0,	CLIP_VOL_BASE_CC + 4);
+LISTEN(_clip_vol_base + 5,		SERIAL, 0,	CLIP_VOL_BASE_CC + 5);
+LISTEN(_clip_vol_base + 6,		SERIAL, 0,	CLIP_VOL_BASE_CC + 6);
+LISTEN(_clip_vol_base + 7,		SERIAL, 0,	CLIP_VOL_BASE_CC + 7);
+LISTEN(_clip_vol_base + 8,		SERIAL, 0,	CLIP_VOL_BASE_CC + 8);
+LISTEN(_clip_vol_base + 9,		SERIAL, 0,	CLIP_VOL_BASE_CC + 9);
+LISTEN(_clip_vol_base + 10,		SERIAL, 0,	CLIP_VOL_BASE_CC + 10);
+LISTEN(_clip_vol_base + 11,		SERIAL, 0,	CLIP_VOL_BASE_CC + 11);
+LISTEN(_clip_vol_base + 12,		SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
+LISTEN(_clip_vol_base + 13,		SERIAL, 0,	CLIP_VOL_BASE_CC + 13);
+LISTEN(_clip_vol_base + 14,		SERIAL, 0,	CLIP_VOL_BASE_CC + 14);
+LISTEN(_clip_vol_base + 15,		SERIAL, 0,	CLIP_VOL_BASE_CC + 15);
 
-LISTEN(clip_mute_base + 0,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 0);
-LISTEN(clip_mute_base + 1,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 1);
-LISTEN(clip_mute_base + 2,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 2);
-LISTEN(clip_mute_base + 3,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 3);
-LISTEN(clip_mute_base + 4,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 4);
-LISTEN(clip_mute_base + 5,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 5);
-LISTEN(clip_mute_base + 6,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 6);
-LISTEN(clip_mute_base + 7,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 7);
-LISTEN(clip_mute_base + 8,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 8);
-LISTEN(clip_mute_base + 9,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 9);
-LISTEN(clip_mute_base + 10,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 10);
-LISTEN(clip_mute_base + 11,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 11);
-LISTEN(clip_mute_base + 12,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 12);
-LISTEN(clip_mute_base + 13,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 13);
-LISTEN(clip_mute_base + 14,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 14);
-LISTEN(clip_mute_base + 15,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 15);
+LISTEN(_clip_mute_base + 0,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 0);
+LISTEN(_clip_mute_base + 1,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 1);
+LISTEN(_clip_mute_base + 2,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 2);
+LISTEN(_clip_mute_base + 3,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 3);
+LISTEN(_clip_mute_base + 4,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 4);
+LISTEN(_clip_mute_base + 5,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 5);
+LISTEN(_clip_mute_base + 6,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 6);
+LISTEN(_clip_mute_base + 7,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 7);
+LISTEN(_clip_mute_base + 8,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 8);
+LISTEN(_clip_mute_base + 9,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 9);
+LISTEN(_clip_mute_base + 10,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 10);
+LISTEN(_clip_mute_base + 11,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 11);
+LISTEN(_clip_mute_base + 12,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 12);
+LISTEN(_clip_mute_base + 13,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 13);
+LISTEN(_clip_mute_base + 14,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 14);
+LISTEN(_clip_mute_base + 15,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 15);
 
 display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
@@ -521,33 +519,33 @@ BUTTON(14) :
 # Looper over the Serial Midi Port.
 #
 # The Stop LED is
-#	RED if the stop_cmd value is LOOP_COMMAND_STOP_IMMEDIATE=2,
-#   PURPLE if the stop_cmd_value is LOOP_COMMAND_STOP=3, and
+#	RED if the _stop_cmd value is LOOP_COMMAND_STOP_IMMEDIATE=2,
+#   PURPLE if the _stop_cmd_value is LOOP_COMMAND_STOP=3, and
 #   BLACK otherwise.
 # A click of the Stop Button sends a LOOP_COMMAND_CC
 #   message to the Serial Midi Port on Channel 0
-#   with the value of the stop_cmd value.
+#   with the value of the _stop_cmd value.
 # A long click of the Dub Button sends a LOOP_COMMAND_CC
 #   message to the Serial Midi Port ON Channel 0
 #   with the value of LOOP_COMMAND_CLEAR_ALL=1
 
 BUTTON(19):
 	color:
-		VALUE[stop_cmd] == 2 ? LED_RED :	 #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP_IMMEDIATE ? LED_RED :
-		VALUE[stop_cmd] == 3 ? LED_PURPLE : #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP ? LED_PURPLE :
+		VALUE[_stop_cmd] == 2 ? LED_RED :	 #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP_IMMEDIATE ? LED_RED :
+		VALUE[_stop_cmd] == 3 ? LED_PURPLE : #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP ? LED_PURPLE :
 		LED_BLACK;
 	click:
-		sendCC(SERIAL, 1, LOOP_COMMAND_CC, VALUE[stop_cmd]);
-		display(AREA_MSG, YELLOW, VALUE[stop_cmd] == 2 ? "STOP!" : VALUE[stop_cmd] == 3 ? "STOP" : "");
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, VALUE[_stop_cmd]);
+		display(AREA_MSG, YELLOW, VALUE[_stop_cmd] == 2 ? "STOP!" : VALUE[_stop_cmd] == 3 ? "STOP" : "");
 	long:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_CLEAR_ALL);
 		display(AREA_MSG, YELLOW, "LOOP CLEAR");
 		# even though we will get these back, clear them for testing
-		setValue(stop_cmd, 0);
-		setValue(track_state_base + 0, 0);
-		setValue(track_state_base + 1, 0);
-		setValue(track_state_base + 2, 0);
-		setValue(track_state_base + 3, 0);
+		setValue(_stop_cmd, 0);
+		setValue(_track1_state,0);
+		setValue(_track2_state,0);
+		setValue(_track3_state,0);
+		setValue(_track4_state,0);
 
 
 
@@ -569,12 +567,12 @@ BUTTON(19):
 
 BUTTON(20):				# track1 button
 	color:
-		VALUE[track_state_base + 0] & TRACK_STATE_RED    ? LED_RED :
-		VALUE[track_state_base + 0] & TRACK_STATE_YELLOW ? LED_YELLOW :
-		VALUE[track_state_base + 0] & TRACK_STATE_GREEN  ? LED_GREEN :
+		VALUE[_track1_state] & 9  ? LED_RED :
+		VALUE[_track1_state] & 18 ? LED_YELLOW :
+		VALUE[_track1_state] & 36 ? LED_GREEN :
 		LED_BLACK;
 	blink:
-		VALUE[track_state_base + 0] & TRACK_STATE_BLINK;
+		VALUE[_track1_state] & 56;
 	press:
 		setValue(_selected_track, 0);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 0);
@@ -582,12 +580,12 @@ BUTTON(20):				# track1 button
 
 BUTTON(21):
 	color:
-		VALUE[track_state_base + 1] & TRACK_STATE_RED    ? LED_RED :
-		VALUE[track_state_base + 1] & TRACK_STATE_YELLOW ? LED_YELLOW :
-		VALUE[track_state_base + 1] & TRACK_STATE_GREEN  ? LED_GREEN :
+		VALUE[_track2_state] & 9  ? LED_RED :
+		VALUE[_track2_state] & 18 ? LED_YELLOW :
+		VALUE[_track2_state] & 36 ? LED_GREEN :
 		LED_BLACK;
 	blink:
-		VALUE[track_state_base + 1] & TRACK_STATE_BLINK;
+		VALUE[_track2_state] & 56;
 	press:
 		setValue(_selected_track, 1);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 1);
@@ -595,12 +593,12 @@ BUTTON(21):
 
 BUTTON(22):
 	color:
-		VALUE[track_state_base + 2] & TRACK_STATE_RED    ? LED_RED :
-		VALUE[track_state_base + 2] & TRACK_STATE_YELLOW ? LED_YELLOW :
-		VALUE[track_state_base + 2] & TRACK_STATE_GREEN  ? LED_GREEN :
+		VALUE[_track3_state] & 9  ? LED_RED :
+		VALUE[_track3_state] & 18 ? LED_YELLOW :
+		VALUE[_track3_state] & 36 ? LED_GREEN :
 		LED_BLACK;
 	blink:
-		VALUE[track_state_base + 2] & TRACK_STATE_BLINK;
+		VALUE[_track3_state] & 56;
 	press:
 		setValue(_selected_track, 2);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 2);
@@ -608,12 +606,12 @@ BUTTON(22):
 
 BUTTON(23):
 	color:
-		VALUE[track_state_base + 3] & TRACK_STATE_RED    ? LED_RED :
-		VALUE[track_state_base + 3] & TRACK_STATE_YELLOW ? LED_YELLOW :
-		VALUE[track_state_base + 3] & TRACK_STATE_GREEN  ? LED_GREEN :
+		VALUE[_track4_state] & 9  ? LED_RED :
+		VALUE[_track4_state] & 18 ? LED_YELLOW :
+		VALUE[_track4_state] & 36 ? LED_GREEN :
 		LED_BLACK;
 	blink:
-		VALUE[track_state_base + 3] & TRACK_STATE_BLINK;
+		VALUE[_track4_state] & 56;
 	press:
 		setValue(_selected_track, 3);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 3);
@@ -623,7 +621,7 @@ BUTTON(23):
 #---------------------------------------
 # Looper Dub
 #----------------------------------------
-# The Dub LED is ORANGE if dub_mode value if set,
+# The Dub LED is ORANGE if _dub_mode value if set,
 # 	or black otherwise.
 # A click of the Dub Button sends a LOOP_COMMAND_CC
 #   message to the Serial Midi Port on Channel 0,
@@ -634,19 +632,18 @@ BUTTON(23):
 
 BUTTON(24):
 	color:
-		VALUE[dub_mode] ? LED_ORANGE : LED_WHITE;
+		VALUE[_dub_mode] ? LED_ORANGE : LED_WHITE;
 	click:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_DUB);
-		display(AREA_MSG, YELLOW, VALUE[dub_mode] ? "DUB OFF" : "DUB ON");
+		display(AREA_MSG, YELLOW, VALUE[_dub_mode] ? "DUB OFF" : "DUB ON");
 	long:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_CLEAR_ALL);
 		display(AREA_MSG, YELLOW, "LOOP CLEAR");
 		# even though we will get these back, clear them for testing
-		setValue(stop_cmd, 0);
-		setValue(track_state_base + 0, 0);
-		setValue(track_state_base + 1, 0);
-		setValue(track_state_base + 2, 0);
-		setValue(track_state_base + 3, 0);
-
+		setValue(_stop_cmd, 0);
+		setValue(_track1_state,0);
+		setValue(_track2_state,0);
+		setValue(_track3_state,0);
+		setValue(_track4_state,0);
 
 # end of default.rig

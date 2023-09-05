@@ -3,7 +3,7 @@
 #include "theSystem.h"
 #include "myLeds.h"
 
-#define dbg_btn   1
+#define dbg_btn   -1
 	// 0 = show initialization
 	// -1 = show actions
 

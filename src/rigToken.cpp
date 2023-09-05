@@ -11,20 +11,29 @@
 
 
 #define dbg_open	1
+#define dbg_chars	1
+	// shows chars as they are parsed
 #define dbg_low 	1
+	// 0 = show tokens that returned
+	// -1 = show token processing
+	// -2 = show gruesome processing
+#define dbg_rewind  0
+	// 0 = show calls to rewindRigFile
+
 
 #define DUMP_PARSE  0
-
+	// dump a structured parse as we go
 
 // extern
 int parse_section;			// 0=none, 1=program, 2=buttons, 3=end
 
 static myFileType_t rig_file;
 
-static int rig_text_len;
-static int parse_ptr;
+static uint32_t rig_text_len;
+static uint32_t parse_ptr;
 static int parse_line_num;
 static int parse_char_num;
+static int rig_token_len;
 static bool modal_rig;
 
 
@@ -40,6 +49,18 @@ bool suppress_rig_dialogs;
 	static void dumpToken();
 		// forward
 #endif
+
+
+
+void rewindRigFile(uint32_t offset, int line_num, int char_num)
+{
+	display(dbg_rewind,"rewindRigFile(%d,%d,%d)",offset,line_num,char_num);
+	parse_ptr = offset;
+	parse_line_num = line_num;
+	parse_char_num = char_num;
+	rig_file.seek(parse_ptr);
+}
+
 
 
 //------------------------------
@@ -91,30 +112,34 @@ const char *rigTokenToString(int token_id)
 
 		case RIG_TOKEN_BASERIG				: return "BASERIG";
 		case RIG_TOKEN_MODAL				: return "MODALRIG";
+		case RIG_TOKEN_ON_UPDATE			: return "ONUPDATE";
 
 		case RIG_TOKEN_DEFINE_DEF			: return "DEFINE";
 		case RIG_TOKEN_STRING_DEF			: return "DEFINE_STRING";
 
 		case RIG_TOKEN_BUTTON				: return "BUTTON";
-		case RIG_TOKEN_COLOR				: return "COLOR";
-		case RIG_TOKEN_BLINK				: return "BLINK";
-		case RIG_TOKEN_PRESS				: return "PRESS";
 		case RIG_TOKEN_CLICK				: return "CLICK";
 		case RIG_TOKEN_LONG					: return "LONG";
-		case RIG_TOKEN_RELEASE				: return "RELEASE";
+		case RIG_TOKEN_PRESS				: return "PRESS";
 		case RIG_TOKEN_REPEAT				: return "REPEAT";
+		case RIG_TOKEN_RELEASE				: return "RELEASE";
 
 		case RIG_TOKEN_PEDAL				: return "PEDAL";
 		case RIG_TOKEN_ROTARY				: return "ROTARY";
 		case RIG_TOKEN_LISTEN				: return "LISTEN";
 		case RIG_TOKEN_AREA					: return "AREA";
+		case RIG_TOKEN_METER				: return "METER";
 		case RIG_TOKEN_SETVALUE				: return "SETVALUE";
 		case RIG_TOKEN_DISPLAY 				: return "DISPLAY";
+		case RIG_TOKEN_DISPLAY_NUMBER		: return "DISPLAYNUMBER";
+		case RIG_TOKEN_SET_METER			: return "SETMETER";
 		case RIG_TOKEN_SEND_CC 				: return "SENDCC";
 		case RIG_TOKEN_SEND_PGM_CHG			: return "SENDPGMCHG";
 		case RIG_TOKEN_NOTE_ON				: return "NOTEON";
 		case RIG_TOKEN_NOTE_OFF				: return "NOTEOFF";
 		case RIG_TOKEN_ALL_NOTES_OFF		: return "ALLNOTESOFF";
+		case RIG_TOKEN_SET_BUTTON_COLOR		: return "SETBUTTONCOLOR";
+		case RIG_TOKEN_SET_BUTTON_BLINK		: return "SETBUTTONBLINK";
 		case RIG_TOKEN_LOAD_RIG				: return "LOADRIG";
 		case RIG_TOKEN_END_MODAL			: return "ENDMODAL";
 		case RIG_TOKEN_FTP_TUNER			: return "FTPTUNER";
@@ -168,7 +193,11 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_STRING				: return "STRING";
 		case RIG_TOKEN_VALUE				: return "VALUE";
 
+		case RIG_TOKEN_BUTTON_NUM			: return "_BUTTON_NUM";
 		case RIG_TOKEN_INHERIT				: return "INHERIT";
+
+		case RIG_TOKEN_HORZ					: return "HORZ";
+		case RIG_TOKEN_VERT					: return "VERT";
 
 		case RIG_TOKEN_TEXT					: return "TEXT";
 		case RIG_TOKEN_NUMBER				: return "NUMBER";
@@ -220,25 +249,31 @@ const char *rigTokenToText(int token_id)
 	{
 		case RIG_TOKEN_BASERIG				: return "BaseRig";
 		case RIG_TOKEN_MODAL				: return "ModalRig";
+		case RIG_TOKEN_ON_UPDATE			: return "onUpdate";
 
 		case RIG_TOKEN_DEFINE_DEF			: return "define";
 		case RIG_TOKEN_STRING_DEF			: return "define_string";
 
-		case RIG_TOKEN_COLOR				: return "color";
-		case RIG_TOKEN_BLINK				: return "blink";
-		case RIG_TOKEN_PRESS				: return "press";
 		case RIG_TOKEN_CLICK				: return "click";
 		case RIG_TOKEN_LONG					: return "long";
-		case RIG_TOKEN_RELEASE				: return "release";
+		case RIG_TOKEN_PRESS				: return "press";
 		case RIG_TOKEN_REPEAT				: return "repeat";
+		case RIG_TOKEN_RELEASE				: return "release";
+
+		case RIG_TOKEN_AREA					: return "Area";
+		case RIG_TOKEN_METER				: return "Meter";
 
 		case RIG_TOKEN_SETVALUE				: return "setValue";
 		case RIG_TOKEN_DISPLAY 				: return "display";
+		case RIG_TOKEN_DISPLAY_NUMBER		: return "displayNumber";
+		case RIG_TOKEN_SET_METER			: return "setMeter";
 		case RIG_TOKEN_SEND_CC 				: return "sendCC";
 		case RIG_TOKEN_SEND_PGM_CHG			: return "sendPgmChg";
 		case RIG_TOKEN_NOTE_ON				: return "noteOn";
 		case RIG_TOKEN_NOTE_OFF				: return "noteOff";
 		case RIG_TOKEN_ALL_NOTES_OFF		: return "allNotesOff";
+		case RIG_TOKEN_SET_BUTTON_COLOR		: return "setButtonColor";
+		case RIG_TOKEN_SET_BUTTON_BLINK		: return "setButtonBlink";
 		case RIG_TOKEN_LOAD_RIG				: return "loadRig";
 		case RIG_TOKEN_END_MODAL			: return "endModal";
 		case RIG_TOKEN_FTP_TUNER			: return "ftpTuner";
@@ -271,8 +306,6 @@ const char *rigTokenToText(int token_id)
 		case RIG_TOKEN_BITWISE_AND			: return "&";
 		case RIG_TOKEN_LOGICAL_OR			: return "||";
 		case RIG_TOKEN_LOGICAL_AND			: return "&&";
-
-
 
 		case RIG_TOKEN_IDENTIFIER			: return "ID";
 		case RIG_TOKEN_ASSIGN				: return "=";
@@ -319,12 +352,12 @@ static int getRigDelim(char c)
 
 static bool addTokenChar(char c)
 {
-    if (rig_token.len >= MAX_RIG_TOKEN)
+    if (rig_token_len >= MAX_RIG_TOKEN)
     {
         rig_error("token too long");
         return false;
     }
-    rig_token.text[rig_token.len++] = c;
+    rig_token.text[rig_token_len++] = c;
     return true;
 }
 
@@ -348,7 +381,11 @@ static bool myStrcmpI(const char *id, const char *TOKEN)
 // extern
 int getRigToken()
 {
+	rig_token_len = 0;
 	memset(&rig_token,0,sizeof(token_t));
+	rig_token.offset = parse_ptr;
+	rig_token.line_num = parse_line_num;
+	rig_token.char_num = parse_char_num;
 
 	int delim;
     bool done = false;
@@ -365,13 +402,13 @@ int getRigToken()
 		}
 
         parse_char_num++;
-        if (!rig_token.len)
+        if (!rig_token_len)
         {
             rig_token.line_num = parse_line_num;
             rig_token.char_num  = parse_char_num;
         }
 
-		if (dbg_low <= 0 && dbgSerial)
+		if (dbg_chars <= 0 && dbgSerial)
 			dbgSerial->print(c);
 
         if (c == 10)
@@ -389,7 +426,7 @@ int getRigToken()
                 rig_error("unclosed quote");
                 return 0;
             }
-            else if (rig_token.len)
+            else if (rig_token_len)
             {
                 done = true;
             }
@@ -416,7 +453,7 @@ int getRigToken()
             parse_line_num++;
             parse_char_num = 0;
 
-            if (rig_token.len)
+            if (rig_token_len)
             {
                 done = true;
             }
@@ -433,10 +470,10 @@ int getRigToken()
         {
             if (rig_token.id == RIG_TOKEN_TEXT)
             {
-                rig_token.text[rig_token.len] = 0;
+                rig_token.text[rig_token_len] = 0;
                 done = true;
             }
-            else if (rig_token.len)
+            else if (rig_token_len)
             {
                 rig_error("unexpected quote");
                 return 0;
@@ -464,7 +501,7 @@ int getRigToken()
         else if (c == 9 || c == 32)
         {
             display(dbg_low+2,"white_space",0);
-            if (rig_token.len)
+            if (rig_token_len)
             {
                 done = true;
             }
@@ -545,7 +582,7 @@ int getRigToken()
 
         // numbers
 
-        else if (!rig_token.len && c >= '0' && c <= '9')
+        else if (!rig_token_len && c >= '0' && c <= '9')
         {
             rig_token.id = RIG_TOKEN_NUMBER;
             rig_token.int_value = c - '0';
@@ -556,7 +593,7 @@ int getRigToken()
         {
             if (c >= '0' && c <= '9')
             {
-                if (rig_token.len >= 3)
+                if (rig_token_len >= 3)
                 {
                     rig_error("NUMBER too long");
                     return 0;
@@ -580,6 +617,7 @@ int getRigToken()
                  (c >= 'a' && c <='z') ||
 				 (c >= '0' && c <='9'))
         {
+			display(dbg_low+1,"identifier char '%c'",c);
 			rig_token.id = RIG_TOKEN_IDENTIFIER;
             if (!addTokenChar(c))
                 return 0;
@@ -595,7 +633,7 @@ int getRigToken()
 
     // see if the buffer matches a known token
 
-    rig_token.text[rig_token.len++] = 0;
+    rig_token.text[rig_token_len++] = 0;
 
 	int id = rig_token.id;
 	if (id == RIG_TOKEN_IDENTIFIER)
@@ -645,14 +683,14 @@ int getRigToken()
 
 	display(dbg_low,"",0);
 	if (rig_token.id == RIG_TOKEN_NUMBER)
-		display(dbg_low,"getToken(%d:%d) %d=%s -->  %d",
+		display(dbg_low,"getToken(NUMBER,%d:%d) %d=%s -->  %d",
 			rig_token.line_num,
 			rig_token.char_num,
 			rig_token.id,
 			rigTokenToString(rig_token.id),
 			rig_token.int_value);
 	else if (rig_token.id == RIG_TOKEN_IDENTIFIER || rig_token.id == RIG_TOKEN_TEXT)
-		display(dbg_low,"getToken(%d:%d) %d=%s -->  %s",
+		display(dbg_low,"getToken(ID/TEXT,%d:%d) %d=%s -->  %s",
 			rig_token.line_num,
 			rig_token.char_num,
 			rig_token.id,
@@ -667,7 +705,7 @@ int getRigToken()
 
 	// basic lexical structure
 
-	if (!parse_section)
+	if (parse_section == PARSE_SECTION_NONE)
 	{
 		if (id != RIG_TOKEN_BASERIG &&
 			id != RIG_TOKEN_MODAL)
@@ -678,34 +716,38 @@ int getRigToken()
 		else
 		{
 			modal_rig = id == RIG_TOKEN_MODAL;
-			parse_section = 1;
+			parse_section = PARSE_SECTION_INIT;
 		}
 	}
-	else if (parse_section && (
+	else if (parse_section != PARSE_SECTION_NONE && (
 			id == RIG_TOKEN_BASERIG ||
 			id == RIG_TOKEN_MODAL))
 	{
 		rig_error("BaseRig or ModalRig only allowed as first Token");
 		return 0;
 	}
-	else if (parse_section != 1 && IS_INIT_HEADER_STATEMENT(id))
+	else if (parse_section != PARSE_SECTION_INIT && IS_INIT_HEADER_STATEMENT(id))
 	{
 		rig_error("%s statement only allowed in init_header_section",rigTokenToString(id));
 		return 0;
 	}
-	else if (parse_section != 1 && IS_INIT_ONLY_STATEMENT(id))
+	else if (parse_section != PARSE_SECTION_INIT && IS_INIT_ONLY_STATEMENT(id))
 	{
 		rig_error("%s statement only allowed in init_section",rigTokenToString(id));
 		return 0;
 	}
-	else if (parse_section != 2 && IS_BUTTON_ONLY_STATEMENT(id))
+	else if (parse_section != PARSE_SECTION_BUTTONS && IS_BUTTON_ONLY_STATEMENT(id))
 	{
 		rig_error("%s statement only allowed in button_section",rigTokenToString(id));
 		return 0;
 	}
+	else if (id == RIG_TOKEN_ON_UPDATE)
+	{
+		parse_section = PARSE_SECTION_UPDATE;
+	}
 	else if (id == RIG_TOKEN_BUTTON)
 	{
-		parse_section = 2;
+		parse_section = PARSE_SECTION_BUTTONS;
 	}
 	else if (modal_rig && id == RIG_TOKEN_LISTEN)
 	{
@@ -778,15 +820,21 @@ int getRigToken()
 			return;
 		}
 
-		if (tt == RIG_TOKEN_BUTTON)
+
+		if (tt == RIG_TOKEN_ON_UPDATE)
+			write_colon_return = 1;
+		else if (tt == RIG_TOKEN_BUTTON)
 			write_colon_return = 1;
 		else if (IS_SUBSECTION(tt))
 		{
 			dbgSerial->print("    ");
-			if (tt >= RIG_TOKEN_PRESS)
-				write_colon_return = 1;
+			write_colon_return = 1;
 		}
-		else if (parse_section == 2 && IS_BUTTON_STATEMENT(tt))
+		else if (parse_section == PARSE_SECTION_UPDATE)
+		{
+			dbgSerial->print("    ");
+		}
+		else if (parse_section == PARSE_SECTION_BUTTON && IS_STATEMENT(tt))
 		{
 			dbgSerial->print("        ");
 		}

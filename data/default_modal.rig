@@ -37,20 +37,20 @@ define(14, _test_var, 100);
 AREA(0,  32,  NORMAL,  RIGHT, 300, 5, 475, 40);		# General Purpose area in upper right
 
 BUTTON(4):
-	color: LED_PURPLE;
+	setButtonColor(4,LED_PURPLE);
 	click: display(0,YELLOW,"NADA");
 
 BUTTON(12) :
-	color:	VALUE[_test_var] ? LED_RED : LED_GREEN;
+	setButtonColor(12,VALUE[_test_var] ? LED_RED : LED_GREEN);
 	click:
 		setValue(_test_var,!VALUE[_test_var]);
 		display(0,YELLOW,VALUE[_test_var] ? "RED" : "GREEN");
 
 BUTTON(14) :
-	color:	LED_ORANGE;
+	setButtonColor(14,LED_ORANGE);
 	click:
 		display(0,YELLOW,"endModal");
-		endModal(127,0);	# syntax to be changed
+		endModal();
 
 # inherit the looper control buttons
 
