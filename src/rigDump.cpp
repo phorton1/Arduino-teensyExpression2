@@ -8,11 +8,11 @@
 #include "rigExpression.h"
 
 
-#define dbg_code 0
+#define dbg_code 1
 	// 0 = show header details (arrrays)
 	// -1 = show bytes of code
 #define dbg_dump 1
-	// 1 = basic state
+	// 1 = basic header vars
 	// 0 = dump
 	// -1 = details
 	// -2 = expressions
@@ -31,44 +31,23 @@ static char dump_buf[MAX_DUMP_BUF + 1];
 //------------------------------------
 
 
-static bool dumpNumber(const rig_t *rig, uint8_t value, bool is_id)
-	// dumps a number or an identifier if is_id
-{
-	if (!is_id)
-	{
-		sprintf(&dump_buf[strlen(dump_buf)],"%d",value);
-	}
-	// if it's an identifier, value is it's index in the defines
-	// which is, in turn, a 1 based offset into the define_pool
-	else
-	{
-		uint16_t def_offset = rig->define_ids[value] - 1;
-		sprintf(&dump_buf[strlen(dump_buf)],"%s",&rig->define_pool[def_offset]);
-	}
-	return true;
-}
 
 
 static bool dumpInline(const rig_t *rig, const uint8_t *code, uint16_t *offset)
 {
-
 	int dbg_offset = *offset;
-	uint8_t op = code[(*offset)++];
+	uint8_t opcode = code[(*offset)++] & ~EXP_INLINE;
 	uint8_t value = code[(*offset)++];
-	bool is_id = op & EXP_INLINE_ID;
-	uint8_t opcode = op & ~(EXP_INLINE | EXP_INLINE_ID);
 
-	display(dbg_dump+3,"# op at %d=INLINE(0x%02x) value=%d  %s",
+	display(dbg_dump+3,"# op at %d=INLINE(0x%02x) value=%d",
 		dbg_offset,
-		op,
-		value,
-		is_id ? "IS_ID" : "");
+		opcode,
+		value);
 
 	switch (opcode)
 	{
-		case EXP_DEFINE :
 		case EXP_NUMBER :
-			dumpNumber(rig, value,is_id);
+			sprintf(&dump_buf[strlen(dump_buf)],"%d",value);
 			break;
 		case EXP_LED_COLOR :
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(RIG_TOKEN_LED_BLACK + value));
@@ -78,16 +57,16 @@ static bool dumpInline(const rig_t *rig, const uint8_t *code, uint16_t *offset)
 			break;
 		case EXP_VALUE :
 			sprintf(&dump_buf[strlen(dump_buf)],"VALUE[");
-			dumpNumber(rig, value,is_id);
+			sprintf(&dump_buf[strlen(dump_buf)],"%d",value);;
 			sprintf(&dump_buf[strlen(dump_buf)],"]");
 			break;
 		case EXP_STRING :
 			sprintf(&dump_buf[strlen(dump_buf)],"STRING[");
-			dumpNumber(rig, value,is_id);
+			sprintf(&dump_buf[strlen(dump_buf)],"%d",value);;
 			sprintf(&dump_buf[strlen(dump_buf)],"]");
 			break;
 		default :
-			my_error("dumpRig() - unknown inline op(0x%02x,0x%02x) at offset(%d)",op,value,*offset);
+			my_error("dumpRig() - unknown inline op(0x%02x,0x%02x) at offset(%d)",opcode,value,*offset);
 			return false;
 			break;
 	}
@@ -191,14 +170,14 @@ static bool dumpCodeExpression(const rig_t *rig, const char *what, uint16_t offs
 		display(dbg_dump+2,"# dumpInlineExpression(%s) == 0x%02x%02x",what,byte0,byte1);
 
 		offset = 0;
-		if (!dumpExpression(rig, what,code,&offset))
+		if (!dumpExpression(rig, what, code, &offset))
 			return false;
 	}
 	else	// dumpExpression for real
 	{
 		offset -= 1;		// real expression offset are one based
 		const uint8_t *code = rig->expression_pool;
-		if (!dumpExpression(rig, what,code,&offset))
+		if (!dumpExpression(rig, what, code, &offset))
 			return false;
 	}
 	return true;
@@ -231,6 +210,10 @@ static bool dumpParam(const rig_t *rig, int arg_type, bool last, const uint8_t *
 			*offset += 2;
 			break;
 
+		case PARAM_METER_TYPE :
+			byte = code[(*offset)++];
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_HORZ));
+			break;
 		case PARAM_FONT_TYPE :
 			byte = code[(*offset)++];
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_NORMAL));

@@ -12,8 +12,8 @@
 
 #define AREA_TYPE_NONE		0
 #define AREA_TYPE_STRING	1
-#define AREA_TYPE_VMETER	2
-#define AREA_TYPE_HMETER    3
+#define AREA_TYPE_HMETER    2
+#define AREA_TYPE_VMETER	3
 
 
 typedef struct
@@ -29,7 +29,7 @@ typedef struct
 	int16_t		ye;
 
 	int			last_display_value;
-	const char *last_display_string;
+	int			last_display_color;
 
 } rigArea_t;	// 10 bytes
 
@@ -54,6 +54,7 @@ typedef struct
 typedef struct
 {
 	bool is_string;
+	uint16_t offset;
 	union {
 		uint16_t	value;
 		const char *text;
@@ -66,6 +67,7 @@ typedef struct
 {
 	const rig_t *rig;
 	char name[MAX_RIG_NAME + 1];
+	uint16_t pool_top;
 	const char *define_pool;
 	const char *string_pool;
 	const uint8_t *statement_pool;
@@ -97,7 +99,7 @@ private:
 	bool m_rig_loaded;
 
 	rigState_t m_rig_state;
-	evalResult_t m_param_values[MAX_PARAMS];
+	evalResult_t m_params[MAX_PARAMS];
 
 	int m_stack_ptr;
 	rigStack_t m_stack[MAX_RIG_STACK];
@@ -113,8 +115,8 @@ private:
 
 	bool executeStatementList(const rig_t *rig, int statement_num);
 	bool executeStatement(const rig_t *rig, uint16_t *offset, uint16_t last_offset);
-	bool evalParam(const rig_t *rig, evalResult_t *rslt,int arg_type, const uint8_t *code, uint16_t *offset);
-	bool evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const char *what, uint16_t offset);
+	bool evalParam(const rig_t *rig, int num, evalResult_t *rslt,int arg_type, const uint8_t *code, uint16_t *offset);
+	bool evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const char *what, uint16_t offset, uint16_t code_offset);
 	bool evalExpression(const rig_t *rig, evalResult_t *rslt, const char *what, const uint8_t *code, uint16_t *offset);
 
 	bool expression(const rig_t *rig, evalResult_t *rslt, const uint8_t *code, uint16_t *offset);
@@ -124,12 +126,19 @@ private:
 	const uint16_t *inheritButtonRefs(int num, const rig_t **ret_context);
 
 	void rigDisplay(uint16_t area_num, uint16_t color, const char *text);
+	void rigDisplayNumber(int area_num, uint16_t color, int value, int last_value);
+	void rigDrawMeter(int area_num, uint16_t color, int value, int last_value);
+
 
 };	// class rigMachine
 
 
 
 extern rigMachine rig_machine;
+
+extern void rig_error(int type, uint16_t offset, const char *format, ...);	// in rigEval.cpp
+extern bool rig_error_found;												// reset in various places
+
 
 
 // end of rigMachine.h

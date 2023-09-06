@@ -47,10 +47,9 @@ extern token_t rig_token;		// the current token now includes the file offset
 // evaluating button sections.
 
 
-extern bool suppress_rig_dialogs;
 
-extern void rig_error(const char *format, ...);					// parse error reporting with token line_num and char_num
-extern bool rig_error_found;	// true if any rig_errors occured; cleared in parseRig::init_parse()
+extern void parse_error(const char *format, ...);		// parse error reporting with token line_num and char_num
+extern bool parse_error_found;							// true if any parsing errors occured; cleared in parseRig::init_parse()
 
 
 
@@ -257,8 +256,8 @@ extern bool rig_error_found;	// true if any rig_errors occured; cleared in parse
 #define RIG_TOKEN_LE					132	// "<="
 #define RIG_TOKEN_BITWISE_OR			133	// "|"
 #define RIG_TOKEN_BITWISE_AND			134	// "&"
-#define RIG_TOKEN_LOGICAL_OR			136	// "||"
-#define RIG_TOKEN_LOGICAL_AND			137	// "&&"
+#define RIG_TOKEN_LOGICAL_OR			135	// "||"
+#define RIG_TOKEN_LOGICAL_AND			136	// "&&"
 
 #define RIG_TOKEN_ASSIGN				201 	// "="  	// transient
 

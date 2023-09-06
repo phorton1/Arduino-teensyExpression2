@@ -1,43 +1,6 @@
 //-------------------------------------------------------
 // rigParser.h
 //-------------------------------------------------------
-// add tokens
-//		BUTTON_NUM
-//      VERT
-//      HORZ
-// add section
-//		onUpdate
-// add statments
-//		setButtonColor
-//		setButtonBlink
-//				these may be included anywhere, but only once per button
-//				the button number MUST evaluate to a constant.
-//              they set a new button type BUTTON_DISPLAYABLE
-//      Meter (derivative of Area)
-//      setMeter
-//	    displayNumber
-// Color and Blink now to be represented a single per-button statement list
-//		that get executed in addition to the onUpdate statement list
-//      on each update cycle.
-// Add a button type array
-//      with bits defining whether it has an update section
-//      or any button refs, that also makes it easy to generate buttons
-// There are now three refs for a button and the are all statement lists
-//      update   (statments before click or long)
-//		click    OR    press/repeat
-//      long	 OR    release
-// Buttons may now be "display only" .. which replaces how we do
-//      the ftpTuner
-// The parser will now parse BUTTON(n,n,n,n) into a mask
-//      and remember the token_offset of the 0th button parsed.
-//      it will pass -1 or the button number into any expression evaulation
-//      which gets interpreted as a numerical constant
-// The expression parser will do constant folding through defines
-// rigMachine
-//		areas & meters remember their last displayed value
-//      	and only re-display them if changed.  They are re-displayed
-//      	to their previous values on begin(warm).
-
 
 #pragma once
 
@@ -59,7 +22,7 @@
 // These can be increased upto 255 (uint18_t)
 // as needed to accomodate larger programs
 
-#define RIG_NUM_AREAS			16
+#define RIG_NUM_AREAS			32
 #define RIG_NUM_DEFINES			128
 #define RIG_NUM_VALUES			128
 #define RIG_NUM_STRINGS			128
@@ -82,6 +45,9 @@
 	MAX_STRING_POOL + \
 	MAX_STATEMENT_POOL + \
 	MAX_EXPRESSION_POOL )
+
+#define RIG_POOL_SIZE		(MAX_RIG_SIZE * 2)
+
 
 // BUTTON types
 
@@ -155,6 +121,9 @@ extern const rig_t *parseRig(const char *rig_name, uint16_t how = 0);
 	// if that goes well, the rig is relocated and packed into the
 	// rig pool, and a pointer to the rig is returned.
 
+extern uint16_t rig_pool_len;
+extern uint8_t  rig_pool[RIG_POOL_SIZE];
+
 
 //----------------------------------------
 // param constants
@@ -168,8 +137,9 @@ extern const rig_t *parseRig(const char *rig_name, uint16_t how = 0);
 #define PARAM_STRING_NUM     5
 #define PARAM_TEXT    		 6		// limited to 79 in length
 
-// area statement
+// Area & Meter statements
 
+#define PARAM_METER_TYPE	 9
 #define PARAM_AREA_NUM       10		// also used for display area
 #define PARAM_FONT_SIZE      11
 #define PARAM_FONT_TYPE      12

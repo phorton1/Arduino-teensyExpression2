@@ -16,26 +16,31 @@
 // rigErrorDialog
 //------------------------------------
 
-class rigErrorDialog : public sysWindow
+class errorDialog : public sysWindow
 {
     public:
 
-        rigErrorDialog() {}
+        errorDialog() {}
 
-		void setMessage(const char *msg)   { strcpy(m_msg,msg); }
+		void setMessage(const char *name, const char *msg)
+		{
+			strcpy(m_name,name);
+			strcpy(m_msg,msg);
+		}
 
     private:
 
+		char m_name[32];
 		char m_msg[MAX_DIALOG_MSG + 1];
 
-        virtual const char *name() override      { return "Rig Error"; }
-        virtual const char *shortName() override { return "Rig Error"; }
+        virtual const char *name() override      { return m_name[0] ? m_name : "Error"; }
+        virtual const char *shortName() override { return m_name[0] ? m_name :  "Error"; }
 
         virtual void begin(bool cold) override;
         virtual void onButton(int row, int col, int event) override;
 };
 
-extern rigErrorDialog rig_error_dlg;
+extern errorDialog error_dlg;
 
 
 //------------------------------------

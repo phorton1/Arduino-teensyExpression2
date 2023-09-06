@@ -284,8 +284,22 @@ sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_GET_STATE);
 #=======================================================
 # Buttons
 #========================================================
+# Looper Volume Mode button
+#-------------------------------------
+
+BUTTON(14) :
+	setButtonColor(14,LED_ORANGE);
+	click:
+		display(AREA_MSG,YELLOW,"loadRig");
+		loadRig("default_modal");
+	long:
+		display(AREA_MSG,YELLOW,"tuner");
+		ftpTuner();
+
+
+#-------------------------------------
 # Synth Bank Button
-#-----------------------
+#-------------------------------------
 # If the _bank value is set, the LED is BLUE, otherwise its CYAN.
 # A press of the button toggles the BANK value
 
@@ -478,20 +492,6 @@ BUTTON(18):											# ECHO effect
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_CHOR_CC,		0);
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_ECHO_CC,		0);
 		display(AREA_MSG, YELLOW, "EFFECTS OFF");
-
-
-#-------------------------------------
-# Looper Volume Mode button
-#-------------------------------------
-
-BUTTON(14) :
-	setButtonColor(14,LED_ORANGE);
-	click:
-		display(AREA_MSG,YELLOW,"loadRig");
-		loadRig("default_modal");
-	long:
-		display(AREA_MSG,YELLOW,"tuner");
-		ftpTuner();
 
 
 #---------------------------------------

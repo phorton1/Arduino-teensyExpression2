@@ -40,9 +40,7 @@ static bool modal_rig;
 
 // extern
 token_t rig_token;
-bool rig_error_found;
-bool suppress_rig_dialogs;
-
+bool parse_error_found;
 
 
 #if DUMP_PARSE
@@ -70,13 +68,13 @@ void rewindRigFile(uint32_t offset, int line_num, int char_num)
 #define ERROR_COLOR_STRING      "\033[91m"       // red
 
 // extern
-void rig_error(const char *format, ...)
+void parse_error(const char *format, ...)
 {
-	rig_error_found = 1;
+	parse_error_found = 1;
 
-	char rig_error_buffer[255];
-	sprintf(rig_error_buffer,"%d:%d ",rig_token.line_num,rig_token.char_num);
-	char *text = &rig_error_buffer[strlen(rig_error_buffer)];
+	char error_buffer[255];
+	sprintf(error_buffer,"%d:%d ",rig_token.line_num,rig_token.char_num);
+	char *text = &error_buffer[strlen(error_buffer)];
 
 	va_list var;
 	va_start(var, format);
@@ -85,16 +83,12 @@ void rig_error(const char *format, ...)
 	if (dbgSerial)
 	{
 		dbgSerial->print(ERROR_COLOR_STRING);
-		dbgSerial->print("RIG_ERROR - ");
-		dbgSerial->println(rig_error_buffer);
+		dbgSerial->print("PARSE ERROR - ");
+		dbgSerial->println(error_buffer);
 	}
 
-	if (!suppress_rig_dialogs)
-	{
-		rig_error_dlg.setMessage(rig_error_buffer);
-		the_system.startWindow(&rig_error_dlg);
-	}
-
+	error_dlg.setMessage("Parse Error",error_buffer);
+	the_system.startWindow(&error_dlg);
 }
 
 
@@ -235,7 +229,7 @@ const char *rigTokenToString(int token_id)
 
 	// statement Tokens
 
-	rig_error("UNKNOWN_TOKEN(%d)",token_id);
+	parse_error("UNKNOWN_TOKEN(%d)",token_id);
 	return "UNKNOWN_TOKEN";
 
 }
@@ -354,7 +348,7 @@ static bool addTokenChar(char c)
 {
     if (rig_token_len >= MAX_RIG_TOKEN)
     {
-        rig_error("token too long");
+        parse_error("token too long");
         return false;
     }
     rig_token.text[rig_token_len++] = c;
@@ -397,7 +391,7 @@ int getRigToken()
 		parse_ptr++;
 		if (c == -1)
 		{
-			rig_error("File Read Error");
+			parse_error("File Read Error");
 			return 0;
 		}
 
@@ -423,7 +417,7 @@ int getRigToken()
             in_comment = true;
             if (rig_token.id == RIG_TOKEN_STRING)
             {
-                rig_error("unclosed quote");
+                parse_error("unclosed quote");
                 return 0;
             }
             else if (rig_token_len)
@@ -440,7 +434,7 @@ int getRigToken()
 
             if (rig_token.id == RIG_TOKEN_STRING)
             {
-                rig_error("unclosed quote");
+                parse_error("unclosed quote");
                 return 0;
             }
 
@@ -475,7 +469,7 @@ int getRigToken()
             }
             else if (rig_token_len)
             {
-                rig_error("unexpected quote");
+                parse_error("unexpected quote");
                 return 0;
             }
             else
@@ -538,7 +532,7 @@ int getRigToken()
 					}
 					else
 					{
-						rig_error("illegal symbol '%c'",c);
+						parse_error("illegal symbol '%c'",c);
 						return 0;
 					}
 				}
@@ -595,7 +589,7 @@ int getRigToken()
             {
                 if (rig_token_len >= 3)
                 {
-                    rig_error("NUMBER too long");
+                    parse_error("NUMBER too long");
                     return 0;
                 }
                 rig_token.int_value *= 10;
@@ -605,7 +599,7 @@ int getRigToken()
             }
             else
             {
-                rig_error("bad number");
+                parse_error("bad number");
                 return 0;
             }
         }
@@ -624,7 +618,7 @@ int getRigToken()
         }
         else
         {
-            rig_error("illegal character %d='%c'",c,c>=32?c:'.');
+            parse_error("illegal character %d='%c'",c,c>=32?c:'.');
             return 0;
         }
 
@@ -675,7 +669,7 @@ int getRigToken()
 
 			if (!id_ok)
 			{
-				rig_error("illegal identifier: %s",rig_token.text);
+				parse_error("illegal identifier: %s",rig_token.text);
 				return 0;
 			}
 		}
@@ -710,7 +704,7 @@ int getRigToken()
 		if (id != RIG_TOKEN_BASERIG &&
 			id != RIG_TOKEN_MODAL)
 		{
-			rig_error("Rig must start with BaseRig or ModalRig");
+			parse_error("Rig must start with BaseRig or ModalRig");
 			return 0;
 		}
 		else
@@ -723,22 +717,22 @@ int getRigToken()
 			id == RIG_TOKEN_BASERIG ||
 			id == RIG_TOKEN_MODAL))
 	{
-		rig_error("BaseRig or ModalRig only allowed as first Token");
+		parse_error("BaseRig or ModalRig only allowed as first Token");
 		return 0;
 	}
 	else if (parse_section != PARSE_SECTION_INIT && IS_INIT_HEADER_STATEMENT(id))
 	{
-		rig_error("%s statement only allowed in init_header_section",rigTokenToString(id));
+		parse_error("%s statement only allowed in init_header_section",rigTokenToString(id));
 		return 0;
 	}
 	else if (parse_section != PARSE_SECTION_INIT && IS_INIT_ONLY_STATEMENT(id))
 	{
-		rig_error("%s statement only allowed in init_section",rigTokenToString(id));
+		parse_error("%s statement only allowed in init_section",rigTokenToString(id));
 		return 0;
 	}
 	else if (parse_section != PARSE_SECTION_BUTTONS && IS_BUTTON_ONLY_STATEMENT(id))
 	{
-		rig_error("%s statement only allowed in button_section",rigTokenToString(id));
+		parse_error("%s statement only allowed in button_section",rigTokenToString(id));
 		return 0;
 	}
 	else if (id == RIG_TOKEN_ON_UPDATE)
@@ -751,17 +745,17 @@ int getRigToken()
 	}
 	else if (modal_rig && id == RIG_TOKEN_LISTEN)
 	{
-		rig_error("LISTEN statement only allowed in baseRigs",0);
+		parse_error("LISTEN statement only allowed in baseRigs",0);
 		return 0;
 	}
 	else if (!modal_rig && id == RIG_TOKEN_END_MODAL)
 	{
-		rig_error("endModal statement only allowed in modalRigs",0);
+		parse_error("endModal statement only allowed in modalRigs",0);
 		return 0;
 	}
 	else if (!modal_rig && id == RIG_TOKEN_INHERIT)
 	{
-		rig_error("buttons may only INHERIT in modalRigs",0);
+		parse_error("buttons may only INHERIT in modalRigs",0);
 	}
 
 	// finished
@@ -927,7 +921,7 @@ bool openRigFile(const char *name)
 	rig_file = SD.open(name_buffer, FILE_READ );
     if (!rig_file)
     {
-        rig_error("Could not open Rig file: %s",name_buffer);
+        parse_error("Could not open Rig file: %s",name_buffer);
         return 0;
     }
 

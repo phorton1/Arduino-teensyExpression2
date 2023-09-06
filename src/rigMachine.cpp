@@ -21,10 +21,10 @@
 #include "winFtpSensitivity.h"
 
 
-#define AUTO_START_RIGS	 0
+#define AUTO_START_RIGS	 1
 
 
-#define dbg_rig 	-1
+#define dbg_rig 	0
 	// 0 = show loadRig() and onButton() calls
 	// -1 = show rig setButtonType() calls
 #define dbg_stmt    1
@@ -33,13 +33,13 @@
 #define dbg_calls	0
 	// 0 = show functions actually called by statements
 	// -1 = show functions called during update cycle
-#define dbg_display  1
+#define dbg_display  0
 	// 0 = show rigDisplay() details
 #define dbg_param	1
 	// 0  = just show final param value
 	// -1 = show param details and expression header
 	// -2 = show expression return value
-#define dbg_midi    1
+#define dbg_midi    0
 	// 0  = show onMidiCC setting of Listen Values
 	// -1 = show onMidiCC header
 	// -2 = show onMidiCC checking each listen
@@ -120,11 +120,12 @@ bool rigMachine::pushRig(const rig_t *rig, const char *name)
 {
 	if (m_stack_ptr >= MAX_RIG_STACK)
 	{
-		rig_error("RIG_STACK OVERFLOW!!");
+		rig_error(2,0,"RIG_STACK OVERFLOW!!");
 		return 0;
 	}
-	display(dbg_rig,"pushRig(%d,%s)",m_stack_ptr,name);
+	display(dbg_rig,"pushRig(%d,%s) rig_pool_len=%d",m_stack_ptr,name,rig_pool_len);
 	m_stack[m_stack_ptr].rig = rig;
+	m_stack[m_stack_ptr].pool_top = rig_pool_len;
 	strcpy(m_stack[m_stack_ptr].name,name);
 	m_stack_ptr++;
 	return 1;
@@ -139,7 +140,7 @@ void rigMachine::popRig()
 	}
 
 	const char *old_name = m_stack[m_stack_ptr-1].name;
-	display(dbg_rig,"popRig(%d,%s)",m_stack_ptr-1,old_name);
+	display(dbg_rig,"popRig(%d,%s) pool_top=%d",m_stack_ptr-1,old_name,m_stack[m_stack_ptr-1].pool_top);
 	proc_entry();
 
 	// cancel buttons
@@ -149,6 +150,8 @@ void rigMachine::popRig()
 	m_stack_ptr--;
 	if (m_stack_ptr)
 	{
+		rig_pool_len = m_stack[m_stack_ptr-1].pool_top;
+		display(dbg_rig,"    popRig() new rig_pool_len=%d",rig_pool_len);
 		showRigName();
 		if (startRig(m_stack[m_stack_ptr-1].rig,0))
 		{
@@ -160,6 +163,8 @@ void rigMachine::popRig()
 	}
 	else	// we are popping back to the system
 	{
+		rig_pool_len = 0;
+		display(dbg_rig,"    popRig() empty stack rig_pool_len=%d",rig_pool_len);
 		initRotary();
 		the_pedals.init();
 		the_system.setTitle("",true);
@@ -223,7 +228,7 @@ bool rigMachine::loadRig(const char *rig_name)
 	}
 	if (strlen(rig_name) > MAX_RIG_NAME)
 	{
-		rig_error("loadRig() rig_name too long",0);
+		rig_error(2,0,"loadRig() rig_name too long(%d)",strlen(rig_name));
 		return false;
 	}
 
@@ -293,6 +298,12 @@ bool rigMachine::startRig(const rig_t *rig, bool cold)
 	{
 		m_listen_mask = 0;
 		memset(&m_rig_state,0,sizeof(rigState_t));
+	}
+
+	for (int i=0; i<RIG_NUM_AREAS; i++)
+	{
+		m_rig_state.areas[i].last_display_color = -1;
+		m_rig_state.areas[i].last_display_value = -1;
 	}
 
 	// clear the client area
@@ -367,24 +378,128 @@ void rigMachine::restartRig()
 // rig statement primitives
 //-------------------------------------------------
 
-void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
+void rigMachine::rigDrawMeter(int area_num, uint16_t color_idx, int value, int last_value)
 {
-	proc_entry();
 	rigArea_t *area = &m_rig_state.areas[area_num];
+	if (area->last_display_color != color_idx)
+		last_value = -1;
+	if (value == last_value)
+		return;
 
-	display(dbg_display,"rigDisplay(%d,%d=%s,\"%s\") font_size=%d",
+	proc_entry();
+	display(dbg_display,"rigDrawMeter(%d,%d=%s,%d) area(%d,%d,%d,%d) last=%d",
 		area_num,
-		color,
-		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
-		text,
-		area->font_size);
+		color_idx,
+		rigTokenToText(color_idx + RIG_TOKEN_DISPLAY_BLACK),
+		value,
+		area->xs,
+		area->ys,
+		area->xe,
+		area->ye,
+		last_value);
 
-
-	const ILI9341_t3_font_t *font = 0;
-
-	if (area->font_type)
+	if (last_value == -1)
 	{
-		switch (area->font_size)
+		mylcd.fillRect(
+			client_rect.xs + area->xs,
+			client_rect.ys + area->ys,
+			area->xe - area->xs + 1,		// width
+			area->ye - area->ys + 1,        // height
+			TFT_BLACK);						// TFT_BLUE helps see details
+		mylcd.setDrawColor(TFT_WHITE);
+		mylcd.drawRect(
+			client_rect.xs + area->xs,
+			client_rect.ys + area->ys,
+			client_rect.xs + area->xe,		// end x
+			client_rect.ys + area->ye);		// end y
+	}
+
+	// normalize last_value
+
+	if (last_value == -1)
+		last_value = 0;
+
+	// if the value has not changed, there's nothing to do
+
+	uint32_t from = last_value;
+	uint32_t to = value;
+	display(0,"    initial from(%d) to(%d)",from,to);
+
+	if (from != to)		// value changed
+	{
+		uint16_t color = DISPLAY_COLORS[color_idx];
+		if (value < last_value)
+		{
+			display(0,"    color BLACK",0);
+			color = TFT_BLACK;
+		}
+
+		// convert to pixels
+		// this will generally expand the range
+		// so we don't check again for from==to
+
+		uint32_t extent = area->type == AREA_TYPE_HMETER ?
+			area->xe - area->xs - 2 :
+			area->ye - area->ys - 2 ;
+
+		from = (from * extent) / 127;
+		to =  (to * extent) / 127;
+		display(0,"    pixels from(%d) to(%d) extent(%d)",from,to,extent);
+
+		// switch from-to as needed
+
+		if (from > to)
+		{
+			uint32_t temp = from;
+			from = to;
+			to = temp;
+			display(0,"    switch from(%d) to(%d)",from,to);
+		}
+
+		// draw horizontal or vertical
+		// note that vertical coords are reversed as lcd start at top
+		// and that it's all 1 pixel inside the frame, but that extent
+		// already knew that.
+
+		if (area->type == AREA_TYPE_HMETER)
+		{
+			mylcd.fillRect(
+				client_rect.xs + area->xs + 1 + from,
+				client_rect.ys + area->ys + 1,
+				to - from + 1,						// width
+				area->ye - area->ys - 1,		// height
+				color);
+		}
+		else
+		{
+			display(0,"    fillRect(%d,%d,%d,%d)",
+				client_rect.xs + area->xs + 1,
+				client_rect.ys + area->ye - to - 1,
+				area->xe - area->xs - 1,
+				to - from + 1);
+
+
+			mylcd.fillRect(
+				client_rect.xs + area->xs + 1,
+				client_rect.ys + area->ye - to - 1,	// to is on top
+				area->xe - area->xs - 1,			// width
+				to - from + 1,						// height
+				color);
+		}
+	}
+
+	area->last_display_value = value;
+	area->last_display_color = color_idx;
+	proc_leave();
+}
+
+
+static bool setAreaFont(int font_type, int font_size)
+{
+	const ILI9341_t3_font_t *font = 0;
+	if (font_type)
+	{
+		switch (font_size)
 		{
 			case 12: font = &Arial_12_Bold; break;
 			case 14: font = &Arial_14_Bold; break;
@@ -397,15 +512,13 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 			case 40: font = &Arial_40_Bold; break;
 			case 48: font = &Arial_48_Bold; break;
 			default:	// should never happen
-				rig_error("Unknown font_size(%d)_bold",area->font_type);
-				proc_leave();
-				return;
-				break;
+				rig_error(1,0,"Unknown font_size(%d)_bold",font_type);
+				return false;
 		}
 	}
 	else
 	{
-		switch (area->font_size)
+		switch (font_size)
 		{
 			case 12: font = &Arial_12; break;
 			case 14: font = &Arial_14; break;
@@ -418,32 +531,83 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color, const char *text)
 			case 40: font = &Arial_40; break;
 			case 48: font = &Arial_48; break;
 			default: 	// should never happen
-				rig_error("Unknown font_size(%d)",area->font_type);
-				proc_leave();
-				return;
-				break;
+				rig_error(1,0,"Unknown font_size(%d)",font_type);
+				return false;
 		}
 	}
+	mylcd.setFont(*font);
+	return true;
 
-	display(dbg_display,"calling print_justified(%d,%d,%d,%d,  %d, %d=%s,BLACK,1,\"%s\")",
+}
+
+
+void rigMachine::rigDisplayNumber(int area_num, uint16_t color_idx, int value, int last_value)
+{
+	rigArea_t *area = &m_rig_state.areas[area_num];
+	if (area->last_display_color != color_idx)
+		last_value = -1;
+	if (value == last_value)
+		return;
+
+	proc_entry();
+	display(dbg_display,"rigDisplayNumber(%d,%d=%s,%d) last=%d",
+		area_num,
+		color_idx,
+		rigTokenToText(color_idx + RIG_TOKEN_DISPLAY_BLACK),
+		value,
+		last_value);
+
+	if (!setAreaFont(area->font_type,area->font_size))
+	{
+		proc_leave();
+		return;
+	}
+
+	mylcd.printfJustified(
 		client_rect.xs + area->xs,
 		client_rect.ys + area->ys,
-		area->xe - area->xs + 1,
-		area->ye - area->ys + 1,
+		area->xe - area->xs + 1,			// width
+		area->ye - area->ys + 1,            // height
 		area->font_just,
-		color,
-		rigTokenToText(color + RIG_TOKEN_DISPLAY_BLACK),
+		DISPLAY_COLORS[color_idx],
+		TFT_BLACK,
+		1,	// use bc
+		"%d",
+		value);
+
+	area->last_display_value = value;
+	area->last_display_color = color_idx;
+
+	proc_leave();
+}
+
+
+
+void rigMachine::rigDisplay(uint16_t area_num, uint16_t color_idx, const char *text)
+{
+
+	rigArea_t *area = &m_rig_state.areas[area_num];
+
+	proc_entry();
+	display(dbg_display,"rigDisplay(%d,%d=%s,\"%s\")",
+		area_num,
+		color_idx,
+		rigTokenToText(color_idx + RIG_TOKEN_DISPLAY_BLACK),
 		text);
 
-	mylcd.setFont(*font);
+	if (!setAreaFont(area->font_type,area->font_size))
+	{
+		proc_leave();
+		return;
+	}
 
 	mylcd.printJustified(
 		client_rect.xs + area->xs,
 		client_rect.ys + area->ys,
-		area->xe - area->xs + 1,
-		area->ye - area->ys + 1,
+		area->xe - area->xs + 1,		// width
+		area->ye - area->ys + 1,        // height
 		area->font_just,
-		DISPLAY_COLORS[color],
+		DISPLAY_COLORS[color_idx],
 		TFT_BLACK,
 		1,	// use bc
 		text);
@@ -477,47 +641,44 @@ bool rigMachine::evalExpression(const rig_t *rig, evalResult_t *rslt, const char
 }
 
 
-bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const char *what, uint16_t offset)
+bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const char *what, uint16_t offset, uint16_t code_offset)
 {
 	if (offset & (EXP_INLINE << 8))
 	{
-		uint8_t byte = offset >> 8;
-		uint8_t inline_op = byte & 0x3f;
+		uint8_t opcode = (offset >> 8) & ~EXP_INLINE;
 		uint8_t value = offset & 0xff;
 
-		display(dbg_param+1,"inline %s == 0x%02x%02x",what,byte,value);
-
-		if (byte & EXP_INLINE_ID)
-		{
-			display(dbg_param+1,"inline id(%d)=%s",value,&rig->define_pool[rig->define_ids[value] - 1]);
-			value = rig->define_values[value];
-		}
-
-		if (inline_op == EXP_LED_COLOR)
+		if (opcode == EXP_LED_COLOR)
 		{
 			display(dbg_param+1,"inline LED_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_LED_BLACK + value));
+			rslt->value = value;
 		}
-		else if (inline_op == EXP_DISPLAY_COLOR)
+		else if (opcode == EXP_DISPLAY_COLOR)
 		{
 			display(dbg_param+1,"inline DISPLAY_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_DISPLAY_BLACK + value));
+			rslt->value = value;
 		}
-
-		if (inline_op == EXP_VALUE)
+		else if (opcode == EXP_VALUE)
 		{
-			display(dbg_param+1,"inline VALUE[%d]",value);
-			value = m_rig_state.values[value];
+			display(dbg_param+1,"inline VALUE[%d] = %d",value,m_rig_state.values[value]);
+			rslt->value = m_rig_state.values[value];
 		}
-
-		if (inline_op == EXP_STRING)
+		else if (opcode == EXP_STRING)
 		{
 			display(dbg_param+1,"inline STRING[%d]",value);
 			uint16_t off = rig->strings[value];
 			rslt->text = &rig->string_pool[off];
 			rslt->is_string = 1;
 		}
+		else if (opcode == EXP_NUMBER)
+		{
+			display(dbg_param+1,"inline NUMBER = %d",value);
+			rslt->value = value;
+		}
 		else
 		{
-			rslt->value = value;
+			rig_error(1,code_offset,"uknonwn inline opcode(0x%02x)",opcode);
+			return false;
 		}
 	}
 	else	// dumpExpression for real
@@ -535,16 +696,17 @@ bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const 
 // Statement execution
 //---------------------------------------------------
 
-bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, const uint8_t *code, uint16_t *offset)
+bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int arg_type, const uint8_t *code, uint16_t *offset)
 {
 	const char *what = argTypeToString(arg_type);
-	display(dbg_param+1,"evalParam(%s) at code_offset %d",what,*offset);
+	display(dbg_param+1,"evalParam(%d,%s) at code_offset %d",num,what,*offset);
 	proc_entry();
 
 	bool ok = 1;
 	uint16_t max = 0;
 	uint16_t *ptr16 = 0;
 	rslt->is_string = 0;
+	rslt->offset = *offset;
 
 	switch (arg_type)
 	{
@@ -562,16 +724,21 @@ bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, c
 	{
 		case PARAM_MIDI_CHANNEL :
 			ptr16 = (uint16_t *) &code[*offset];
-			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16);
-			if (ok && (
-				rslt->value > MIDI_MAX_CHANNEL ||
-				rslt->value < MIDI_MIN_CHANNEL))
+			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*offset);
+			if (ok)
 			{
-				rig_error("evalParam - %s must be between %d and %d at offset(%d)",
-					what,MIDI_MIN_CHANNEL,MIDI_MAX_CHANNEL,*offset-1);
-				ok = 0;
+				if (rslt->value > MIDI_MAX_CHANNEL ||
+					rslt->value < MIDI_MIN_CHANNEL)
+				{
+					rig_error(1,*offset,"evalParam - %s must be between %d and %d",
+						what,MIDI_MIN_CHANNEL,MIDI_MAX_CHANNEL);
+					ok = 0;
+				}
+				else
+				{
+					*offset += 2;
+				}
 			}
-			*offset += 2;
 			break;		case PARAM_AREA_NUM :
 		case PARAM_VALUE_NUM :
 		case PARAM_VALUE :
@@ -581,23 +748,30 @@ bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, c
 		case PARAM_MIDI_CC :
 		case PARAM_MIDI_VALUE :
 			ptr16 = (uint16_t *) &code[*offset];
-			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16);
-			if (ok && rslt->value > max)
+			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*offset);
+			if (ok)
 			{
-				rig_error("evalParam - %s must be %d or less at offset(%d)",
-					what,max,*offset-1);
-				ok = 0;
+				if (rslt->value > max)
+				{
+					rig_error(1,*offset,"evalParam - %s must be %d or less",what,max);
+					ok = 0;
+				}
+				else
+				{
+					*offset += 2;
+				}
 			}
-			*offset += 2;
 			break;
 		case PARAM_STRING_EXPRESSION :
 		case PARAM_LED_COLOR_EXPRESSION :
 		case PARAM_DISPLAY_COLOR_EXPRESSION :
 			ptr16 = (uint16_t *) &code[*offset];
-			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16);
-			*offset += 2;
+			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*offset);
+			if (ok)
+				*offset += 2;
 			break;
 
+		case PARAM_METER_TYPE :
 		case PARAM_BUTTON_NUM :
 		case PARAM_FONT_TYPE :
 		case PARAM_FONT_JUST :
@@ -623,7 +797,7 @@ bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, c
 			break;
 
 		default:
-			rig_error("evalParam - unknown arg_type(%d) at offset(%d)",arg_type,*offset);
+			rig_error(1,*offset,"evalParam - unknown arg_type(%d)",arg_type);
 			ok = 0;
 			break;
 	}
@@ -636,14 +810,18 @@ bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, c
 		else
 			display(dbg_param,"evalParam(%s) returning(%d) at code_offset %d",argTypeToString(arg_type),rslt->value,*offset);
 	}
-	return true;
+	return ok;
 }
+
 
 
 bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t last_offset)
 {
 	const uint8_t *code = rig->statement_pool;
 	uint8_t tt = code[(*offset)++];
+
+	// if (tt == RIG_TOKEN_DISPLAY)
+	// 	debug_level = 3;
 
 	display(dbg_stmt+1,"executeStatement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
 	proc_entry();
@@ -655,7 +833,8 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 	const int *arg = params->args;
 	while (ok && *arg)
 	{
-		ok = evalParam(rig,&m_param_values[param_num++],*arg++,code,offset);
+		ok = evalParam(rig,param_num,&m_params[param_num],*arg++,code,offset);
+		param_num++;
 	}
 
 	if (ok)
@@ -665,128 +844,201 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 		{
 			case RIG_TOKEN_SETVALUE:
 				display(dbg_calls+in_update_cycle,"setValue(%d,%d)",
-					m_param_values[0].value,
-					m_param_values[1].value);
-				m_rig_state.values[m_param_values[0].value] = m_param_values[1].value;
+					m_params[0].value,
+					m_params[1].value);
+				m_rig_state.values[m_params[0].value] = m_params[1].value;
 				break;
 
 			case RIG_TOKEN_SET_BUTTON_COLOR:
 				display(dbg_calls+in_update_cycle,"setButtonColor(%d,%d=%s)",
-					m_param_values[0].value,
-					m_param_values[1].value,
-					rigTokenToText(m_param_values[1].value + RIG_TOKEN_LED_BLACK));
-				the_buttons.setButtonColor(m_param_values[0].value,LED_COLORS[m_param_values[1].value]);
+					m_params[0].value,
+					m_params[1].value,
+					rigTokenToText(m_params[1].value + RIG_TOKEN_LED_BLACK));
+				the_buttons.setButtonColor(m_params[0].value,LED_COLORS[m_params[1].value]);
 				break;
 			case RIG_TOKEN_SET_BUTTON_BLINK:
 				display(dbg_calls+in_update_cycle,"setButtonBlink(%d,%d)",
-					m_param_values[0].value,
-					m_param_values[1].value);
-				the_buttons.setButtonBlink(m_param_values[0].value,m_param_values[1].value);
+					m_params[0].value,
+					m_params[1].value);
+				the_buttons.setButtonBlink(m_params[0].value,m_params[1].value);
 				break;
 
 			case RIG_TOKEN_AREA:
 				display(dbg_calls,"AREA(%d,%d,%s,%s,%d,%d,%d,%d)",
-					m_param_values[0].value,
-					m_param_values[1].value,
-					rigTokenToText(m_param_values[2].value + RIG_TOKEN_NORMAL),
-					rigTokenToText(m_param_values[3].value + RIG_TOKEN_LEFT),
-					m_param_values[4].value,
-					m_param_values[5].value,
-					m_param_values[6].value,
-					m_param_values[7].value);
-				idx = m_param_values[0].value;
+					m_params[0].value,
+					m_params[1].value,
+					rigTokenToText(m_params[2].value + RIG_TOKEN_NORMAL),
+					rigTokenToText(m_params[3].value + RIG_TOKEN_LEFT),
+					m_params[4].value,
+					m_params[5].value,
+					m_params[6].value,
+					m_params[7].value);
+				idx = m_params[0].value;
 				m_rig_state.areas[idx].type      = AREA_TYPE_STRING;
-				m_rig_state.areas[idx].font_size = m_param_values[1].value;
-				m_rig_state.areas[idx].font_type = m_param_values[2].value;
-				m_rig_state.areas[idx].font_just = m_param_values[3].value;
-				m_rig_state.areas[idx].xs   	 = m_param_values[4].value;
-				m_rig_state.areas[idx].ys   	 = m_param_values[5].value;
-				m_rig_state.areas[idx].xe   	 = m_param_values[6].value;
-				m_rig_state.areas[idx].ye   	 = m_param_values[7].value;
+				m_rig_state.areas[idx].font_size = m_params[1].value;
+				m_rig_state.areas[idx].font_type = m_params[2].value;
+				m_rig_state.areas[idx].font_just = m_params[3].value;
+				m_rig_state.areas[idx].xs   	 = m_params[4].value;
+				m_rig_state.areas[idx].ys   	 = m_params[5].value;
+				m_rig_state.areas[idx].xe   	 = m_params[6].value;
+				m_rig_state.areas[idx].ye   	 = m_params[7].value;
 				break;
+			case RIG_TOKEN_METER:
+			{
+				int area_num = m_params[0].value;
+				int type 	 = m_params[1].value;
+				display(dbg_calls,"METER(%d,%d=%s,%d,%d,%d,%d)",
+					area_num,
+					type,
+					rigTokenToText(type + RIG_TOKEN_HORZ),
+					m_params[2].value,
+					m_params[3].value,
+					m_params[4].value,
+					m_params[5].value);
+				m_rig_state.areas[area_num].type = AREA_TYPE_HMETER + type;
+				m_rig_state.areas[area_num].xs   = m_params[2].value;
+				m_rig_state.areas[area_num].ys   = m_params[3].value;
+				m_rig_state.areas[area_num].xe   = m_params[4].value;
+				m_rig_state.areas[area_num].ye   = m_params[5].value;
+				break;
+			}
 
 			case RIG_TOKEN_LISTEN:
 				display(dbg_calls,"LISTEN(%d,%s,%d,%d)",
-					m_param_values[0].value,
-					rigTokenToText(m_param_values[1].value + RIG_TOKEN_USB1),
-					m_param_values[2].value,
-					m_param_values[3].value);
-				idx = m_param_values[0].value;
+					m_params[0].value,
+					rigTokenToText(m_params[1].value + RIG_TOKEN_USB1),
+					m_params[2].value,
+					m_params[3].value);
+				idx = m_params[0].value;
 				m_rig_state.listens[idx].active  = 1;
-				m_rig_state.listens[idx].port    = m_param_values[1].value;
-				m_rig_state.listens[idx].channel = m_param_values[2].value;
-				m_rig_state.listens[idx].cc      = m_param_values[3].value;
-				m_listen_mask |= (1 << m_param_values[1].value);
+				m_rig_state.listens[idx].port    = m_params[1].value;
+				m_rig_state.listens[idx].channel = m_params[2].value;
+				m_rig_state.listens[idx].cc      = m_params[3].value;
+				m_listen_mask |= (1 << m_params[1].value);
 				break;
 
 			case RIG_TOKEN_PEDAL:
 				display(dbg_calls,"PEDAL(%d,%s,%d=%s,%d,%d)",
-					m_param_values[0].value,
-					m_param_values[1].text,
-					m_param_values[2].value,
-					rigTokenToText(m_param_values[2].value + RIG_TOKEN_USB1),
-					m_param_values[3].value,
-					m_param_values[4].value);
+					m_params[0].value,
+					m_params[1].text,
+					m_params[2].value,
+					rigTokenToText(m_params[2].value + RIG_TOKEN_USB1),
+					m_params[3].value,
+					m_params[4].value);
 				the_pedals.setPedal(
-					m_param_values[0].value,			// pedal num
-					m_param_values[1].text,				// name
-					MIDI_ENUM_TO_PORT(m_param_values[2].value),	// port
-					m_param_values[3].value - 1,		// switch to zero based channel number
-					m_param_values[4].value);			// cc
+					m_params[0].value,			// pedal num
+					m_params[1].text,				// name
+					MIDI_ENUM_TO_PORT(m_params[2].value),	// port
+					m_params[3].value - 1,		// switch to zero based channel number
+					m_params[4].value);			// cc
 				break;
 
 			case RIG_TOKEN_ROTARY:
 				display(dbg_calls,"ROTARY(%d,%s,%d=%s,%d,%d)",
-					m_param_values[0].value,
-					m_param_values[1].text,
-					m_param_values[2].value,
-					rigTokenToText(m_param_values[2].value + RIG_TOKEN_USB1),
-					m_param_values[3].value,
-					m_param_values[4].value);
+					m_params[0].value,
+					m_params[1].text,
+					m_params[2].value,
+					rigTokenToText(m_params[2].value + RIG_TOKEN_USB1),
+					m_params[3].value,
+					m_params[4].value);
 				setRotary(
-					m_param_values[0].value,			// rotary num
-					m_param_values[1].text,				// name
-					MIDI_ENUM_TO_PORT(m_param_values[2].value),	// port
-					m_param_values[3].value - 1,		// switch to zero based channel number
-					m_param_values[4].value);			// cc
+					m_params[0].value,			// rotary num
+					m_params[1].text,				// name
+					MIDI_ENUM_TO_PORT(m_params[2].value),	// port
+					m_params[3].value - 1,		// switch to zero based channel number
+					m_params[4].value);			// cc
 				break;
 
 			case RIG_TOKEN_DISPLAY:
+			{
+				int area_num = m_params[0].value;
 				display(dbg_calls+in_update_cycle,"display(%d,%d=%s,\"%s\")",
-					m_param_values[0].value,
-					m_param_values[1].value,
-					rigTokenToText(m_param_values[1].value + RIG_TOKEN_DISPLAY_BLACK),
-					m_param_values[2].text);
-				rigDisplay(
-					m_param_values[0].value,
-					m_param_values[1].value,
-					m_param_values[2].text);
+					area_num,
+					m_params[1].value,
+					rigTokenToText(m_params[1].value + RIG_TOKEN_DISPLAY_BLACK),
+					m_params[2].text);
+				// debug_level = 0;
+				if (m_rig_state.areas[area_num].type != AREA_TYPE_STRING)
+				{
+					rig_error(1,m_params[0].offset,"Attempt to display in AREA of type(%d=%s)",rigTokenToString(m_rig_state.areas[area_num].type + RIG_TOKEN_HORZ));
+					ok = 0;
+				}
+				else
+				{
+					rigDisplay(
+						m_params[0].value,
+						m_params[1].value,
+						m_params[2].text);
+				}
 				break;
+			}
 
+			case RIG_TOKEN_DISPLAY_NUMBER:
+			case RIG_TOKEN_SET_METER:
+			{
+				int area_num = m_params[0].value;
+				int color_idx = m_params[1].value;
+				int value = m_params[2].value;
+				int last_value = m_rig_state.areas[area_num].last_display_value;
+				int type = m_rig_state.areas[area_num].type;
+				display(dbg_calls+in_update_cycle,"%s(%d,%d=%s,%d) type=%d",
+					rigTokenToText(tt),
+					area_num,
+					color_idx,
+					rigTokenToText(color_idx + RIG_TOKEN_DISPLAY_BLACK),
+					value,
+					type);
+				if (tt == RIG_TOKEN_DISPLAY_NUMBER)
+				{
+					if (type != AREA_TYPE_STRING)
+					{
+						rig_error(1,m_params[0].offset,"Attempt to displayNumber in AREA of type(%d=%s)",rigTokenToString(type + RIG_TOKEN_HORZ));
+						ok = 0;
+					}
+					else
+					{
+						rigDisplayNumber(area_num,color_idx,value,last_value);
+					}
+				}
+				else
+				{
+					if (m_rig_state.areas[area_num].type == AREA_TYPE_STRING)
+					{
+						rig_error(1,m_params[0].offset,"Attempt to setMeter in STRING AREA",0);
+						ok = 0;
+					}
+					else
+					{
+						rigDrawMeter(area_num,color_idx,value,last_value);
+					}
+				}
+				break;
+			}
 			case RIG_TOKEN_SEND_CC:
 				display(dbg_calls,"sendCC(%d=%s,%d,%d,%d)",
-					m_param_values[0].value,
-					rigTokenToText(m_param_values[0].value + RIG_TOKEN_USB1),
-					m_param_values[1].value,
-					m_param_values[2].value,
-					m_param_values[3].value);
+					m_params[0].value,
+					rigTokenToText(m_params[0].value + RIG_TOKEN_USB1),
+					m_params[1].value,
+					m_params[2].value,
+					m_params[3].value);
+				// debug_level = 0;
 				sendMidiControlChange(
-					MIDI_ENUM_TO_PORT(m_param_values[0].value),
-					m_param_values[1].value,
-					m_param_values[2].value,
-					m_param_values[3].value);
+					MIDI_ENUM_TO_PORT(m_params[0].value),
+					m_params[1].value,
+					m_params[2].value,
+					m_params[3].value);
 				break;
 
 			case RIG_TOKEN_SEND_PGM_CHG:
 				display(dbg_calls,"sendPgmChg(%d=%s,%d,%d)",
-					m_param_values[0].value,
-					rigTokenToText(m_param_values[0].value + RIG_TOKEN_USB1),
-					m_param_values[1].value,
-					m_param_values[2].value);
+					m_params[0].value,
+					rigTokenToText(m_params[0].value + RIG_TOKEN_USB1),
+					m_params[1].value,
+					m_params[2].value);
 				sendMidiProgramChange(
-					MIDI_ENUM_TO_PORT(m_param_values[0].value),
-					m_param_values[1].value,
-					m_param_values[2].value);
+					MIDI_ENUM_TO_PORT(m_params[0].value),
+					m_params[1].value,
+					m_params[2].value);
 				break;
 
 			case RIG_TOKEN_NOTE_ON:
@@ -805,20 +1057,20 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 
 			case RIG_TOKEN_LOAD_RIG:
 				display(dbg_calls,"loadRig(%s)",
-					m_param_values[0].text);
-				ok = rigMachine::loadRig(m_param_values[0].text);
+					m_params[0].text);
+				ok = rigMachine::loadRig(m_params[0].text);
 				break;
 
 			case RIG_TOKEN_END_MODAL:
 				display(dbg_calls,"endModal(%d,%d)",
-					m_param_values[0].value,
-					m_param_values[1].value);
-				m_rig_state.values[m_param_values[0].value] = m_param_values[1].value;
+					m_params[0].value,
+					m_params[1].value);
+				m_rig_state.values[m_params[0].value] = m_params[1].value;
 				popRig();
 				break;
 
 			default:
-				rig_error("unknown rigStatement: %d=%s at offset(%d)",tt,rigTokenToString(tt),*offset-1);
+				rig_error(1,*offset-1,"unknown rigStatement: %d=%s",tt,rigTokenToString(tt));
 				ok = 0;
 				break;
 		}

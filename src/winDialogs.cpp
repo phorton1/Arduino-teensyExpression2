@@ -8,8 +8,8 @@
 #include "myTFT.h"
 
 
-rigErrorDialog	rig_error_dlg;
-yesNoDialog		yes_no_dlg;
+errorDialog	error_dlg;
+yesNoDialog	yes_no_dlg;
 
 
 //----------------------
@@ -18,7 +18,7 @@ yesNoDialog		yes_no_dlg;
 
 #define BUTTON_OK    17
 
-void rigErrorDialog::begin(bool cold)
+void errorDialog::begin(bool cold)
 {
     sysWindow::begin(cold);
     the_buttons.setButtonType(BUTTON_OK, BUTTON_EVENT_CLICK, LED_GREEN);
@@ -35,7 +35,7 @@ void rigErrorDialog::begin(bool cold)
 		m_msg);
 }
 
-void rigErrorDialog::onButton(int row, int col, int event)
+void errorDialog::onButton(int row, int col, int event)
 {
     endWindow(0);
 }

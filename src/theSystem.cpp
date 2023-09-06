@@ -444,10 +444,8 @@ void theSystem::onButton(int row, int col, int event)
 		num == THE_SYSTEM_BUTTON &&
 		event == BUTTON_EVENT_LONG_CLICK)
 	{
-		// startWindow(&win_config);
-
-		rig_machine.loadRig("default");
-		// m_draw_pedals = 1;
+		startWindow(&win_config);
+		// rig_machine.loadRig("default");
 	}
 	else if (m_num_windows)
 	{
@@ -474,8 +472,7 @@ void theSystem::loop()
 		// because buttons can change colors and/or
 		// bump the window number, and we don't want to
 		// be in the middle of a rigMachine button update
-		// at that point.  This also coordinates suppression
-		// of rig_error dialogs when updating button LEDs.
+		// at that point.
 
 	initQueryFTP();
 		// query the FTP battery level on a timer

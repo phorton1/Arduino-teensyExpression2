@@ -6,6 +6,7 @@
 #include <myDebug.h>
 #include "rigParser.h"
 #include "fileSystem.h"
+#include "rigMachine.h"
 
 #define MAX_DUMP_BUF 255
 
@@ -62,14 +63,15 @@ static void dumpDisplay(const char *line)
 // aggregate dumper
 //------------------------------------------
 
-#define DT_16			0x001		// otherwise it's 8 bits
-#define DT_HEX			0x002		// otherwise it's a number
-#define DT_CHAR			0x004		// line oriented on zeros; otherwise it's hex
-#define DT_SEMI_COLON	0x008		// otherwise it's ends with a comma and followed with two blank lines
-#define DT_STOP_ZERO	0x010		// stop on first zero found
-#define DT_CONST_CHAR   0x020		// it's a const char * declaration
-#define DT_CONST_UINT8  0x040		// it's a const uint8_t * declaration
-#define DT_GROUP_BY_REFS	0x080		// group button_refs by 3's
+#define DT_16				0x0001		// otherwise it's 8 bits
+#define DT_HEX				0x0002		// otherwise it's a number
+#define DT_CHAR				0x0004		// line oriented on zeros; otherwise it's hex
+#define DT_SEMI_COLON		0x0008		// otherwise it's ends with a comma and followed with two blank lines
+#define DT_STOP_ZERO		0x0010		// stop on first zero found
+#define DT_CONST_CHAR   	0x0020		// it's a const char * declaration
+#define DT_CONST_UINT8  	0x0040		// it's a const uint8_t * declaration
+#define DT_GROUP_BY_REFS	0x0080		// group button_refs by 3's
+#define DT_SHOW_OFFSETS		0x0100		// show offsets on each line
 
 
 static void dumpArray(
@@ -137,6 +139,11 @@ static void dumpArray(
 		if (how & DT_CHAR)
 		{
 			displayIndent();
+			if (how & DT_SHOW_OFFSETS)
+			{
+				sprintf(dump_buf,"/* 0x%04x = %-5d */  ",offset,offset);
+				rig_file.print(dump_buf);
+			}
 			while (*cptr)
 			{
 				sprintf(dump_buf,format1,*cptr++);
@@ -160,8 +167,13 @@ static void dumpArray(
 					rig_file.println(dump_buf);
 					dump_buf[0] = 0;
 				}
-				dump_buf[0] = 0;
 				displayIndent();
+				if (how & DT_SHOW_OFFSETS)
+				{
+					sprintf(dump_buf,"/* 0x%04x = %-5d */  ",offset,offset);
+					rig_file.print(dump_buf);
+				}
+				dump_buf[0] = 0;
 				if (how & DT_GROUP_BY_REFS)
 					rig_file.print("{ ");
 			}
@@ -222,7 +234,7 @@ void dumpRigCode(const rig_t *rig)
 	rig_file = SD.open(filename, FILE_WRITE);
 	if (!rig_file)
 	{
-		rig_error("dumpRigCode() could not open %s for writing ..",filename);
+		rig_error(0,0,"dumpRigCode() could not open %s for writing ..",filename);
 		return;
 	}
 
@@ -238,16 +250,16 @@ void dumpRigCode(const rig_t *rig)
 	rig_file.println();
 	rig_file.println();
 
-	dumpArray( DT_CHAR | DT_CONST_CHAR | DT_SEMI_COLON,
+	dumpArray( DT_CHAR | DT_CONST_CHAR | DT_SEMI_COLON | DT_SHOW_OFFSETS,
 		prefix,"_define_pool",rig->define_pool,rig->define_pool_len);
 
-	dumpArray( DT_CHAR | DT_CONST_CHAR | DT_SEMI_COLON,
+	dumpArray( DT_CHAR | DT_CONST_CHAR | DT_SEMI_COLON | DT_SHOW_OFFSETS,
 		prefix,"_string_pool",rig->string_pool,rig->string_pool_len);
 
-	dumpArray( DT_HEX | DT_CONST_UINT8 | DT_SEMI_COLON,
+	dumpArray( DT_HEX | DT_CONST_UINT8 | DT_SEMI_COLON | DT_SHOW_OFFSETS,
 		prefix,"_statement_pool",rig->statement_pool,rig->statement_pool_len);
 
-	dumpArray( DT_HEX | DT_CONST_UINT8 | DT_SEMI_COLON,
+	dumpArray( DT_HEX | DT_CONST_UINT8 | DT_SEMI_COLON | DT_SHOW_OFFSETS,
 		prefix,"_expression_pool",rig->expression_pool,rig->expression_pool_len);
 
 	rig_file.println();
@@ -270,6 +282,8 @@ void dumpRigCode(const rig_t *rig)
 		prefix,".define_values",rig->define_values,RIG_NUM_DEFINES);
 	dumpArray( DT_16 | DT_STOP_ZERO,
 		prefix,".statements",rig->statements,MAX_STATEMENTS+1);
+	dumpArray( DT_16 | DT_HEX,
+		prefix,".button_type",rig->button_type,NUM_BUTTONS);
 	dumpArray( DT_16 | DT_HEX | DT_GROUP_BY_REFS,
 		prefix,".button_refs",(const uint16_t *)rig->button_refs,NUM_BUTTONS*NUM_REFS_PER_BUTTON);
 	dumpArray( DT_16,

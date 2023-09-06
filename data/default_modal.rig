@@ -4,7 +4,7 @@
 # This modal rig implements a 'clipVolume' mode on top of the rPi Looper
 # default base rig.  The base rig reserves variables 0..69
 #
-# Modal rigs may be stacked upto 10 deep, depending their size on memory.
+# Modal rigs may be stacked upto 10 deep, depending their size in memory.
 # A modal rig may *inherit* buttons from the previous rig whose behavior
 # 		does not change, and which are interpreted in the context of that rig.
 # A modal rig may change the PEDAL and ROTARY setups.
@@ -19,40 +19,178 @@
 # or strings that it wants to agree with the base_rig.
 #
 # A modal rig inherits the VALUE storage slots from the base rig.
-# Only the base rig has actual value storage and define LISTENS.
+# Only the base rig has actual value storage and may define LISTENS.
 # Thus, modal rigs can access and modify value (slots) in the base rig,
 # and modal rigs must be designed with intimate knowledge of
 # the variables used in the base rig and any underlying modal rigs.
 
-# The base rig reserves values 0..69
+ModalRig		 # required initial rig type
 
-modalRig
+define(1, CLIPS_PER_TRACK, 4);
+	# Number of clips per track
 
-define(14, _test_var, 100);
+#------------------------------------------------------
+# Looper Constants (see base rig and commonDefines.h)
+#------------------------------------------------------
+# TRACK_STATE_EMPTY               = 0  = 0x00;
+# TRACK_STATE_RECORDING           = 1  = 0x01;
+# TRACK_STATE_PLAYING             = 2  = 0x02;
+# TRACK_STATE_STOPPED             = 4  = 0x04;
+# TRACK_STATE_PENDING_RECORD      = 8  = 0x08;
+# TRACK_STATE_PENDING_PLAY        = 16 = 0x10;
+# TRACK_STATE_PENDING_STOP        = 32 = 0x20;
+# TRACK_STATE_PENDING			  = 56 = 0x38; // TRACK_STATE_PENDING_RECORD | TRACK_STATE_PENDING_PLAY | TRACK_STATE_PENDING_STOP;
+
+define(5, TRACK_STATE_RECORDING, 1);
+define(6, TRACK_STATE_PLAYING,   2);
+
+define(10, LOOP_COMMAND_ERASE_TRACK_BASE, 32);
+define(11, LOOP_COMMAND_GET_STATE, 	48);
+
+define(15,	LOOP_COMMAND_CC,	1 );
+define(16,	CLIP_VOL_BASE_CC,	32 );
+define(17,	CLIP_MUTE_BASE_CC,	64 );
+
+# these must agree with base rig
+
+define(20, track_state_base,	10);				# TRACK1..4 STATE
+define(21, clip_vol_base,		20);                # 16 CLIP VOLUMES
+define(22, clip_mute_base,		40);                # 16 CLIP MUTES
+define(23, selected_track,		60);                # The most recently selected track
+	# note that we removed the underscore from _selected_track
+	# because it is read-only in this rig
 
 #----------------------------------------
-# Rig initialization section
+# Implementation
 #----------------------------------------
+# Constants
 
-AREA(0,  32,  NORMAL,  RIGHT, 300, 5, 475, 40);		# General Purpose area in upper right
+define(40, number_base,   0);
+define(41, meter_base,    5);
 
-BUTTON(4):
-	setButtonColor(4,LED_PURPLE);
-	click: display(0,YELLOW,"NADA");
+# temp variable used in ranged BUTTON statements.
+# 		this rig keeps no state of it's own.
+# these are variables used by this program
+# 		and must not step on those used by base rig
+# 		which reservers 0..69
 
-BUTTON(12) :
-	setButtonColor(12,VALUE[_test_var] ? LED_RED : LED_GREEN);
-	click:
-		setValue(_test_var,!VALUE[_test_var]);
-		display(0,YELLOW,VALUE[_test_var] ? "RED" : "GREEN");
+define(50, _clip_offset,  70);
+define(51, _clip_volume,  71);
+define(52, _update_vol,   72);
+define(53, _update_mute,  73);
+
+# Fixed rectangles from the program.
+#
+# int_rect title_rect(0,0,479,35);			// not including line
+# int_rect full_client_rect(0,37,479,319);	// under line to bottom of screen
+# int_rect client_rect(0,37,479,235);		// 199 high under line to above pedals
+# int_rect pedal_rect(0,235,479,319);		// 89 high, starting at 230
+
+# The modal rig takes place inside the client rect,
+# which is 0..198 (or 199 pixels high)
+
+# Each progress meter is 80 pixels wide.
+# There are margins of 20 pixels on the left and right,
+# 		and 40 pixels between meters.
+
+
+Area(number_base + 0, 20, BOLD, CENTER, 19,  8,  99,  40);
+Area(number_base + 1, 20, BOLD, CENTER, 139, 8,  219, 40);
+Area(number_base + 2, 20, BOLD, CENTER, 259, 8,  339, 40);
+Area(number_base + 3, 20, BOLD, CENTER, 379, 8,  459, 40);
+
+Meter(meter_base + 0,  VERT,  19,  44, 99,  194);
+Meter(meter_base + 1,  VERT,  139, 44, 219, 194);
+Meter(meter_base + 2,  VERT,  259, 44, 339, 194);
+Meter(meter_base + 3,  VERT,  379, 44, 459, 194);
+
+
+onUpdate:
+	setValue(_update_vol,  clip_vol_base  + VALUE[selected_track]*CLIPS_PER_TRACK);
+	setValue(_update_mute, clip_mute_base + VALUE[selected_track]*CLIPS_PER_TRACK);
+	setMeter(meter_base + 0,  		VALUE[0 + VALUE[_update_mute ]] ? DARKGREY : GREEN,	 VALUE[0 + VALUE[_update_vol ]]);
+	setMeter(meter_base + 1,  		VALUE[1 + VALUE[_update_mute ]] ? DARKGREY : GREEN,	 VALUE[1 + VALUE[_update_vol ]]);
+	setMeter(meter_base + 2,  		VALUE[2 + VALUE[_update_mute ]] ? DARKGREY : GREEN,	 VALUE[2 + VALUE[_update_vol ]]);
+	setMeter(meter_base + 3,  		VALUE[3 + VALUE[_update_mute ]] ? DARKGREY : GREEN,	 VALUE[3 + VALUE[_update_vol ]]);
+	displayNumber(number_base + 0, 	VALUE[0 + VALUE[_update_mute ]] ? DARKGREY : YELLOW, VALUE[0 + VALUE[_update_vol ]]);
+	displayNumber(number_base + 1, 	VALUE[1 + VALUE[_update_mute ]] ? DARKGREY : YELLOW, VALUE[1 + VALUE[_update_vol ]]);
+	displayNumber(number_base + 2, 	VALUE[2 + VALUE[_update_mute ]] ? DARKGREY : YELLOW, VALUE[2 + VALUE[_update_vol ]]);
+	displayNumber(number_base + 3, 	VALUE[3 + VALUE[_update_mute ]] ? DARKGREY : YELLOW, VALUE[3 + VALUE[_update_vol ]]);
+		# numbers and meters are smart enough to only re-display when changed
+
+#------------------------------------
+# the exit mode button
+#------------------------------------
+# it is important to use click to end modals,
+# because press will leave the button active,
+# and the release will be interpreted as a click
+# by the underlying window.
 
 BUTTON(14) :
-	setButtonColor(14,LED_ORANGE);
-	click:
-		display(0,YELLOW,"endModal");
-		endModal();
+	setButtonColor(_BUTTON_NUM,LED_ORANGE);
+	click: endModal();
 
+
+
+#-----------------------------------
+# Erase Track buttons
+#-----------------------------------
+# The erase buttons are for TRACKs - not clips!
+# The LED is set to RED if erasing the track will stop recording,
+# PURPLE if it can be erased and won't stop recording, or
+# BLACK if there's nothing to erase.
+
+BUTTON(0,1,2,3):	# erase track buttons
+	setButtonColor(_BUTTON_NUM,
+		!VALUE[track_state_base + _BUTTON_NUM] ? LED_BLACK :
+		(VALUE[track_state_base + _BUTTON_NUM] & TRACK_STATE_PLAYING) &&
+		!(VALUE[track_state_base + _BUTTON_NUM] & TRACK_STATE_RECORDING) ? LED_RED :
+		LED_PURPLE);
+	press:
+		sendCC(SERIAL, 1, LOOP_COMMAND_ERASE_TRACK_BASE + _BUTTON_NUM, 1);
+
+#-----------------------------
+# Volume Up and Down buttons
+#-----------------------------
+# Note that we currently hear our own outgoing CC's because
+# LISTEN() does not differentiate between input and output
+
+BUTTON(5,6,7,8):	# volume up buttons
+	setButtonColor(_BUTTON_NUM, LED_GREEN);
+	repeat:
+		setValue(_clip_offset, (VALUE[selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 5);
+		setValue(_clip_volume, VALUE[clip_vol_base + VALUE[_clip_offset]]);
+		setValue(_clip_volume, VALUE[_clip_volume] < 127 ? VALUE[_clip_volume] + 1 : 127);
+		sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + VALUE[_clip_offset], VALUE[_clip_volume] );
+
+
+BUTTON(10,11,12,13):	# volume down buttons
+	setButtonColor(_BUTTON_NUM, LED_RED);
+	repeat:
+		setValue(_clip_offset, (VALUE[selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 10);
+		setValue(_clip_volume, VALUE[clip_vol_base + VALUE[_clip_offset]]);
+		setValue(_clip_volume, VALUE[_clip_volume] > 0 ? VALUE[_clip_volume] - 1 : 0);
+		sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + VALUE[_clip_offset], VALUE[_clip_volume] );
+
+#------------------------------
+# Mute Buttons
+#------------------------------
+# The buttons are dark BLUE if muted, CYAN if mutable
+# Even un-recorded clips can be muted
+
+BUTTON(15,16,17,18):	# volume mute buttons
+	setValue(_clip_offset, (VALUE[selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 15);
+	setButtonColor(_BUTTON_NUM, VALUE[clip_mute_base + VALUE[_clip_offset]] ?
+		LED_BLUE : LED_CYAN);
+	press:
+		setValue(_clip_offset, (VALUE[selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 15);
+		setValue(clip_mute_base + VALUE[_clip_offset], !VALUE[clip_mute_base + VALUE[_clip_offset]]);
+		sendCC(SERIAL, 1, CLIP_MUTE_BASE_CC + VALUE[_clip_offset], VALUE[clip_mute_base + VALUE[_clip_offset]]);
+
+
+#--------------------------------------------------
 # inherit the looper control buttons
+#--------------------------------------------------
 
 BUTTON(19): INHERIT;
 BUTTON(20): INHERIT;
@@ -60,6 +198,8 @@ BUTTON(21): INHERIT;
 BUTTON(22): INHERIT;
 BUTTON(23): INHERIT;
 BUTTON(24): INHERIT;
+
+
 
 
 # end of default_modal.rig

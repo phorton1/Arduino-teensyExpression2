@@ -2,7 +2,7 @@
 // rigParser.cpp
 //-------------------------------------------------------
 
-#define WITH_DEFAULT_RIG  0
+#define WITH_DEFAULT_RIG  1
 
 #include <myDebug.h>
 #include "rigParser.h"
@@ -24,20 +24,19 @@
 
 
 #define MAX_RIG_NAME		31
-#define RIG_POOL_SIZE		(MAX_RIG_SIZE * 2)
-#define AREA_CLIENT_HEIGHT  (client_rect.ye - client_rect.ys + 1)
-
 
 static uint8_t parse_pool[MAX_RIG_SIZE];
 static rig_t *parse_rig = (rig_t *) parse_pool;
 
+uint16_t rig_pool_len;
+uint8_t  rig_pool[RIG_POOL_SIZE];
+const rig_t *base_rig = (const rig_t *) parse_pool;
+
+
 static bool any_end_modal;
 
-static uint16_t rig_pool_len;
-static uint8_t  rig_pool[RIG_POOL_SIZE];
-
-
 int parse_button_num = -1;
+	// available to rigExpression.cpp
 
 
 
@@ -61,8 +60,7 @@ bool legalFilename(const char *name)
 static void init_parse()
 {
 	any_end_modal = 0;
-	rig_error_found = 0;	 // in rigToken.cpp
-	suppress_rig_dialogs = 0;
+	parse_error_found = 0;	 // in rigToken.cpp
 
 	// display(0,"MAX_RIG_SIZE = %d", MAX_RIG_SIZE);
 
@@ -97,7 +95,7 @@ static rig_t *relocate()
 
 	if (relocate_to + rig_size >= RIG_POOL_SIZE)
 	{
-		rig_error("RIG(%d) to big to fit in remaining POOL(%d)",rig_size,RIG_POOL_SIZE-relocate_to);
+		parse_error("RIG(%d) to big to fit in remaining POOL(%d)",rig_size,RIG_POOL_SIZE-relocate_to);
 		return 0;
 	}
 
@@ -200,6 +198,17 @@ static const int AREA_ARGS[] = {			// AREA(0, 32, BOLD, LEFT, 5, 5, 299, 40);
 	PARAM_END_Y,
 	0
 };
+
+static const int METER_ARGS[] = {			// METER(0, 32, BOLD, LEFT, 5, 5, 299, 40);
+	PARAM_AREA_NUM,
+	PARAM_METER_TYPE,
+	PARAM_START_X,
+	PARAM_START_Y,
+	PARAM_END_X,
+	PARAM_END_Y,
+	0
+};
+
 static const int LISTEN_ARGS[] = {			// LISTEN(37, SERIAL, 0, 20);
 	PARAM_VALUE_NUM,
 	PARAM_MIDI_PORT,
@@ -247,6 +256,19 @@ static const int DISPLAY_ARGS[] = {			// display(AREA, VALUE[0] ? BLUE : BLACK, 
 	PARAM_DISPLAY_COLOR_EXPRESSION,
 	PARAM_STRING_EXPRESSION,
 	0 };
+
+static const int DISPLAY_NUMBER_ARGS[] = {		// displayNumber(AREA, LED_YELLOW, VALUE[_blah]);
+	PARAM_AREA_NUM,
+	PARAM_DISPLAY_COLOR_EXPRESSION,
+	PARAM_VALUE,
+	0 };
+
+static const int SET_METER_ARGS[] = {		// setMeter(AREA, GREEN, VALUE[_blah]);
+	PARAM_AREA_NUM,
+	PARAM_DISPLAY_COLOR_EXPRESSION,
+	PARAM_VALUE,
+	0 };
+
 
 static const int SEND_CC_ARGS[] = {			// sendCC(SERIAL, 1, 192, VALUE[3]);
 	PARAM_MIDI_PORT,
@@ -301,6 +323,7 @@ static const statement_param_t statement_params[] = {
 	{ RIG_TOKEN_STRING_DEF, 		STRING_DEF_ARGS },
 
 	{ RIG_TOKEN_AREA, 				AREA_ARGS },
+	{ RIG_TOKEN_METER,				METER_ARGS },
 	{ RIG_TOKEN_LISTEN, 			LISTEN_ARGS },
 
 	{ RIG_TOKEN_PEDAL, 				PEDAL_ARGS },
@@ -309,6 +332,9 @@ static const statement_param_t statement_params[] = {
 	{ RIG_TOKEN_SET_BUTTON_COLOR,	SET_BUTTON_COLOR_ARGS },
 	{ RIG_TOKEN_SET_BUTTON_BLINK,	SET_BUTTON_BLINK_ARGS },
 	{ RIG_TOKEN_DISPLAY, 			DISPLAY_ARGS },
+	{ RIG_TOKEN_DISPLAY_NUMBER, 	DISPLAY_NUMBER_ARGS },
+	{ RIG_TOKEN_SET_METER, 			SET_METER_ARGS },
+
 	{ RIG_TOKEN_SEND_CC, 			SEND_CC_ARGS },
 	{ RIG_TOKEN_SEND_PGM_CHG,		SEND_PGM_CHG_ARGS },
 	{ RIG_TOKEN_NOTE_ON,			NOTE_ON_ARGS },
@@ -329,7 +355,7 @@ const statement_param_t *findParams(int tt)
 	while (ptr->id && ptr->id != tt)
 		ptr++;
 	if (!ptr->id)
-		rig_error("unknown statement %s",rigTokenToString(tt));
+		parse_error("unknown statement %s",rigTokenToString(tt));
 	return ptr;
 }
 
@@ -343,7 +369,7 @@ static bool addDefinePool(const char *s)
 	int len = strlen(s);
 	if (parse_rig->define_pool_len >= MAX_DEFINE_POOL - len - 1)
 	{
-		rig_error("DEFINE POOL OVERLFLOW");
+		parse_error("DEFINE POOL OVERLFLOW");
 		return false;
 	}
 	char *pool = (char *) parse_rig->define_pool;
@@ -357,7 +383,7 @@ static bool addStringPool(const char *s)
 	int len = strlen(s);
 	if (parse_rig->string_pool_len >= MAX_STRING_POOL - len - 1)
 	{
-		rig_error("STRING POOL OVERLFLOW");
+		parse_error("STRING POOL OVERLFLOW");
 		return false;
 	}
 	char *pool = (char *) parse_rig->string_pool;
@@ -370,7 +396,7 @@ static bool addStatementByte(uint8_t byte)
 {
 	if (parse_rig->statement_pool_len >= MAX_STATEMENT_POOL)
 	{
-		rig_error("STATMENT(BYTE) POOL OVERLFLOW");
+		parse_error("STATMENT(BYTE) POOL OVERLFLOW");
 		return false;
 	}
 	uint8_t *pool = (uint8_t *) parse_rig->statement_pool;
@@ -382,7 +408,7 @@ static bool addStatementInt(uint16_t i)
 {
 	if (parse_rig->statement_pool_len >= MAX_STATEMENT_POOL - 2)
 	{
-		rig_error("STATMENT(INT) POOL OVERLFLOW");
+		parse_error("STATMENT(INT) POOL OVERLFLOW");
 		return false;
 	}
 	uint8_t *pool = (uint8_t *) parse_rig->statement_pool;
@@ -404,7 +430,7 @@ static bool skip(int tt, bool may_be_end = 0)
 {
 	if (rig_token.id != tt)
 	{
-		rig_error("expected %s got %s",rigTokenToString(tt),rigTokenToString(rig_token.id));
+		parse_error("expected %s got %s",rigTokenToString(tt),rigTokenToString(rig_token.id));
 		return false;
 	}
 	if (!getRigToken() && !may_be_end)
@@ -416,7 +442,7 @@ static bool getNumberAny(int *retval, const char *what)
 {
 	if (rig_token.id != RIG_TOKEN_NUMBER)
 	{
-		rig_error("%s Expected",what);
+		parse_error("%s Expected",what);
 		return false;
 	}
 	*retval = rig_token.int_value;
@@ -431,12 +457,12 @@ static bool getNumber(int *retval, const char *what, int max)
 {
 	if (rig_token.id != RIG_TOKEN_NUMBER)
 	{
-		rig_error("%s Expected",what);
+		parse_error("%s Expected",what);
 		return false;
 	}
 	if (rig_token.int_value > max)
 	{
-		rig_error("%s must be less than %d",what,max);
+		parse_error("%s must be less than %d",what,max);
 		return false;
 	}
 	*retval = rig_token.int_value;
@@ -456,14 +482,14 @@ static const char *getText(const char *what, int max_len)
 
 	if (rig_token.id != RIG_TOKEN_TEXT)
 	{
-		rig_error("%s Expected",what);
+		parse_error("%s Expected",what);
 		return 0;
 	}
 
 	int len = strlen(rig_token.text);
 	if (len > max_len)
 	{
-		rig_error("%s limited to %d bytes");
+		parse_error("%s limited to %d bytes");
 		return 0;
 	}
 
@@ -482,7 +508,7 @@ static const char *getUserIdent()
 
 	if (rig_token.id != RIG_TOKEN_IDENTIFIER)
 	{
-		rig_error("IDENTIFIER Expected",0);
+		parse_error("IDENTIFIER Expected",0);
 		return 0;
 	}
 
@@ -521,7 +547,7 @@ static bool handleArg(int statement_type, int arg_type)
 					ok = 0;
 				else if (parse_rig->define_ids[value])
 				{
-					rig_error("define(%d) used more than once",value);
+					parse_error("define(%d) used more than once",value);
 					ok = 0;
 				}
 				else
@@ -552,7 +578,7 @@ static bool handleArg(int statement_type, int arg_type)
 					ok = 0;
 				else if (parse_rig->strings[value])
 				{
-					rig_error("define_string(%d) used more than once",value);
+					parse_error("define_string(%d) used more than once",value);
 					ok = 0;
 				}
 				else
@@ -572,7 +598,7 @@ static bool handleArg(int statement_type, int arg_type)
 				break;
 
 			default:
-				rig_error("implementation error: unknown init_header param %d",arg_type);
+				parse_error("implementation error: unknown init_header param %d",arg_type);
 				break;
 		}
 	}
@@ -584,14 +610,42 @@ static bool handleArg(int statement_type, int arg_type)
 			// AREA(areaExpression, FONT_SIZE, FONT_TYPE, STARTX, STARTY, ENDX, ENDY )
 
 			case PARAM_BUTTON_NUM :	// prh - to become an expression
-				if (!getNumber(&value,"BUTTON_NUM",NUM_BUTTONS-1))
+				if (rig_token.id == RIG_TOKEN_BUTTON_NUM)
+				{
+					if (parse_button_num == -1)
+					{
+						parse_error("_BUTTON_NUM may only be used in button sections",0);
+						ok = false;
+					}
+					else
+					{
+						value = parse_button_num;
+						ok = getRigToken();
+					}
+				}
+				else if (!getNumber(&value,"BUTTON_NUM",NUM_BUTTONS-1))
 					ok = 0;
 				ok = ok && addStatementByte(value);
 				break;
 			case PARAM_AREA_NUM :
-				value = rigAreaNumExpression(parse_rig,rig_token.id);
+				value = rigAreaNumExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
+				break;
+			case PARAM_METER_TYPE :
+				if (rig_token.id != RIG_TOKEN_HORZ &&
+					rig_token.id != RIG_TOKEN_VERT)
+				{
+					parse_error("METER_TYPE must be HORZ or VERT");
+					ok = 0;
+				}
+				else
+				{
+					uint8_t use_type = rig_token.id - RIG_TOKEN_HORZ;
+					display(dbg_parse + 1, "METER_TYPE = %s (%d)",rigTokenToString(rig_token.id),use_type);
+					ok = addStatementByte(use_type);
+					ok = ok && getRigToken();
+				}
 				break;
 			case PARAM_FONT_SIZE :
 				if (!getNumberAny(&value,"FONT_SIZE"))
@@ -607,7 +661,7 @@ static bool handleArg(int statement_type, int arg_type)
 						 value != 40 &&
 						 value != 48)
 				{
-					rig_error("FONT_SIZE(%d) must be 12, 14, 16, 18, 20, 24, 28, 32, 40, or 48");
+					parse_error("FONT_SIZE(%d) must be 12, 14, 16, 18, 20, 24, 28, 32, 40, or 48");
 					ok = 0;
 				}
 				else
@@ -619,7 +673,7 @@ static bool handleArg(int statement_type, int arg_type)
 				if (rig_token.id < RIG_TOKEN_NORMAL ||
 					rig_token.id > RIG_TOKEN_BOLD)
 				{
-					rig_error("FONT_TYPE must be NORMAL or BOLD");
+					parse_error("FONT_TYPE must be NORMAL or BOLD");
 					ok = 0;
 				}
 				else
@@ -634,7 +688,7 @@ static bool handleArg(int statement_type, int arg_type)
 				if (rig_token.id < RIG_TOKEN_LEFT ||
 					rig_token.id > RIG_TOKEN_RIGHT)
 				{
-					rig_error("FONT_JUST must be LEFT, CENTER, or RIGHT");
+					parse_error("FONT_JUST must be LEFT, CENTER, or RIGHT");
 					ok = 0;
 				}
 				else
@@ -650,7 +704,7 @@ static bool handleArg(int statement_type, int arg_type)
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_START_Y      :
-				ok = getNumber(&value,"START_Y",AREA_CLIENT_HEIGHT-1);
+				ok = getNumber(&value,"START_Y",client_rect.height());
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_END_X        :
@@ -658,19 +712,19 @@ static bool handleArg(int statement_type, int arg_type)
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_END_Y        :
-				ok = getNumber(&value,"END_Y",AREA_CLIENT_HEIGHT-1);
+				ok = getNumber(&value,"END_Y",client_rect.height()+1);
 				ok = ok && addStatementInt(value);
 				break;
 
 			// LISTEN and setValue
 
 			case PARAM_VALUE_NUM :	// in setValue and LISTEN
-				value = rigValueNumExpression(parse_rig,rig_token.id);
+				value = rigValueNumExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_VALUE :	    // in setValue
-				value = rigValueExpression(parse_rig,rig_token.id);
+				value = rigValueExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -683,7 +737,7 @@ static bool handleArg(int statement_type, int arg_type)
 				{
 					if (!legalFilename(text))
 					{
-						rig_error("RIG_NAME(%s) may only contain A-Z,a-z,0-9,dash,period, or underscore characters");
+						parse_error("RIG_NAME(%s) may only contain A-Z,a-z,0-9,dash,period, or underscore characters");
 						ok = 0;
 					}
 					if (ok)
@@ -697,7 +751,7 @@ static bool handleArg(int statement_type, int arg_type)
 			// PEDAL
 
 			case PARAM_PEDAL_NUM :
-				value = rigPedalNumExpression(parse_rig,rig_token.id);
+				value = rigPedalNumExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -708,7 +762,7 @@ static bool handleArg(int statement_type, int arg_type)
 				ok = ok && addStringPool(text);
 				break;
 			case PARAM_ROTARY_NUM :
-				value = rigRotaryNumExpression(parse_rig,rig_token.id);
+				value = rigRotaryNumExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -717,7 +771,7 @@ static bool handleArg(int statement_type, int arg_type)
 			case PARAM_MIDI_PORT    :
 				if (!IS_MIDI_PORT(rig_token.id))
 				{
-					rig_error("MIDI_PORT must be MIDI0, MIDI1, or SERIAL");
+					parse_error("MIDI_PORT must be MIDI0, MIDI1, or SERIAL");
 					ok = 0;
 				}
 				else
@@ -729,18 +783,18 @@ static bool handleArg(int statement_type, int arg_type)
 				}
 				break;
 			case PARAM_MIDI_CHANNEL :
-				value = rigMidiChannelExpression(parse_rig,rig_token.id);
+				value = rigMidiChannelExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_LISTEN_CHANNEL :
-				value = rigListenChannelExpression(parse_rig,rig_token.id);
+				value = rigListenChannelExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_MIDI_CC :
 			case PARAM_MIDI_VALUE :
-				value = rigMidiValueExpression(parse_rig,rig_token.id);
+				value = rigMidiValueExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -748,23 +802,23 @@ static bool handleArg(int statement_type, int arg_type)
 			// Generic Expression
 
 			case PARAM_STRING_EXPRESSION :
-				value = rigStringExpression(parse_rig,rig_token.id);
+				value = rigStringExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_LED_COLOR_EXPRESSION :
-				value = rigLedColorExpression(parse_rig,rig_token.id);
+				value = rigLedColorExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 			case PARAM_DISPLAY_COLOR_EXPRESSION	:
-				value = rigDisplayColorExpression(parse_rig,rig_token.id);
+				value = rigDisplayColorExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
 
 			default:
-				rig_error("implementation error: unknown statement param %d",arg_type);
+				parse_error("implementation error: unknown statement param %d",arg_type);
 				break;
 		}
 	}
@@ -778,8 +832,14 @@ static bool handleArg(int statement_type, int arg_type)
 
 
 
+// static int display_count = 0;
+// extern int dbg_exp;
+
 static bool handleStatement(int tt)
 {
+	// if (tt == RIG_TOKEN_DISPLAY && !display_count++)
+	// 	dbg_exp = -3;
+
 	display(dbg_parse + 1,"handleStatement(%s)",rigTokenToString(tt));
 	proc_entry();
 
@@ -787,7 +847,8 @@ static bool handleStatement(int tt)
 
 	// note if we have gotten any endModal statements in this parse
 
-	any_end_modal = (statement_type == RIG_TOKEN_END_MODAL);
+	if (statement_type == RIG_TOKEN_END_MODAL)
+		any_end_modal = 1;
 
 	// this parses either statements that actually generate statement rig_code,
 	// or init only statements that store things in the rig_header. If it is
@@ -851,6 +912,7 @@ static bool handleStatement(int tt)
 
 	display(dbg_parse + 2,"handleStatement() finished",0);
 	proc_leave();
+	// dbg_exp = 1;
 	return true;
 }
 
@@ -866,7 +928,7 @@ static bool handleStatementList(int tt)
 
 	if (parse_rig->num_statements >= MAX_STATEMENTS - 1)
 	{
-		rig_error("implementation error: too many STATMENTS_LISTS(%d)",parse_rig->num_statements);
+		parse_error("implementation error: too many STATMENTS_LISTS(%d)",parse_rig->num_statements);
 		proc_leave();
 		return false;
 	}
@@ -923,18 +985,18 @@ static bool handleSubsections(int button_num)
 				button_num == THE_SYSTEM_BUTTON &&
 				type != BUTTON_TYPE_CLICK)
 			{
-				rig_error("Only CLICK can be specified for THE_SYSTEM_BUTTON(4) in BaseRigs",0);
+				parse_error("Only CLICK can be specified for THE_SYSTEM_BUTTON(4) in BaseRigs",0);
 				ok = 0;
 			}
 			else if (existing_type && type_is_clicky != existing_is_clicky)
 			{
-				rig_error("CLICK can only be used with LONG");
+				parse_error("CLICK can only be used with LONG");
 				ok = 0;
 			}
 			else if (existing_type && !type_is_clicky &&
 					 type_is_release == existing_is_release)
 			{
-				rig_error("PRESS/REPEAT can only be used with RELEASE");
+				parse_error("PRESS/REPEAT can only be used with RELEASE");
 				ok = 0;
 			}
 
@@ -952,7 +1014,7 @@ static bool handleSubsections(int button_num)
 			type = BUTTON_TYPE_UPDATE;
 			if (parse_rig->button_type[button_num] & BUTTON_TYPE_UPDATE)
 			{
-				rig_error("There is already an update section defined for this button");
+				parse_error("There is already an update section defined for this button");
 				ok = 0;
 			}
 		}
@@ -990,7 +1052,7 @@ static bool handleButton()
 	{
 		if (!button_idx && rig_token.id != RIG_TOKEN_NUMBER)
 		{
-			rig_error("at least one BUTTON number expected");
+			parse_error("at least one BUTTON number expected");
 			ok = 0;
 		}
 		else
@@ -998,7 +1060,7 @@ static bool handleButton()
 			int button_num = rig_token.int_value;
 			if (button_num < 0 || button_num >= NUM_BUTTONS)
 			{
-				rig_error("BUTTON number must be between 0 and 24");
+				parse_error("BUTTON number(%d) must be between 0 and 24",button_num);
 				ok = 0;
 			}
 			else
@@ -1009,9 +1071,9 @@ static bool handleButton()
 				display(dbg_parse + 2,"added button_num(0x%02x) to mask(0x%02x)",button_num,mask);
 				// PRH still need to check that this button was not previously defined
 
-				if (button_mask)
+				if (button_mask & mask)
 				{
-					rig_error("BUTTON number listed more than once");
+					parse_error("BUTTON number(%d) listed more than once",button_num);
 					ok = 0;
 				}
 				else
@@ -1028,7 +1090,7 @@ static bool handleButton()
 					ok = getRigToken();		// skip the COMMA
 					if (ok && rig_token.id != RIG_TOKEN_NUMBER)
 					{
-						rig_error("BUTTON number expected");
+						parse_error("BUTTON number expected");
 						ok = 0;
 					}
 				}
@@ -1050,7 +1112,11 @@ static bool handleButton()
 		for (int idx=0; idx<button_idx && ok; idx++)
 		{
 			if (idx && !is_inherit)
+			{
 				rewindRigFile(parse_offset,parse_line_num,parse_char_num);
+				if (!getRigToken())
+					break;
+			}
 
 			int num = 0;
 			int button_num = -1;
@@ -1078,7 +1144,7 @@ static bool handleButton()
 			{
 				if (!(parse_rig->rig_type & RIG_TYPE_MODAL))
 				{
-					rig_error("INHERIT may only be used in ModalRigs");
+					parse_error("INHERIT may only be used in ModalRigs");
 					ok = 0;
 				}
 				else
@@ -1195,24 +1261,23 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 	rig_t *new_rig = 0;
 	if (openRigFile(rig_name))
 	{
-		ok = 1;
-
 		init_parse();
-		int tt = getRigToken();
+		ok = getRigToken();
 
 		// rig type
 
-		if (tt < RIG_TOKEN_BASERIG ||
-			tt > RIG_TOKEN_MODAL)
+		if (ok  && (
+			rig_token.id < RIG_TOKEN_BASERIG ||
+			rig_token.id > RIG_TOKEN_MODAL))
 		{
-			rig_error("must start with BaseRig or Overlay");
+			parse_error("must start with BaseRig or Overlay");
 			ok = 0;
 		}
-		else if (tt == RIG_TOKEN_MODAL)
+		else if (rig_token.id == RIG_TOKEN_MODAL)
 		{
 			if (how & PARSE_HOW_BASE_ONLY)
 			{
-				rig_error("You may only load a BaseRig!!\n'%s.rig' is a ModalRig.",rig_name);
+				parse_error("You may only load a BaseRig!!\n'%s.rig' is a ModalRig.",rig_name);
 				ok = 0;
 			}
 			else
@@ -1221,10 +1286,10 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 
 		if (ok)
 		{
-			tt = getRigToken();
-			if (!tt)
+			ok = getRigToken();
+			if (!ok)
 			{
-				rig_error("unexpected end of program");
+				parse_error("unexpected end of program");
 				ok = false;
 			}
 		}
@@ -1233,16 +1298,18 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 		// note that we SET the num_statements after each try
 		// regardless if any were parsed
 
-		if (ok && IS_INIT_STATEMENT(tt))
-			ok = ok && handleStatementList(tt);
+		if (ok && IS_INIT_STATEMENT(rig_token.id))
+			ok = ok && handleStatementList(rig_token.id);
 
 		parse_rig->num_statements = 1;
 		parse_rig->statements[parse_rig->num_statements] = parse_rig->statement_pool_len;
+		ok = rig_token.id;
 
-		if (ok && tt == RIG_TOKEN_ON_UPDATE)
+		if (ok && rig_token.id == RIG_TOKEN_ON_UPDATE)
 		{
-			ok = skip(RIG_TOKEN_COLON);
-			ok = ok && handleStatementList(tt);
+			ok = getRigToken();	// skip the onUpdate
+			ok = ok && skip(RIG_TOKEN_COLON);
+			ok = ok && handleStatementList(rig_token.id);
 		}
 
 		parse_rig->num_statements = 2;
@@ -1250,19 +1317,18 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 
 		// buttons
 
-		tt = rig_token.id;
-		if (ok && tt != RIG_TOKEN_BUTTON)
+		if (ok && rig_token.id != RIG_TOKEN_BUTTON)
 		{
-			if (tt == RIG_TOKEN_EOF)
+			if (rig_token.id == RIG_TOKEN_EOF)
 			{
 				ok = false;
 				// this is no longer technically true
-				rig_error("At least one BUTTON must be implemented");
+				parse_error("At least one BUTTON must be implemented");
 			}
-			else if (tt != RIG_TOKEN_BUTTON)
+			else if (rig_token.id != RIG_TOKEN_BUTTON)
 			{
 				ok = false;
-				rig_error("first BUTTON expected, NOT %d=%s",tt,rigTokenToString(tt));
+				parse_error("first BUTTON expected, NOT %d=%s",rig_token.id,rigTokenToString(rig_token.id));
 			}
 		}
 		else if (ok)
@@ -1274,7 +1340,7 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 			if (ok && rig_token.id != RIG_TOKEN_EOF)
 			{
 				ok = false;
-				rig_error("BUTTON expected, NOT %d=%s",tt,rigTokenToString(rig_token.id));
+				parse_error("BUTTON expected, NOT %d=%s",rig_token.id,rigTokenToString(rig_token.id));
 			}
 		}
 
@@ -1291,11 +1357,11 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 
 		if (ok && (parse_rig->rig_type & RIG_TYPE_MODAL) && !any_end_modal)
 		{
-			rig_error("A modalRig must contain at least one endModal statement.");
+			parse_error("A modalRig must contain at least one endModal statement.");
 			ok = 0;
 		}
 
-		ok = ok && !rig_error_found;
+		ok = ok && !parse_error_found;
 		if (ok)
 		{
 			warning(dbg_parse,"parseRig(%s.rig) finished OK",rig_name);
@@ -1316,7 +1382,7 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 			}
 			else
 			{
-				rig_error("There was an error relocating the rig!");
+				parse_error("There was an error relocating the rig!");
 			}
 
 		}

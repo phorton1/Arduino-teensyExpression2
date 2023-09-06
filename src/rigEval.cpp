@@ -12,14 +12,18 @@
 // color/blink section, and can appropriately try
 // to report things if it can.
 
-
 #include <myDebug.h>
 #include "rigMachine.h"
 #include "rigExpression.h"
+#include "winDialogs.h"
 
-#define dbg_ops		1
-#define dbg_stack   1
-#define dbg_eval 	1
+
+static int debug_eval_offset = -1;	// 208;
+
+
+static int dbg_ops		= 1;
+static int dbg_stack   = 1;
+static int dbg_eval 	= 1;
 	// 0 = just the final return value
 	// -1 = all return values
 	// -2 = all mainline functionality
@@ -27,10 +31,47 @@
 
 #define MAX_OP_STACK	32
 #define MAX_VAL_STACK   32
-#define MAX_COND_STACK  32
 
 #define IS_EXP_OP(op)	(op >= EXP_NOT && op <= EXP_LOGICAL_AND)
 #define OP_TOKEN(op)	(rigTokenToString(op + RIG_TOKEN_LEFT_PAREN - EXP_LEFT_PAREN))
+
+
+int op_top;
+int val_top;
+// int cond_top;
+
+uint8_t 	 op_stack[MAX_OP_STACK];
+evalResult_t val_stack[MAX_VAL_STACK];
+
+
+//-----------------------------------------------
+// rig_error() and VAL_DISPLAY()
+//-----------------------------------------------
+
+#define ERROR_COLOR_STRING      "\033[91m"       // red
+
+// extern
+void rig_error(int type, uint16_t offset, const char *format, ...)
+{
+	char error_buffer[255];
+	sprintf(error_buffer,"%d:%d ",type,offset);
+	char *text = &error_buffer[strlen(error_buffer)];
+
+	va_list var;
+	va_start(var, format);
+	vsprintf(text,format,var);
+
+	if (dbgSerial)
+	{
+		dbgSerial->print(ERROR_COLOR_STRING);
+		dbgSerial->print("RIG_ERROR - ");
+		dbgSerial->println(error_buffer);
+	}
+
+	error_dlg.setMessage("Rig Error",error_buffer);
+	the_system.startWindow(&error_dlg);
+
+}
 
 
 const char *VAL_DISPLAY(evalResult_t *rslt)
@@ -45,14 +86,6 @@ const char *VAL_DISPLAY(evalResult_t *rslt)
 	return local_buf[which];
 }
 
-
-
-int op_top;
-int val_top;
-// int cond_top;
-
-uint8_t 	 op_stack[MAX_OP_STACK];
-evalResult_t val_stack[MAX_VAL_STACK];
 
 
 //-----------------------------------------------
@@ -76,12 +109,12 @@ static void dumpOpStack()
 
 
 
-bool pushOp(uint8_t op)
+static bool pushOp(uint8_t op)
 {
-	display(dbg_stack,"pushOp(%d) %d=%s",op_top,op,OP_TOKEN(op));
+	display(dbg_stack,"pushOp(%d) 0x%02x=%s",op_top,op,OP_TOKEN(op));
 	if (op_top >= MAX_OP_STACK)
 	{
-		rig_error("OP_STACK OVERFLOW");
+		rig_error(0,0,"OP_STACK OVERFLOW");
 		return false;
 	}
 	op_stack[op_top++] = op;
@@ -89,37 +122,37 @@ bool pushOp(uint8_t op)
 	return true;
 }
 
-bool popOp(uint8_t *op)
+static bool popOp(uint8_t *op)
 {
 	if (!op_top)
 	{
-		rig_error("OP_STACK UNDERFLOW");
+		rig_error(0,0,"OP_STACK UNDERFLOW");
 		return false;
 	}
 	*op = op_stack[--op_top];
-	display(dbg_stack,"popOp(%d) %d=%s",op_top,*op,OP_TOKEN(*op));
+	display(dbg_stack,"popOp(%d) 0x%02x=%s",op_top,*op,OP_TOKEN(*op));
 	dumpOpStack();
 	return true;
 }
 
-bool pushVal(evalResult_t *val)
+static bool pushVal(evalResult_t *val)
 {
 	display(dbg_stack,"pushVal(%d) %s",val_top,VAL_DISPLAY(val));
 	if (val_top >= MAX_VAL_STACK)
 	{
-		rig_error("VAL_STACK OVERFLOW");
+		rig_error(0,0,"VAL_STACK OVERFLOW");
 		return false;
 	}
 	memcpy(&val_stack[val_top++],val,sizeof(evalResult_t));
 	return true;
 }
 
-bool pushValInt(uint16_t value)
+static bool pushValInt(uint16_t value)
 {
 	display(dbg_stack,"pushValInt(%d) %d",val_top,value);
 	if (val_top >= MAX_VAL_STACK)
 	{
-		rig_error("VAL_STACK(TEXT) OVERFLOW");
+		rig_error(0,0,"VAL_STACK(TEXT) OVERFLOW");
 		return false;
 	}
 	val_stack[val_top].is_string = 0;
@@ -128,12 +161,12 @@ bool pushValInt(uint16_t value)
 	return true;
 }
 
-bool pushValText(const char *text)
+static bool pushValText(const char *text)
 {
 	display(dbg_stack,"pushValText(%d) \"%s\"",val_top,text);
 	if (val_top >= MAX_VAL_STACK)
 	{
-		rig_error("VAL_STACK(TEXT) OVERFLOW");
+		rig_error(0,0,"VAL_STACK(TEXT) OVERFLOW");
 		return false;
 	}
 	val_stack[val_top].is_string = 1;
@@ -143,11 +176,11 @@ bool pushValText(const char *text)
 }
 
 
-bool popVal(evalResult_t *val)
+static bool popVal(evalResult_t *val)
 {
 	if (!val_top)
 	{
-		rig_error("VAL_STACK UNDERFLOW");
+		rig_error(0,0,"VAL_STACK UNDERFLOW");
 		return false;
 	}
 	memcpy(val,&val_stack[--val_top],sizeof(evalResult_t));
@@ -156,7 +189,7 @@ bool popVal(evalResult_t *val)
 }
 
 
-const int precedence(uint8_t op)
+static const int precedence(uint8_t op)
 	// Mine are in reverse order from C++, which places them like this:
 	//  4   !					logical and binary NOT	right-to-left
 	//	5 	a*b   a/b   a%b 	Multiplication, division, and remainder
@@ -212,7 +245,7 @@ const int precedence(uint8_t op)
 		case EXP_LEFT_PAREN :
 			return 99;
 	}
-	rig_error("unknown op(0x%02x) in precedence",op);
+	rig_error(0,0,"unknown op(0x%02x) in precedence",op);
 	return 0;
 }
 
@@ -221,9 +254,9 @@ const int precedence(uint8_t op)
 // doOp()
 //----------------------------------------------------------------------------------
 
-bool doOp(int op_start, uint8_t op)
+static bool doOp(int op_start, uint8_t op)
 {
-	display(dbg_eval+2,"doOp(%d=%s)",op,OP_TOKEN(op));
+	display(dbg_eval+2,"doOp(0x%02x=%s)",op,OP_TOKEN(op));
 	proc_entry();
 
 	bool ok = 1;
@@ -258,7 +291,7 @@ bool doOp(int op_start, uint8_t op)
 				case EXP_DIVIDE :
 					if (val2.value == 0)
 					{
-						rig_error("rigEval - Divide by zero!!");
+						rig_error(0,0,"rigEval - Divide by zero!!");
 						ok = 0;
 					}
 					val1.value /= val2.value;
@@ -342,8 +375,8 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 			uint8_t num = val_stack[--val_top].value;
 			if (num > RIG_NUM_STRINGS-1)
 			{
-				rig_error("rigEval - STRING INDEX(%d) out of range (0..%d)",num,RIG_NUM_STRINGS-1);
-				ok = 9;
+				rig_error(0,*offset,"rigEval - STRING INDEX(%d) out of range (0..%d)",num,RIG_NUM_STRINGS-1);
+				ok = 0;
 			}
 			else
 			{
@@ -377,7 +410,7 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 			uint8_t num = val_stack[--val_top].value;
 			if (num > RIG_NUM_VALUES-1)
 			{
-				rig_error("rigEval - VALUE INDEX(%d) out of range (0..%d)",num,RIG_NUM_VALUES-1);
+				rig_error(0,*offset,"rigEval - VALUE INDEX(%d) out of range (0..%d)",num,RIG_NUM_VALUES-1);
 				ok = 0;
 			}
 			else
@@ -393,32 +426,26 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 
 	else if (!(byte & EXP_INLINE))
 	{
-		rig_error("rigEval - INLINE op expected");
+		rig_error(0,*offset-1,"rigEval - INLINE op expected, not (0x%02x)",byte);
 		ok = 0;
 	}
 	else
 	{
 		uint8_t value = code[(*offset)++];
 
-		if (byte & EXP_INLINE_ID)
-		{
-			display(dbg_eval + 2,"INLINE ID(%d:%s)",value,&rig->define_pool[rig->define_ids[value] - 1]);
-			value = rig->define_values[value];
-		}
-
 		if (inline_op == EXP_LED_COLOR)
 		{
-			display(dbg_eval + 2,"INLINE LED_COLOR(%d) = %s",rigTokenToText(RIG_TOKEN_LED_BLACK + value));
+			display(dbg_eval + 2,"INLINE LED_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_LED_BLACK + value));
 		}
 		else if (inline_op == EXP_DISPLAY_COLOR)
 		{
-			display(dbg_eval + 2,"INLINE DISPLAY_COLOR(%d) = %s",rigTokenToText(RIG_TOKEN_DISPLAY_BLACK + value));
+			display(dbg_eval + 2,"INLINE DISPLAY_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_DISPLAY_BLACK + value));
 		}
 
 		if (inline_op == EXP_STRING)
 		{
-			uint16_t off = rig->strings[value];
-			const char *s = &rig->string_pool[off];
+			uint16_t off = rig->strings[value];		// string_offsets are one based in the rig header
+			const char *s = &rig->string_pool[off-1];
 			display(dbg_eval + 2,"INLINE_STRING[%d] at %d = %s",value,off,s);
 			ok = pushValText(s);
 		}
@@ -431,7 +458,6 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 			}
 			else
 				display(dbg_eval + 2,"INLINE NUMBER(%d)",value);
-
 			ok = pushValInt(value);
 		}
 	}
@@ -469,7 +495,7 @@ bool rigMachine::evaluate(const rig_t *rig, const uint8_t *code, uint16_t *offse
 		if (code[*offset] == EXP_QUESTION)
 		{
 			(*offset)++;
-			display(dbg_eval+2,"EXP_QUESTION at %d ",*offset);
+			display(dbg_eval+2,"EXP_QUESTION at %d ",*offset-1);
 			proc_entry();
 
 			while (ok &&
@@ -489,21 +515,22 @@ bool rigMachine::evaluate(const rig_t *rig, const uint8_t *code, uint16_t *offse
 
 			ok = ok && popVal(&cond);
 
-			if (ok) display(dbg_eval+2,"? exp",0);
-			if (ok && evaluate(rig,code,offset))
+			if (ok)
 			{
+				display(dbg_eval+2,"? exp",0);
+				ok = evaluate(rig,code,offset);
 				ok = ok && popVal(&val1);
 				if (ok) display(dbg_eval+2,"? exp part = %s",VAL_DISPLAY(&val1));
 			}
-
-			if (ok) display(dbg_eval+2,": exp",0);
-			if (code[*offset] == EXP_COLON)
+			if (ok)
 			{
-				display(dbg_eval+2,": exp part skipping EXP_COLON",0);
-				(*offset)++;
-			}
-			if (ok && evaluate(rig,code,offset))
-			{
+				display(dbg_eval+2,": exp",0);
+				if (code[*offset] == EXP_COLON)
+				{
+					display(dbg_eval+2,": exp part skipping EXP_COLON",0);
+					(*offset)++;
+				}
+				ok = evaluate(rig,code,offset);
 				ok = ok && popVal(&val2);
 				if (ok) display(dbg_eval+2,": exp part = %s",VAL_DISPLAY(&val2));
 			}
@@ -518,13 +545,13 @@ bool rigMachine::evaluate(const rig_t *rig, const uint8_t *code, uint16_t *offse
 		else if (code[*offset] == EXP_LEFT_PAREN)
  		{
 			(*offset)++;
- 			display(dbg_eval + 2,"LEFT_PAREN at %d",*offset);
+ 			display(dbg_eval + 2,"LEFT_PAREN at %d",*offset-1);
  			ok = ok && pushOp(EXP_LEFT_PAREN);
  		}
 		else if (code[*offset] == EXP_RIGHT_PAREN)
 		{
 			(*offset)++;
- 			display(dbg_eval + 2,"RIGHT_PAREN at %d",*offset);
+ 			display(dbg_eval + 2,"RIGHT_PAREN at %d",*offset-1);
 			proc_entry();
 
 			uint8_t op;
@@ -545,11 +572,10 @@ bool rigMachine::evaluate(const rig_t *rig, const uint8_t *code, uint16_t *offse
 		}
 		else if (IS_EXP_OP(code[*offset]))
 		{
-			display(dbg_eval+2,"IS_EX_OP(%d=%s) at %d  op_top=%d op_start=%d",code[*offset],OP_TOKEN(code[*offset]),*offset,op_top,op_start);
+			display(dbg_eval+2,"IS_EX_OP(0x%02x=%s) at %d  op_top=%d op_start=%d",code[*offset],OP_TOKEN(code[*offset]),*offset,op_top,op_start);
 			proc_entry();
 
 			uint8_t byte = code[(*offset)++];
-
 			while (ok && op_top > op_start &&
 				   precedence(op_stack[op_top-1]) < precedence(byte))
 			{
@@ -599,6 +625,21 @@ bool rigMachine::evaluate(const rig_t *rig, const uint8_t *code, uint16_t *offse
 
 bool rigMachine::expression(const rig_t *rig, evalResult_t *rslt, const uint8_t *code, uint16_t *offset)
 {
+	// debugging of certain expressions
+
+	bool debug_this = 0;
+	int save_ops = dbg_ops;
+	int save_stack = dbg_stack;
+	int save_eval = dbg_eval;
+
+	if (*offset == debug_eval_offset)
+	{
+		debug_this 	= 1;
+		dbg_ops		= 0;
+		dbg_stack   = 0;
+		dbg_eval 	= -3;
+	}
+
 	display(dbg_eval,"expression at offset %d",*offset);
 
 	op_top = 0;
@@ -607,8 +648,15 @@ bool rigMachine::expression(const rig_t *rig, evalResult_t *rslt, const uint8_t 
 	bool ok = evaluate(rig,code,offset);
 	if (ok)
 		memcpy(rslt,&val_stack[0],sizeof(evalResult_t));
-
 	if (ok)
 		display(dbg_eval,"expression() returning %s at %d",VAL_DISPLAY(rslt),*offset);
+
+	if (debug_this)
+	{
+		dbg_ops	  = save_ops;
+		dbg_stack = save_stack;
+		dbg_eval  = save_eval;
+	}
+
 	return ok;
 }

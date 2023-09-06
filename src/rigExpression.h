@@ -44,16 +44,14 @@
 // order bye contains the info
 
 #define EXP_INLINE			0x80
-#define EXP_INLINE_ID		0x40
 
 // opcodes
 
 #define EXP_NUMBER			0x01		// expression is a Number - inline only - (8 bit constant) 0..255 result
-#define EXP_DEFINE			0x02		// expression is an Identifier - inline_only - 0..MAX_DEFINES
-#define EXP_LED_COLOR		0x03		// expression is a LED color (8 bit color number 0..NUM_LED_COLORS-1
-#define EXP_DISPLAY_COLOR	0x04		// expression is a DISPLAY color (8 bit display color 0..NUM_DISPLAY_COLORS
-#define EXP_VALUE			0x05		// expression VALUE[value]
-#define EXP_STRING			0x06		// expression STRING[value]
+#define EXP_LED_COLOR		0x02		// expression is a LED color (8 bit color number 0..NUM_LED_COLORS-1
+#define EXP_DISPLAY_COLOR	0x03		// expression is a DISPLAY color (8 bit display color 0..NUM_DISPLAY_COLORS
+#define EXP_VALUE			0x04		// expression VALUE[value]
+#define EXP_STRING			0x05		// expression STRING[value]
 
 #define EXP_TEXT			0x08		// expression is an inline null terminated string
 #define EXP_RIGHT_BRACKET   0x09
@@ -87,22 +85,22 @@
 // methods
 //-----------------------------------
 
-extern uint16_t rigNumericExpression(rig_t *rig, int tt);
+extern uint16_t rigNumericExpression(rig_t *rig);
 
-extern uint16_t rigPedalNumExpression(rig_t *rig, int tt);
-extern uint16_t rigRotaryNumExpression(rig_t *rig, int tt);
-extern uint16_t rigListenNumExpression(rig_t *rig, int tt);
-extern uint16_t rigAreaNumExpression(rig_t *rig, int tt);
-extern uint16_t rigValueNumExpression(rig_t *rig, int tt);
+extern uint16_t rigPedalNumExpression(rig_t *rig);
+extern uint16_t rigRotaryNumExpression(rig_t *rig);
+extern uint16_t rigListenNumExpression(rig_t *rig);
+extern uint16_t rigAreaNumExpression(rig_t *rig);
+extern uint16_t rigValueNumExpression(rig_t *rig);
 
-extern uint16_t rigValueExpression(rig_t *rig, int tt);
-extern uint16_t rigMidiChannelExpression(rig_t *rig, int tt);
-extern uint16_t rigListenChannelExpression(rig_t *rig, int tt);
-extern uint16_t rigMidiValueExpression(rig_t *rig, int tt);
+extern uint16_t rigValueExpression(rig_t *rig);
+extern uint16_t rigMidiChannelExpression(rig_t *rig);
+extern uint16_t rigListenChannelExpression(rig_t *rig);
+extern uint16_t rigMidiValueExpression(rig_t *rig);
 
-extern uint16_t rigStringExpression(rig_t *rig, int tt);
-extern uint16_t rigLedColorExpression(rig_t *rig, int tt);
-extern uint16_t rigDisplayColorExpression(rig_t *rig, int tt);
+extern uint16_t rigStringExpression(rig_t *rig);
+extern uint16_t rigLedColorExpression(rig_t *rig);
+extern uint16_t rigDisplayColorExpression(rig_t *rig);
 
 
 // end of rigExpression.h
