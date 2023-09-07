@@ -84,19 +84,25 @@ static int atom(rig_t *rig)
 	uint16_t dbg_ret = 0;
 	int type = EXP_TYPE_ILLEGAL;
 
-	if (rig_token.id == RIG_TOKEN_BUTTON_NUM)
+	if (rig_token.id == RIG_TOKEN_BUTTON_NUM ||
+		rig_token.id == RIG_TOKEN_BUTTON_ROW ||
+		rig_token.id == RIG_TOKEN_BUTTON_COL )
 	{
 		extern int parse_button_num;
-		display(0,"got _BUTTON_NUM  parse_button_num=%d",parse_button_num);
+		display(dbg_exp+1,"%s  parse_button_num=%d",rigTokenToString(rig_token.id),parse_button_num);
 		if (parse_button_num < 0)
 		{
-			parse_error("_BUTTON_NUM must be used within button statements");
+			parse_error("%s may only used within button statements",rigTokenToString(rig_token.id));
 		}
 		else
 		{
 			type = EXP_TYPE_NUMBER;
+			uint8_t val =
+				rig_token.id == RIG_TOKEN_BUTTON_ROW ? parse_button_num / NUM_BUTTON_COLS :
+				rig_token.id == RIG_TOKEN_BUTTON_ROW ? parse_button_num % NUM_BUTTON_COLS :
+				parse_button_num;
 			ok = addExpByte(rig,EXP_INLINE | EXP_NUMBER);
-			ok = ok && addExpByte(rig,parse_button_num);
+			ok = ok && addExpByte(rig,val);
 			ok = ok && getRigToken();
 			dbg_ret = ((EXP_INLINE | EXP_NUMBER) << 8) | parse_button_num;
 		}
@@ -225,29 +231,40 @@ static int atom(rig_t *rig)
 						byte1);
 
 					if (!(byte0 & EXP_INLINE))
-						my_error("I thought len==3 implied an inline expression",0);
-					if (inline_op != EXP_NUMBER)
-						my_error("and I thought it would be EXP_NUMBER",0);
+					{
+						parse_error("Expected EXP_INLINE with expression length of 2, not 0x%02x,0x%02x",byte0,byte1);
+						ok = false;
+					}
+					else if (inline_op != EXP_NUMBER)
+					{
+						parse_error("Expected INLINE EXP_NUMBER with expression length of 2, not 0x%02x,0x%02x",byte0,byte1);
+						ok = false;
+					}
 
 					// note that the EXP_NUMBER gets lost here,
 					// because the result is EXP_VALUE or EXP_STRING.
 
-					byte0 = opcode | EXP_INLINE;
-
-					uint8_t *pool = (uint8_t *) rig->expression_pool;
-					pool[where-1] = byte0;
-					pool[where]   = byte1;
-					rig->expression_pool_len = where + 1;
+					if (ok)
+					{
+						byte0 = opcode | EXP_INLINE;
+						uint8_t *pool = (uint8_t *) rig->expression_pool;
+						pool[where-1] = byte0;
+						pool[where]   = byte1;
+						rig->expression_pool_len = where + 1;
+					}
 				}
 
-				if (rig_token.id != RIG_TOKEN_RIGHT_BRACKET)
+				if (ok)
 				{
-					parse_error("RIGHT_BRACKET expected");
-					ok = false;
-				}
-				else if (!exp_inline)
-				{
-					ok = ok && addExpByte(rig, EXP_RIGHT_BRACKET);
+					if (rig_token.id != RIG_TOKEN_RIGHT_BRACKET)
+					{
+						parse_error("RIGHT_BRACKET expected");
+						ok = false;
+					}
+					else if (!exp_inline)
+					{
+						ok = addExpByte(rig, EXP_RIGHT_BRACKET);
+					}
 				}
 
 				ok = ok && getRigToken();
@@ -260,6 +277,7 @@ static int atom(rig_t *rig)
 			}
 		}
 	}	// VALUE[] or STRING[]
+
 
 	if (!ok)
 		type = EXP_TYPE_ILLEGAL;
@@ -321,6 +339,8 @@ static int factor(rig_t *rig)
 		rig_token.id == RIG_TOKEN_NUMBER ||
 		rig_token.id == RIG_TOKEN_IDENTIFIER ||
 		rig_token.id == RIG_TOKEN_BUTTON_NUM ||
+		rig_token.id == RIG_TOKEN_BUTTON_ROW ||
+		rig_token.id == RIG_TOKEN_BUTTON_COL ||
 		rig_token.id == RIG_TOKEN_TEXT ||
 		rig_token.id == RIG_TOKEN_VALUE ||
 		rig_token.id == RIG_TOKEN_STRING ||
@@ -442,25 +462,44 @@ static uint16_t inlineExp(rig_t *rig, const char *what, uint16_t offset, uint8_t
 	uint8_t byte0 = rig->expression_pool[offset];
 	uint8_t byte1 = rig->expression_pool[offset + 1];
 
+	// OK, so null strings come in as 0x08 0x00
+	// which *can* be considered an inline expression and removed from the expression pool,
+	// BUT I have to make sure that evaulation understands this.
+
 	if (rig->expression_pool_len - offset == 3)		// if (byte0 & EXP_INLINE)
 	{
 		display(dbg_exp+1,"---> INLINE(0x%02) value(0x%02x)  max=%d",byte1,byte0,max_value);
 
+		if (byte0 == EXP_TEXT &&
+			byte1 == 0)
+		{
+			display(dbg_exp,"    promoting inline null EXP_TEXT",0);
+			byte0 |= EXP_INLINE;
+		}
+
+		// sanity check
+
 		if (!(byte0 & EXP_INLINE))
-			my_error("wtf99",0);
+		{
+			parse_error("Expected an INLINE expression, not 0x%02x, 0x%02x", byte0,byte1);
+			offset = 0;
+		}
 
 		// check for numbers in range
 
-		if ((max_value && byte1 > max_value) ||
-			(min_value && byte1 < min_value))
+		else if ((max_value && byte1 > max_value) ||
+				 (min_value && byte1 < min_value))
 		{
 			parse_error("%s(%d) must be between %d and %d",what,byte1,min_value,max_value);
 			offset = 0;
 		}
+
+		// it's ok, rewind the pool and return it
+
 		else
 		{
 			rig->expression_pool_len = offset;	// roll back the pool
-			offset = (byte0 << 8) | byte1;
+			offset = (byte0 << 8) | byte1;		// return the inline word
 		}
 	}
 	else

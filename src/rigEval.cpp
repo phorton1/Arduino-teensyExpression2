@@ -18,7 +18,7 @@
 #include "winDialogs.h"
 
 
-static int debug_eval_offset = -1;	// 208;
+static int debug_eval_offset = 0x00bd;	// 208;
 
 
 static int dbg_ops		= 1;
@@ -436,29 +436,47 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 		if (inline_op == EXP_LED_COLOR)
 		{
 			display(dbg_eval + 2,"INLINE LED_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_LED_BLACK + value));
+			ok = pushValInt(value);
 		}
 		else if (inline_op == EXP_DISPLAY_COLOR)
 		{
 			display(dbg_eval + 2,"INLINE DISPLAY_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_DISPLAY_BLACK + value));
+			ok = pushValInt(value);
 		}
-
-		if (inline_op == EXP_STRING)
+		else if (inline_op == EXP_TEXT)
 		{
-			uint16_t off = rig->strings[value];		// string_offsets are one based in the rig header
+			if (!value)
+				ok = pushValText("");
+			else
+			{
+				rig_error(0,*offset-2,"rigEval - Unexpected NON-NULL inline EXP_TEXT op!!");
+				ok = 0;
+			}
+		}
+		else if (inline_op == EXP_STRING)
+		{
+			// string_offsets are one based in the rig header
+
+			uint16_t off = rig->strings[value];
 			const char *s = &rig->string_pool[off-1];
 			display(dbg_eval + 2,"INLINE_STRING[%d] at %d = %s",value,off,s);
 			ok = pushValText(s);
 		}
+		else if (inline_op == EXP_VALUE)
+		{
+			display(dbg_eval + 2,"INLINE VALUE[%d]",value);
+			value = m_rig_state.values[value];
+			ok = pushValInt(value);
+		}
+		else if (inline_op == EXP_NUMBER)
+		{
+			display(dbg_eval + 2,"INLINE NUMBER(%d)",value);
+			ok = pushValInt(value);
+		}
 		else
 		{
-			if (inline_op == EXP_VALUE)
-			{
-				display(dbg_eval + 2,"INLINE VALUE[%d]",value);
-				value = m_rig_state.values[value];
-			}
-			else
-				display(dbg_eval + 2,"INLINE NUMBER(%d)",value);
-			ok = pushValInt(value);
+			rig_error(0,*offset-2,"rigEval - Unexpected inline_op(0x%02x) value=0x%02x",inline_op,value);
+			ok = 0;
 		}
 	}
 

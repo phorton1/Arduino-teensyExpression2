@@ -121,6 +121,8 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_PEDAL				: return "PEDAL";
 		case RIG_TOKEN_ROTARY				: return "ROTARY";
 		case RIG_TOKEN_LISTEN				: return "LISTEN";
+		case RIG_TOKEN_LISTEN_RANGED		: return "LISTEN_RANGED";
+
 		case RIG_TOKEN_AREA					: return "AREA";
 		case RIG_TOKEN_METER				: return "METER";
 		case RIG_TOKEN_SETVALUE				: return "SETVALUE";
@@ -187,8 +189,10 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_STRING				: return "STRING";
 		case RIG_TOKEN_VALUE				: return "VALUE";
 
-		case RIG_TOKEN_BUTTON_NUM			: return "_BUTTON_NUM";
 		case RIG_TOKEN_INHERIT				: return "INHERIT";
+		case RIG_TOKEN_BUTTON_NUM			: return "_BUTTON_NUM";
+		case RIG_TOKEN_BUTTON_ROW			: return "_BUTTON_ROW";
+		case RIG_TOKEN_BUTTON_COL			: return "_BUTTON_COL";
 
 		case RIG_TOKEN_HORZ					: return "HORZ";
 		case RIG_TOKEN_VERT					: return "VERT";

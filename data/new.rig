@@ -1,0 +1,490 @@
+#--------------------------------------------
+# default.rig
+#--------------------------------------------
+# The client area is 480 wide (ends at 479) and 230 high (ends at 229)
+# Does NOT currently use buttons 9 or 14
+# I use symbolic constants (defines) to make the code more readable.
+# This BaseRig reserves variable slots 0..69
+
+
+BaseRig		 # required initial rig type
+
+
+#-----------------------------------------------------
+# Synth Setup (SampleTank as I have it on iPad)
+#-----------------------------------------------------
+
+define(10, SYNTH_VOLUME_CHANNEL,  1);
+define(11, SYNTH_VOLUME_CC, 	  7);
+define(12, SYNTH_PROGRAM_CHANNEL, 7);
+
+# These constants define AREA numbers that are used to
+# display Patch short and long names on the screen
+
+define(14, AREA_SHORT_NAME,  0);		# upper left big patch name
+define(15, AREA_LONG_NAME,   1);		# upper left long patch name
+
+# Mapping of buttons to SampleTank Patch numbers and our internal
+# Patch Name strings is described by these constants. There are
+# three rows of four buttons for selecting patches, and one
+# button for for selecting the bank number.
+#
+# 		NUM_BANKS = 2
+# 		NUM_PATCH_ROWS = 3
+# 		NUM_PATCH_COLS = 4
+# 		NUM_BANK_PATCHES = NUM_PATCH_ROWS * NUM_PATCH_COLS
+# 		NUM_PATCHES = NUM_BANK_PATCHES * NUM_BANKS
+#
+# I also define and use a constant called MULTI_OFFSET that is vestigial
+# to my personal sampleTank iPad setup.
+
+define(17, NUM_BANK_PATCHES, 12);	# patches per my _bank
+define(18, FIRST_SHORT_NAME, 0);	# first short name STRING_DEF
+define(19, FIRST_LONG_NAME,  24);	# first long name STRING_DEF
+define(20, MULTI_OFFSET, 	 16);	# my patches start at 16 (17 one based) in Sample tank
+
+# Synth Variables (Symbolic Value Slot Defines)
+
+define(22, _bank, 0);				# BANK number (0..1)
+define(23, _patch_button, 1);		# PATCH_BUTTON number (0..3, 5..8, 10..13)
+define(24, _patch_number, 2);		# ACTUAL_PATCH number (0..23) sent to Synth
+
+# These strings are in the same order as the patches on SampleTank,
+# starting at MULTI_OFFSET (which is one based, and 17 in the
+# SampleTank UI).
+
+define_string(0,	"BASS1" );			# PATCH_SHORT_NAME[0]
+define_string(1,	"BASS-F" );
+define_string(2,	"BASS-G" );
+define_string(3,	"SFLUTE" );
+define_string(4,	"SPACE1" );
+define_string(5,	"SPACE2" );
+define_string(6,	"ORGAN1" );
+define_string(7,	"ORGAN2" );
+define_string(8,	"BRASS" );
+define_string(9,	"PIANO1" );
+define_string(10,	"PIANO2" );
+define_string(11,	"SPACE3" );
+define_string(12,	"BASS2" );
+define_string(13,	"BASS2-G" );
+define_string(14,	"EMPTY" );
+define_string(15,	"FLUTE1" );
+define_string(16,	"VOICE OH" );
+define_string(17,	"VOICE AH" );
+define_string(18,	"STRINGS1" );
+define_string(19,	"STRING2" );
+define_string(20,	"BANJO" );
+define_string(21,	"CHIME" );
+define_string(22,	"MARIMNA" );
+define_string(23,	"FX" );
+
+define_string(24,	"MM Bass Finger" );		# PATCH_LONG_NAME{0}
+define_string(25,	"MM Bass Finger" );
+define_string(26,	"MM Bass Finger" );
+define_string(27,	"Psych Flute" );
+define_string(28,	"Whispering Pad" );
+define_string(29,	"Mega Motion 3" );
+define_string(30,	"Ballad B Pad" );
+define_string(31,	"Drawbars Bow" );
+define_string(32,	"Drama Brass" );
+define_string(33,	"Mellow Grand 2" );
+define_string(34,	"Classical Grand" );
+define_string(35,	"Mega Motion 4" );
+define_string(36,	"Chorus Fretless" );
+define_string(37,	"Chorus Fretless" );
+define_string(38,	"" );
+define_string(39,	"Orch Flute" );
+define_string(40,	"Vocal Oh" );
+define_string(41,	"Vocal Ahh" );
+define_string(42,	"Violin" );
+define_string(43,	"String Orch2" );
+define_string(44,	"Banjo" );
+define_string(45,	"Vibes+Octave" );
+define_string(46,	"Marimba" );
+define_string(47,	"SFX Collection" );
+
+# Synth Initialization Statements
+
+AREA(AREA_SHORT_NAME,	32,  BOLD, 	LEFT,	 5,   5, 299, 40);		# patch short name indented 5 from client area, 35 pixels high
+AREA(AREA_LONG_NAME,	18,  BOLD,	LEFT,	 5,  43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
+
+display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
+display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
+
+
+
+#------------------------------------------------------------
+# Guitar Effect Setup (ToneStack as I have it on iPad)
+#------------------------------------------------------------
+
+define(30,	GUITAR_VOLUME_CHANNEL,  7 );
+define(31,	GUITAR_VOLUME_CC,       7 );
+define(32,	GUITAR_EFFECTS_CHANNEL, 9 );
+define(33,	GUITAR_WAH_CONTROL_CC,  11 );
+
+define(35,	GUITAR_DISTORTION_CC,	26 );
+define(36,	GUITAR_WAH_CC, 			27 );
+define(37,	GUITAR_CHOR_CC, 		29 );
+define(38,	GUITAR_ECHO_CC, 		30 );
+
+define(40,	AREA_GUITAR_BASE,		5);
+define(41,  GUITAR_BASE_CC,		    3);
+define(42,  GUITAR_BASE_NAME,		50);
+
+define_string(50,	"dist" );
+define_string(51,	"wah" );
+define_string(52,	"chor" );
+define_string(53,	"echo" );
+
+# variables
+
+define(45, _guitar_base_on, 7);		# 7, 8, 9, 10 - off/on states of four guitar effects
+
+# Guitar Initialization Section
+
+AREA(AREA_GUITAR_BASE + 0,  18,  NORMAL,RIGHT, 300, 20,  475, 45);
+AREA(AREA_GUITAR_BASE + 1,  18,  NORMAL,RIGHT, 300, 50,  475, 75);
+AREA(AREA_GUITAR_BASE + 2,  18,  NORMAL,RIGHT, 300, 80,  475, 105);
+AREA(AREA_GUITAR_BASE + 3,  18,  NORMAL,RIGHT, 300, 110, 475, 135);
+
+setValue(GUITAR_BASE_CC + 0, GUITAR_DISTORTION_CC );	# 3
+setValue(GUITAR_BASE_CC + 1, GUITAR_WAH_CC );			# 4
+setValue(GUITAR_BASE_CC + 2, GUITAR_CHOR_CC );			# 5
+setValue(GUITAR_BASE_CC + 3, GUITAR_ECHO_CC );			# 6
+
+
+#------------------------------------------------------
+# Looper Setup (as defined by my Looper program)
+#------------------------------------------------------
+# Following defines incorporated from commonDefines.h
+# The looper Serial midi sends, and expects only CC messages on Channel 1.
+# which is 0 or'd into the first byte of the message.
+
+# TRACK_STATE_EMPTY               = 0  = 0x00;
+# TRACK_STATE_RECORDING           = 1  = 0x01;
+# TRACK_STATE_PLAYING             = 2  = 0x02;
+# TRACK_STATE_STOPPED             = 4  = 0x04;
+# TRACK_STATE_PENDING_RECORD      = 8  = 0x08;
+# TRACK_STATE_PENDING_PLAY        = 16 = 0x10;
+# TRACK_STATE_PENDING_STOP        = 32 = 0x20;
+# TRACK_STATE_PENDING			  = 56 = 0x38; // TRACK_STATE_PENDING_RECORD | TRACK_STATE_PENDING_PLAY | TRACK_STATE_PENDING_STOP;
+
+define(50, TRACK_STATE_RED, 		9);		# TRACK_STATE_RECORDING | TRACK_STATE_PENDING_RECORD
+define(51, TRACK_STATE_YELLOW, 		18);	# TRACK_STATE_PLAYING | TRACK_STATE_PENDING_PLAY
+define(52, TRACK_STATE_GREEN,		36);	# TRACK_STATE_STOPPED | TRACK_STATE_PENDING_STOP
+define(53, TRACK_STATE_BLINK, 		56);	# TRACK_STATE_PENDING
+
+
+													# LOOP_COMMAND_NONE               = 0  = 0x00;
+define(60, LOOP_COMMAND_CLEAR_ALL,	1);				# LOOP_COMMAND_CLEAR_ALL          = 1  = 0x01;
+													# LOOP_COMMAND_STOP_IMMEDIATE     = 2  = 0x02;      // stop the looper immediately
+													# LOOP_COMMAND_STOP               = 3  = 0x03       // stop at next cycle point
+define(61, LOOP_COMMAND_DUB, 		4);				# LOOP_COMMAND_DUB_MODE           = 4  = 0x04;     	// the dub mode is handled by rPi and modeled here
+													# LOOP_COMMAND_ABORT_RECORDING    = 6  = 0x06;      // abort the current recording if any
+													# LOOP_COMMAND_LOOP_IMMEDIATE     = 6  = 0x08;      // immediatly loop back to all clip starts ...
+													# LOOP_COMMAND_SET_LOOP_START     = 6  = 0x09;      // immediatly set the "restart point" for the clips in the track
+													# LOOP_COMMAND_CLEAR_LOOP_START   = 6  = 0x0A;      // immediatly set the "restart point" for the clips in the track
+define(62, LOOP_COMMAND_TRACK_BASE,	16);			# LOOP_COMMAND_TRACK_BASE         = 16 = 0x10;     	// the four used "track" buttons are 0x10..0x13 (although the protocol can support upto 8 buttons 0..7)
+													# LOOP_COMMAND_ERASE_TRACK_BASE   = 32 = 0x20;      // erase the given track (stops it if playing)
+define(63, LOOP_COMMAND_GET_STATE, 	48);			# LOOP_COMMAND_GET_STATE		  = 48 = 0x30	  	// NEW the looper will dump all state
+
+													# Looper Serial CC numbers             				// TE       rPi         descrip
+define(65,	LOOP_COMMAND_CC,		1 );			# LOOP_COMMAND_CC        		  = 1  = 0x01		// send     recv        the value is the LOOP command
+define(66,	LOOP_STOP_CMD_STATE_CC,	2 );			# LOOP_STOP_CMD_STATE_CC 		  = 2  = 0x02		// recv     send        the value is 0, LOOP_COMMAND_STOP or STOP_IMMEDIATE
+define(67,	LOOP_DUB_STATE_CC,		3 );			# LOOP_DUB_STATE_CC      		  = 3  = 0x03		// recv     send        value is currently only the DUB state
+													# NOTIFY_LOOP            		  = 5  = 0x05     	// recv     send        value=number of pending loop notifies
+define(68,	LOOP_CONTROL_BASE_CC,	8 );			# LOOP_CONTROL_BASE_CC   		  = 8  = 0x08     	// send     recv        RANGED for 0..LOOPER_NUM_CONTROLS the value is the volume control (Looper pedal == 0x67)
+define(69,	TRACK_STATE_BASE_CC,	16 );			# TRACK_STATE_BASE_CC    		  = 16 = 0x10		// recv     send        RANGED for NUM_TRACKS, upto 16 tracks, value is track state
+define(70,	CLIP_VOL_BASE_CC,		32 );			# CLIP_VOL_BASE_CC       		  = 32 = 0x20		// both     both        RANGED for NUM_TRACKS * NUM_LAYERS, upto 32 total - value is the clip volume
+define(71,	CLIP_MUTE_BASE_CC,		64 );			# CLIP_MUTE_BASE_CC      		  = 64 = 0x40		// both     both        RANGED for NUM_TRACKS * NUM_LAYERS, upto 24 total - value is mute state
+
+
+define(73, LOOPER_CONTROL_INPUT_GAIN,	0);			# LOOPER_CONTROL_INPUT_GAIN       = 0
+define(74, LOOPER_CONTROL_THRU_VOLUME,	1);			# LOOPER_CONTROL_THRU_VOLUME      = 1
+define(75, LOOPER_CONTROL_LOOP_VOLUME,	2);			# LOOPER_CONTROL_LOOP_VOLUME      = 2
+define(76, LOOPER_CONTROL_MIX_VOLUME,	3);			# LOOPER_CONTROL_MIX_VOLUME       = 3
+define(77, LOOPER_CONTROL_OUTPUT_GAIN,	4);			# LOOPER_CONTROL_OUTPUT_GAIN      = 4
+
+# Actual Looper Variables
+
+define(90, _selected_track,		12);	# The most recently selected track
+
+# Looper Listen Variables
+
+define(80, dub_mode,			14);	# DUB_MODE
+define(81, stop_cmd,			15);	# STOP_BUTTON_COMMAND
+define(82, track_state_base,	20);	# TRACK1..4 STATE
+define(83, clip_vol_base,		30);	# 16 CLIP VOLUMES
+define(84, clip_mute_base,		50);	# 16 CLIP MUTES
+
+# Loooper Initialization Statements
+
+ROTARY(0, "Input",	SERIAL,	1, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_INPUT_GAIN);
+ROTARY(1, "Output",	SERIAL,	1, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_OUTPUT_GAIN);
+ROTARY(2, "Thru",	SERIAL,	1, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_THRU_VOLUME);
+ROTARY(3, "Mix",	SERIAL,	1, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME);
+
+LISTEN(dub_mode, SERIAL, INPUT, 0, LOOP_DUB_STATE_CC);
+	# Listen on the Serial Midi Port for
+	# LOOP_DUB_STATE_CC=37 messages and stick
+	# their values in the dub_mode value
+
+LISTEN(stop_cmd, SERIAL, INPUT, 0, LOOP_STOP_CMD_STATE_CC);
+	# Listen on the Serial Midi Port for
+	# LOOP_STOP_CMD_STATE_CC=38 messages and stick
+	# their values in the stop_cmd value
+
+LISTEN_RANGED(4, track_state_base, SERIAL, INPUT, 0, TRACK_STATE_BASE_CC);
+	# Listen on the Serial Midi Port for
+	# TRACK_STATE_BASE_CC(20..23) messages
+	# and stick their values into the appropriate
+	# _track_state values
+
+# LISTEN for the 16 possible clip volumes and mute states
+
+LISTEN_RANGED(16, clip_vol_base,  SERIAL, INPUT, 0, CLIP_VOL_BASE_CC);
+LISTEN_RANGED(16, clip_mute_base, SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC);
+
+
+#----------------------------------------
+# Overall Rig initialization section
+#----------------------------------------
+
+PEDAL(0, "Synth", 	USB1,	SYNTH_VOLUME_CHANNEL, 	SYNTH_VOLUME_CC);
+PEDAL(1, "Loop",  	SERIAL,	1, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_LOOP_VOLUME);
+PEDAL(2, "Wah",   	USB1,	GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CONTROL_CC);
+PEDAL(3, "Guitar",	USB1,	GUITAR_VOLUME_CHANNEL, 	GUITAR_VOLUME_CC);
+
+
+sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_GET_STATE);
+	# Tell the looper to dump it's state for our LISTEN's
+	# This is the last thing in the rig section so that
+	# the machine is freed up to listen for the incoming
+	# CC's (although not technically necessary, as LISTENTS
+	# are asynchronous between timer_handlers)
+
+
+
+#=======================================================
+# Buttons
+#========================================================
+# Looper Volume Mode button
+#-------------------------------------
+
+BUTTON(14) :
+	setButtonColor(14,LED_ORANGE);
+	click:
+		loadRig("new_modal");
+	long:
+		ftpTuner();
+
+
+#-------------------------------------
+# Synth Buttons
+#-------------------------------------
+# If the _bank value is set, the LED is BLUE, otherwise its CYAN.
+# A press of the button toggles the BANK value
+
+BUTTON(4):
+	setButtonColor(_BUTTON_NUM, VALUE[_bank] ? LED_BLUE : LED_CYAN);
+    click:
+		setValue(_bank, ! VALUE[_bank]);
+
+# Patch Buttons
+#
+# IF the LED number matches the _patch_button value THEN
+# 	IF the VALUE[_bank] is non-zero THEN
+#       LED color = BLUE
+#	ELSE
+#		LED color = CYAN
+# ELSE
+#	LED color = BLACK
+#
+# If the BUTTON number matches the _patch_button value THEN
+#   the _patch_button value is set to the BUTTON number
+#   the _patch_number value is set to the correct (wonky) logical value
+#   the _patch_number value plus the MULTI_OFFSET constant
+#   	is sent via a ProgramChange message to the Midi Port,
+#   	on the SYNTH_PROGRAM_CHANNEL
+#   the short and long names are displayed
+
+
+#  FUNCTION	 _BUTTON_COL  _BUTTON_ROW
+#    0 = 2       0            0
+#    1 = 5       1            0
+#    2 = 8       2            0
+#    3 = 11      3            0
+#    5 = 1       0            1
+#    6 = 4       1            1
+#    7 = 7       2            1
+#    8 = 10      3            1
+#    10 = 0      0            2
+#    11 = 3      1            2
+#    12 = 6      2            2
+#    13 = 9      3            2
+#
+#  2 -_BUTTON_ROW + _BUTTON_COL * 3
+#
+# Weird and worth noting:
+#
+#    The evaulator does equally precedent binops from right to left!!
+#    For button1, the above expression, after multiplying, is
+#
+#           2 - 0 + 3
+#
+#    But, instead of 5, it gives -1 by doing the operation from right to left !!!
+#    I think giving subtractions will still have problems
+#
+#           3 - 1 - 1    expect 1, would get 3
+#
+#    Same thing applies to division and multiplication (with integers)
+#
+#           5 * 2 / 4  expected result 2 (2.5 before integer truncation)
+#
+#           but it will probably give 0
+#
+#    Grrr .. I guess I could try to look down the opstack for equal precedence
+#    and then evalate them in order, but sheesh.
+
+
+# instead of generating sections per button,
+# generate one section that uses the button number
+# and a bunch of onUpdate statements that use the the constants
+
+BUTTON(0,1,2,3,  5,6,7,8,  10,11,12,13) :
+	setButtonColor(_BUTTON_NUM,VALUE[_patch_button] == _BUTTON_NUM ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK);
+	press:
+		setValue(_patch_button, _BUTTON_NUM);
+		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 2 - _BUTTON_ROW + _BUTTON_COL * 3);
+		SendPgmChg(USB1, SYNTH_PROGRAM_CHANNEL, MULTI_OFFSET + VALUE[_patch_number]);
+		display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
+		display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
+
+#----------------------------------
+# Guitar Effect Buttons
+#----------------------------------
+# The LEDs are GREEN if the _effect_on value is set,
+#   or BLACK if it is not
+# A short click of the BUTTONS toggle the _effect_on value
+#	between 0 and 127, and sends the value to
+# 	the appropriate GUITAR_CC on on the Midi Port
+#   and the GUITAR_EFFECTS_CHANNEL
+# A long press of any button clears them all.
+
+BUTTON(15,16,17,18):
+	setButtonColor(_BUTTON_NUM,VALUE[_guitar_base_on + _BUTTON_NUM-15] ? LED_GREEN : LED_BLACK);
+	click:
+		setValue(_guitar_base_on + _BUTTON_NUM-15, VALUE[_guitar_base_on + _BUTTON_NUM-15] ? 0 : 127);
+		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, VALUE[GUITAR_BASE_CC + _BUTTON_NUM-15],VALUE[_guitar_base_on + _BUTTON_NUM-15]);
+		display(AREA_GUITAR_BASE + _BUTTON_NUM-15, GREEN, STRING[ GUITAR_BASE_NAME + _BUTTON_NUM-15]);
+	long:
+		# any long press turns them all off?
+		setValue(_guitar_base_on + 0, 0);
+		setValue(_guitar_base_on + 1, 0);
+		setValue(_guitar_base_on + 2, 0);
+		setValue(_guitar_base_on + 3, 0);
+		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_BASE_CC + 0, 0);						# Send all EFFECT OFF messages
+		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_BASE_CC + 1, 0);
+		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_BASE_CC + 2, 0);
+		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_BASE_CC + 3, 0);
+		display(AREA_GUITAR_BASE + 0, GREEN, "");
+		display(AREA_GUITAR_BASE + 1, GREEN, "");
+		display(AREA_GUITAR_BASE + 2, GREEN, "");
+		display(AREA_GUITAR_BASE + 3, GREEN, "");
+
+
+
+
+#---------------------------------------
+# Looper Buttons
+#----------------------------------------
+
+# Looper Stop Button
+#
+# Note that the Looper LEDs are dependent on midi messages
+# that are sent via Serial Midi FROM the rPi Looper, and
+# which change named VALUES via the LISTEN statements above.
+# The buttons merely send certain CCs and values to the rPi
+# Looper over the Serial Midi Port.
+#
+# The Stop LED is
+#	RED if the stop_cmd value is LOOP_COMMAND_STOP_IMMEDIATE=2,
+#   PURPLE if the stop_cmd_value is LOOP_COMMAND_STOP=3, and
+#   BLACK otherwise.
+# A click of the Stop Button sends a LOOP_COMMAND_CC
+#   message to the Serial Midi Port on Channel 0
+#   with the value of the stop_cmd value.
+# A long click of the Dub Button sends a LOOP_COMMAND_CC
+#   message to the Serial Midi Port ON Channel 0
+#   with the value of LOOP_COMMAND_CLEAR_ALL=1
+#
+# Don't want any Looper buttons writing to screen, as
+# they are INHERITed by the default_modal.rig.
+
+BUTTON(19):
+	setButtonColor(_BUTTON_NUM,
+		VALUE[stop_cmd] == 2 ? LED_RED :	 #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP_IMMEDIATE ? LED_RED :
+		VALUE[stop_cmd] == 3 ? LED_PURPLE :  #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP ? LED_PURPLE :
+		LED_BLACK);
+	click:
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, VALUE[stop_cmd]);
+	long:
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_CLEAR_ALL);
+		# even though we will get these back, clear them for testing
+		setValue(stop_cmd, 0);
+		setValue(track_state_base + 0, 0);
+		setValue(track_state_base + 1, 0);
+		setValue(track_state_base + 2, 0);
+		setValue(track_state_base + 3, 0);
+
+# Looper Dub Button
+#
+# The Dub LED is ORANGE if dub_mode value if set,
+# 	or black otherwise.
+# A click of the Dub Button sends a LOOP_COMMAND_CC
+#   message to the Serial Midi Port on Channel 0,
+#   with the value of LOOP_COMMAND_DUB_MODE=4
+# A long click of the Dub Button sends a LOOP_COMMAND_CC
+#   message to the Serial Midi Port with the value
+#   of LOOP_COMMAND_CLEAR_ALL=1
+
+BUTTON(24):
+	setButtonColor(24,VALUE[dub_mode] ? LED_ORANGE : LED_WHITE);
+	click:
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_DUB);
+	long:
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_CLEAR_ALL);
+		# even though we will get these back, clear them for testing
+		setValue(stop_cmd, 0);
+		setValue(track_state_base + 0, 0);
+		setValue(track_state_base + 1, 0);
+		setValue(track_state_base + 2, 0);
+		setValue(track_state_base + 3, 0);
+
+# Looper Track Buttons
+#
+# The looper track LEDs are set based on the
+# 	_track_state values.
+#   They LEDS are set to:
+#		RED if RECORDING or PENDING_RECORD (9)
+#   	YELLOW if PLAYING or PENDING_PLAY (18)
+#       GREEN if STOPPED or PENDING_STOP (36)
+#       and BLACK if empty (otherwise)
+#   They are set to BLINK if they are pending (56)
+# A press of a Track Button sends a LOOP_COMMAND_CC
+#   message to the Serial Midi Port on Channel 0
+#   with the value of the LOOP_COMMAND_TRACK_BASE plus
+#   the track number (0..3)
+
+BUTTON(20,21,22,23):
+	setButtonColor(_BUTTON_NUM,
+		VALUE[track_state_base + _BUTTON_COL] & TRACK_STATE_RED    ? LED_RED :
+		VALUE[track_state_base + _BUTTON_COL] & TRACK_STATE_YELLOW ? LED_YELLOW :
+		VALUE[track_state_base + _BUTTON_COL] & TRACK_STATE_GREEN  ? LED_GREEN :
+		LED_BLACK);
+	setButtonBlink(_BUTTON_NUM,VALUE[track_state_base + _BUTTON_COL] & TRACK_STATE_BLINK);
+	press:
+		setValue(_selected_track, _BUTTON_COL);
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + _BUTTON_COL);
+
+# end of default.rig

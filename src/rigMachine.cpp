@@ -60,6 +60,8 @@ rigMachine rig_machine;
 
 int in_update_cycle = 0;
 
+const char *NULL_STRING = "";
+
 
 //------------------------------------------------------
 // enumerated types
@@ -675,9 +677,24 @@ bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const 
 			display(dbg_param+1,"inline NUMBER = %d",value);
 			rslt->value = value;
 		}
+		else if (opcode == EXP_TEXT)
+		{
+			if (!value)
+			{
+				display(dbg_param+1,"inline NULL TEXT",0);
+				rslt->text = NULL_STRING;
+				rslt->is_string = 1;
+
+			}
+			else
+			{
+				rig_error(1,code_offset,"unexpected non-null inline TEXT value(0x%02x)",value);
+				return false;
+			}
+		}
 		else
 		{
-			rig_error(1,code_offset,"uknonwn inline opcode(0x%02x)",opcode);
+			rig_error(1,code_offset,"unknown inline opcode(0x%02x)",opcode);
 			return false;
 		}
 	}
@@ -730,8 +747,10 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 				if (rslt->value > MIDI_MAX_CHANNEL ||
 					rslt->value < MIDI_MIN_CHANNEL)
 				{
-					rig_error(1,*offset,"evalParam - %s must be between %d and %d",
-						what,MIDI_MIN_CHANNEL,MIDI_MAX_CHANNEL);
+					uint16_t actual_code = *ptr16 & (EXP_INLINE << 8) ? *ptr16 : *ptr16-1;
+						// show inline opcode or offset-1 (actual expression offset) for debugging
+					rig_error(1,*offset,"evalParam(%d) code(0x%04x) - %s(%d) must be between %d and %d",
+						num,actual_code,what,rslt->value,MIDI_MIN_CHANNEL,MIDI_MAX_CHANNEL);
 					ok = 0;
 				}
 				else
@@ -753,7 +772,10 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 			{
 				if (rslt->value > max)
 				{
-					rig_error(1,*offset,"evalParam - %s must be %d or less",what,max);
+					uint16_t actual_code = *ptr16 & (EXP_INLINE << 8) ? *ptr16 : *ptr16-1;
+						// show inline opcode or offset-1 (actual expression offset) for debugging
+					rig_error(1,*offset,"evalParam(%d) code(0x%04x) - %s(%d) must be %d or less",
+						num, actual_code, what,rslt->value,max);
 					ok = 0;
 				}
 				else
@@ -798,7 +820,7 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 			break;
 
 		default:
-			rig_error(1,*offset,"evalParam - unknown arg_type(%d)",arg_type);
+			rig_error(1,*offset,"evalParam(%d) - unknown arg_type(%d)",num,arg_type);
 			ok = 0;
 			break;
 	}
@@ -925,6 +947,40 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				// display(dbg_calls,"m_listen_mask=0x%08x",m_listen_mask);
 				break;
 			}
+			case RIG_TOKEN_LISTEN_RANGED:
+			{
+				int range 	   = m_params[0].value;
+				int base_value = m_params[1].value;
+				int port 	   = m_params[2].value;
+				int inout	   = m_params[3].value;
+				int channel    = m_params[4].value;
+				int base_cc    = m_params[5].value;
+
+				display(dbg_calls,"LISTEN_RANGED(%d,%d,%d=%s,%d=%s,%d,%d)",
+					range,
+					base_value,
+					port,
+					rigTokenToText(port + RIG_TOKEN_USB1),
+					inout,
+					rigTokenToText(inout + RIG_TOKEN_INPUT),
+					channel,
+					base_cc);
+
+				if (inout == 0 || inout == 2)
+					m_listen_mask |= 1 << m_params[1].value;
+				if (inout == 1 || inout == 2)
+					m_listen_mask |= 1 << (m_params[1].value + 16);;
+
+				for (idx=0; idx<range; idx++)
+				{
+					m_rig_state.listens[base_value + idx].active  = 1;
+					m_rig_state.listens[base_value + idx].port    = port;
+					m_rig_state.listens[base_value + idx].channel = channel;
+					m_rig_state.listens[base_value + idx].cc      = base_cc + idx;
+				}
+				break;
+			}
+
 			case RIG_TOKEN_PEDAL:
 				display(dbg_calls,"PEDAL(%d,%s,%d=%s,%d,%d)",
 					m_params[0].value,

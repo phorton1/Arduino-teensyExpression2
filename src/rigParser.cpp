@@ -218,7 +218,15 @@ static const int LISTEN_ARGS[] = {			// LISTEN(37, SERIAL, 0, 20);
 	PARAM_MIDI_CC,
 	0
 };
-
+static const int LISTEN_RANGED_ARGS[] = {			// LISTEN(16, clip_mute_base, SERIAL, 0, CLIP_MUTE_BASE_CC);
+	PARAM_VALUE,				// should really be a PARAM_NUMBER or PARAM_CONSTANT_NUMBER
+	PARAM_VALUE_NUM,
+	PARAM_MIDI_PORT,
+	PARAM_LISTEN_DIR,
+	PARAM_LISTEN_CHANNEL,
+	PARAM_MIDI_CC,
+	0
+};
 // generic statements
 
 static const int PEDAL_ARGS[] = {		// PEDAL(0, "Synth", MIDI, 1, 7);
@@ -327,6 +335,7 @@ static const statement_param_t statement_params[] = {
 	{ RIG_TOKEN_AREA, 				AREA_ARGS },
 	{ RIG_TOKEN_METER,				METER_ARGS },
 	{ RIG_TOKEN_LISTEN, 			LISTEN_ARGS },
+	{ RIG_TOKEN_LISTEN_RANGED,		LISTEN_RANGED_ARGS },
 
 	{ RIG_TOKEN_PEDAL, 				PEDAL_ARGS },
 	{ RIG_TOKEN_ROTARY, 			ROTARY_ARGS },
@@ -528,7 +537,7 @@ static const char *getUserIdent()
 //--------------------------------------------------------
 
 
-static bool handleArg(int statement_type, int arg_type)
+static bool handleArg(int tt, int arg_type)
 {
 	display(dbg_parse + 2,"handleArg(%s) token=%s",argTypeToString(arg_type),rigTokenToString(rig_token.id));
 	proc_entry();
@@ -540,7 +549,7 @@ static bool handleArg(int statement_type, int arg_type)
 	static int define_num;
 	static int string_num;
 
-	if (IS_INIT_HEADER_STATEMENT(statement_type))
+	if (IS_INIT_HEADER_STATEMENT(tt))
 	{
 		switch (arg_type)
 		{
@@ -851,19 +860,19 @@ static bool handleArg(int statement_type, int arg_type)
 // static int display_count = 0;
 // extern int dbg_exp;
 
-static bool handleStatement(int tt)
+static bool handleStatement()
 {
 	// if (tt == RIG_TOKEN_DISPLAY && !display_count++)
 	// 	dbg_exp = -3;
 
-	display(dbg_parse + 1,"handleStatement(%s)",rigTokenToString(tt));
+	display(dbg_parse + 1,"handleStatement(%s)",rigTokenToString(rig_token.id));
 	proc_entry();
 
-	int statement_type = tt;
+	int tt = rig_token.id;
 
 	// note if we have gotten any endModal statements in this parse
 
-	if (statement_type == RIG_TOKEN_END_MODAL)
+	if (tt == RIG_TOKEN_END_MODAL)
 		any_end_modal = 1;
 
 	// this parses either statements that actually generate statement rig_code,
@@ -871,7 +880,7 @@ static bool handleStatement(int tt)
 	// not an init_only statement, we write the token as the first byte
 	// of the statement
 
-	if (!IS_INIT_HEADER_STATEMENT(statement_type) && !addStatementByte(tt))
+	if (!IS_INIT_HEADER_STATEMENT(tt) && !addStatementByte(tt))
 	{
 		proc_leave();
 		return false;
@@ -893,6 +902,7 @@ static bool handleStatement(int tt)
 	const statement_param_t *params = findParams(tt);
 	if (!params)
 	{
+		display(0,"Could not findParams for %d=%s",tt,rigTokenToString(tt));
 		proc_leave();
 		return false;
 	}
@@ -900,7 +910,7 @@ static bool handleStatement(int tt)
 	const int *arg = params->args;
 	while (*arg)
 	{
-		if (!handleArg(statement_type, *arg++))
+		if (!handleArg(tt, *arg++))
 		{
 			proc_leave();
 			return false;
@@ -934,9 +944,9 @@ static bool handleStatement(int tt)
 
 
 
-static bool handleStatementList(int tt)
+static bool handleStatementList()
 {
-	display(dbg_parse + 1,"handleStatementList(%d) %s",parse_rig->num_statements,rigTokenToString(tt));
+	display(dbg_parse + 1,"handleStatementList(%d) %s",parse_rig->num_statements,rigTokenToString(rig_token.id));
 	proc_entry();
 
 	// set pool offset into statements array
@@ -952,20 +962,19 @@ static bool handleStatementList(int tt)
 
 	// process statements
 
-	while (IS_STATEMENT(tt))
+	while (IS_STATEMENT(rig_token.id))
 	{
-		if (!handleStatement(tt))
+		if (!handleStatement())
 		{
 			my_error("handleStatement() failed!",0);
 			proc_leave();
 			return false;
 		}
-		tt = rig_token.id;
-		display(dbg_parse + 2,"back from handleStatement() token=%s",rigTokenToString(tt));
+		display(dbg_parse + 2,"back from handleStatement() token=%s",rigTokenToString(rig_token.id));
 	}
 
 	proc_leave();
-	display(dbg_parse + 2,"handleStatementList() finished on %s",rigTokenToString(tt));
+	display(dbg_parse + 2,"handleStatementList() finished on %s",rigTokenToString(rig_token.id));
 	return true;
 }
 
@@ -1041,7 +1050,7 @@ static bool handleSubsections(int button_num)
 			parse_rig->button_type[button_num] |= type;
 			parse_rig->button_refs[button_num][ref_num] = parse_rig->num_statements + 1;
 				// statement refs are 1 based
-			ok = handleStatementList(rig_token.id);
+			ok = handleStatementList();
 			parse_button_num = -1;
 		}
 	}
@@ -1315,17 +1324,16 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 		// regardless if any were parsed
 
 		if (ok && IS_INIT_STATEMENT(rig_token.id))
-			ok = ok && handleStatementList(rig_token.id);
+			ok = ok && handleStatementList();
 
 		parse_rig->num_statements = 1;
 		parse_rig->statements[parse_rig->num_statements] = parse_rig->statement_pool_len;
-		ok = rig_token.id;
 
 		if (ok && rig_token.id == RIG_TOKEN_ON_UPDATE)
 		{
 			ok = getRigToken();	// skip the onUpdate
 			ok = ok && skip(RIG_TOKEN_COLON);
-			ok = ok && handleStatementList(rig_token.id);
+			ok = ok && handleStatementList();
 		}
 
 		parse_rig->num_statements = 2;
@@ -1394,7 +1402,7 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 				// to accomplish things.
 
 				if (how & PARSE_HOW_DUMP_H_FILE)
-					dumpRigCode(new_rig);
+					dumpRigCode(rig_name, new_rig);
 			}
 			else
 			{
