@@ -327,7 +327,7 @@ bool rigMachine::startRig(const rig_t *rig, bool cold)
 			// invariantly add the long click for the system button
 			// in the base rig
 
-			uint16_t mask = (button_num == THE_SYSTEM_BUTTON) && !(context->rig_type & RIG_TYPE_MODAL) ?
+			uint16_t mask = (button_num == THE_SYSTEM_BUTTON) ? // && !(context->rig_type & RIG_TYPE_MODAL) ?
 				BUTTON_EVENT_LONG_CLICK : 0;
 
 			// display only button type not implemented yet
@@ -777,6 +777,7 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 		case PARAM_FONT_JUST :
 		case PARAM_FONT_SIZE :
 		case PARAM_MIDI_PORT :
+		case PARAM_LISTEN_DIR :
 			rslt->value = code[(*offset)++];
 			break;
 		case PARAM_END_X :
@@ -904,19 +905,26 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 			}
 
 			case RIG_TOKEN_LISTEN:
-				display(dbg_calls,"LISTEN(%d,%s,%d,%d)",
+			{
+				int inout = m_params[2].value;
+				display(dbg_calls,"LISTEN(%d,%s,%s,%d,%d)",
 					m_params[0].value,
 					rigTokenToText(m_params[1].value + RIG_TOKEN_USB1),
-					m_params[2].value,
-					m_params[3].value);
+					rigTokenToText(inout + RIG_TOKEN_INPUT),
+					m_params[3].value,
+					m_params[4].value);
 				idx = m_params[0].value;
 				m_rig_state.listens[idx].active  = 1;
 				m_rig_state.listens[idx].port    = m_params[1].value;
-				m_rig_state.listens[idx].channel = m_params[2].value;
-				m_rig_state.listens[idx].cc      = m_params[3].value;
-				m_listen_mask |= (1 << m_params[1].value);
+				m_rig_state.listens[idx].channel = m_params[3].value;
+				m_rig_state.listens[idx].cc      = m_params[4].value;
+				if (inout == 0 || inout == 2)
+					m_listen_mask |= 1 << m_params[1].value;
+				if (inout == 1 || inout == 2)
+					m_listen_mask |= 1 << (m_params[1].value + 16);
+				// display(dbg_calls,"m_listen_mask=0x%08x",m_listen_mask);
 				break;
-
+			}
 			case RIG_TOKEN_PEDAL:
 				display(dbg_calls,"PEDAL(%d,%s,%d=%s,%d,%d)",
 					m_params[0].value,

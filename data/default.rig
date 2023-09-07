@@ -26,7 +26,7 @@ define(12, SYNTH_PROGRAM_CHANNEL, 7);
 # display Patch short and long names on the screen
 
 define(14, AREA_SHORT_NAME,  0);		# upper left big patch name
-define(15, AREA_LONG_NAME,  	1);		# upper left long patch name
+define(15, AREA_LONG_NAME,   1);		# upper left long patch name
 
 # Mapping of buttons to SampleTank Patch numbers and our internal
 # Patch Name strings is described by these constants. There are
@@ -216,23 +216,23 @@ ROTARY(3, "Mix",	SERIAL,	1, LOOP_CONTROL_BASE_CC + LOOPER_CONTROL_MIX_VOLUME);
 
 AREA(AREA_SHORT_NAME,	32,  BOLD, 	LEFT,	 5,   5, 299, 40);		# patch short name indented 5 from client area, 35 pixels high
 AREA(AREA_LONG_NAME,	18,  BOLD,	LEFT,	 5,  43, 475, 68);		# patch lobng name 3 pixels below patch short name, 25 pixels high
-AREA(AREA_MSG,  		32,  NORMAL,  RIGHT, 300, 5, 475, 40);		# General Purpose area in upper right
+AREA(AREA_MSG,  		18,  NORMAL,RIGHT, 300, 5, 475, 40);		# General Purpose area in upper right
 
 
-LISTEN(dub_mode, SERIAL, 0, LOOP_DUB_STATE_CC);
+LISTEN(dub_mode, SERIAL, INPUT, 0, LOOP_DUB_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_DUB_STATE_CC=37 messages and stick
 	# their values in the dub_mode value
 
-LISTEN(stop_cmd, SERIAL, 0, LOOP_STOP_CMD_STATE_CC);
+LISTEN(stop_cmd, SERIAL, INPUT, 0, LOOP_STOP_CMD_STATE_CC);
 	# Listen on the Serial Midi Port for
 	# LOOP_STOP_CMD_STATE_CC=38 messages and stick
 	# their values in the stop_cmd value
 
-LISTEN(track_state_base + 0, SERIAL, 0, TRACK_STATE_BASE_CC + 0);
-LISTEN(track_state_base + 1, SERIAL, 0, TRACK_STATE_BASE_CC + 1);
-LISTEN(track_state_base + 2, SERIAL, 0, TRACK_STATE_BASE_CC + 2);
-LISTEN(track_state_base + 3, SERIAL, 0, TRACK_STATE_BASE_CC + 3);
+LISTEN(track_state_base + 0, SERIAL, INPUT, 0, TRACK_STATE_BASE_CC + 0);
+LISTEN(track_state_base + 1, SERIAL, INPUT, 0, TRACK_STATE_BASE_CC + 1);
+LISTEN(track_state_base + 2, SERIAL, INPUT, 0, TRACK_STATE_BASE_CC + 2);
+LISTEN(track_state_base + 3, SERIAL, INPUT, 0, TRACK_STATE_BASE_CC + 3);
 	# Listen on the Serial Midi Port for
 	# TRACK_STATE_BASE_CC(20..23) messages
 	# and stick their values into the appropriate
@@ -240,39 +240,39 @@ LISTEN(track_state_base + 3, SERIAL, 0, TRACK_STATE_BASE_CC + 3);
 
 # LISTEN for the 16 possible clip volumes and mute states
 
-LISTEN(clip_vol_base + 0,		SERIAL, 0,	CLIP_VOL_BASE_CC + 0);
-LISTEN(clip_vol_base + 1,		SERIAL, 0,	CLIP_VOL_BASE_CC + 1);
-LISTEN(clip_vol_base + 2,		SERIAL, 0,	CLIP_VOL_BASE_CC + 2);
-LISTEN(clip_vol_base + 3,		SERIAL, 0,	CLIP_VOL_BASE_CC + 3);
-LISTEN(clip_vol_base + 4,		SERIAL, 0,	CLIP_VOL_BASE_CC + 4);
-LISTEN(clip_vol_base + 5,		SERIAL, 0,	CLIP_VOL_BASE_CC + 5);
-LISTEN(clip_vol_base + 6,		SERIAL, 0,	CLIP_VOL_BASE_CC + 6);
-LISTEN(clip_vol_base + 7,		SERIAL, 0,	CLIP_VOL_BASE_CC + 7);
-LISTEN(clip_vol_base + 8,		SERIAL, 0,	CLIP_VOL_BASE_CC + 8);
-LISTEN(clip_vol_base + 9,		SERIAL, 0,	CLIP_VOL_BASE_CC + 9);
-LISTEN(clip_vol_base + 10,		SERIAL, 0,	CLIP_VOL_BASE_CC + 10);
-LISTEN(clip_vol_base + 11,		SERIAL, 0,	CLIP_VOL_BASE_CC + 11);
-LISTEN(clip_vol_base + 12,		SERIAL, 0,	CLIP_VOL_BASE_CC + 12);
-LISTEN(clip_vol_base + 13,		SERIAL, 0,	CLIP_VOL_BASE_CC + 13);
-LISTEN(clip_vol_base + 14,		SERIAL, 0,	CLIP_VOL_BASE_CC + 14);
-LISTEN(clip_vol_base + 15,		SERIAL, 0,	CLIP_VOL_BASE_CC + 15);
+LISTEN(clip_vol_base + 0,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 0);
+LISTEN(clip_vol_base + 1,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 1);
+LISTEN(clip_vol_base + 2,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 2);
+LISTEN(clip_vol_base + 3,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 3);
+LISTEN(clip_vol_base + 4,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 4);
+LISTEN(clip_vol_base + 5,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 5);
+LISTEN(clip_vol_base + 6,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 6);
+LISTEN(clip_vol_base + 7,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 7);
+LISTEN(clip_vol_base + 8,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 8);
+LISTEN(clip_vol_base + 9,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 9);
+LISTEN(clip_vol_base + 10,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 10);
+LISTEN(clip_vol_base + 11,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 11);
+LISTEN(clip_vol_base + 12,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 12);
+LISTEN(clip_vol_base + 13,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 13);
+LISTEN(clip_vol_base + 14,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 14);
+LISTEN(clip_vol_base + 15,	SERIAL, INPUT, 0, CLIP_VOL_BASE_CC + 15);
 
-LISTEN(clip_mute_base + 0,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 0);
-LISTEN(clip_mute_base + 1,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 1);
-LISTEN(clip_mute_base + 2,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 2);
-LISTEN(clip_mute_base + 3,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 3);
-LISTEN(clip_mute_base + 4,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 4);
-LISTEN(clip_mute_base + 5,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 5);
-LISTEN(clip_mute_base + 6,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 6);
-LISTEN(clip_mute_base + 7,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 7);
-LISTEN(clip_mute_base + 8,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 8);
-LISTEN(clip_mute_base + 9,		SERIAL, 0,	CLIP_MUTE_BASE_CC + 9);
-LISTEN(clip_mute_base + 10,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 10);
-LISTEN(clip_mute_base + 11,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 11);
-LISTEN(clip_mute_base + 12,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 12);
-LISTEN(clip_mute_base + 13,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 13);
-LISTEN(clip_mute_base + 14,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 14);
-LISTEN(clip_mute_base + 15,	SERIAL, 0,	CLIP_MUTE_BASE_CC + 15);
+LISTEN(clip_mute_base + 0,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 0);
+LISTEN(clip_mute_base + 1,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 1);
+LISTEN(clip_mute_base + 2,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 2);
+LISTEN(clip_mute_base + 3,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 3);
+LISTEN(clip_mute_base + 4,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 4);
+LISTEN(clip_mute_base + 5,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 5);
+LISTEN(clip_mute_base + 6,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 6);
+LISTEN(clip_mute_base + 7,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 7);
+LISTEN(clip_mute_base + 8,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 8);
+LISTEN(clip_mute_base + 9,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 9);
+LISTEN(clip_mute_base + 10,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 10);
+LISTEN(clip_mute_base + 11,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 11);
+LISTEN(clip_mute_base + 12,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 12);
+LISTEN(clip_mute_base + 13,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 13);
+LISTEN(clip_mute_base + 14,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 14);
+LISTEN(clip_mute_base + 15,	SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC + 15);
 
 display(AREA_SHORT_NAME, CYAN,    STRING[FIRST_SHORT_NAME + VALUE[_patch_number]]);
 display(AREA_LONG_NAME,  MAGENTA, STRING[FIRST_LONG_NAME  + VALUE[_patch_number]]);
@@ -460,28 +460,28 @@ BUTTON(15):											# DIST effect
 	click:
 		setValue(_dist_effect_on, VALUE[_dist_effect_on] ? 0 : 127);
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_DISTORTION_CC, VALUE[_dist_effect_on]);
-		display(AREA_MSG, YELLOW, "DIST");
+		display(AREA_MSG, GREEN, "DIST");
 
 BUTTON(16):											# WAH effect
 	setButtonColor(16,VALUE[_wah_effect_on] ? LED_GREEN : LED_BLACK);
 	click:
 		setValue(_wah_effect_on, VALUE[_wah_effect_on] ? 0 : 127);
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CC, VALUE[_wah_effect_on]);
-		display(AREA_MSG, YELLOW, "WAH");
+		display(AREA_MSG, GREEN, "WAH");
 
 BUTTON(17):											# CHOR effect
 	setButtonColor(17,VALUE[_chor_effect_on] ? LED_GREEN : LED_BLACK);
 	click:
 		setValue(_chor_effect_on, VALUE[_chor_effect_on] ? 0 : 127);
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_CHOR_CC, VALUE[_chor_effect_on]);
-		display(AREA_MSG, YELLOW, "CHOR");
+		display(AREA_MSG, GREEN, "CHOR");
 
 BUTTON(18):											# ECHO effect
 	setButtonColor(18,VALUE[_echo_effect_on] ? LED_GREEN : LED_BLACK);
 	click:
 		setValue(_echo_effect_on, VALUE[_echo_effect_on] ? 0 : 127);
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_ECHO_CC, VALUE[_echo_effect_on]);
-		display(AREA_MSG, YELLOW, "ECHO");
+		display(AREA_MSG, GREEN, "ECHO");
 	long:
 		setValue(_dist_effect_on, 0);
 		setValue(_wah_effect_on,  0);
@@ -491,7 +491,7 @@ BUTTON(18):											# ECHO effect
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_WAH_CC,			0);
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_CHOR_CC,		0);
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, GUITAR_ECHO_CC,		0);
-		display(AREA_MSG, YELLOW, "EFFECTS OFF");
+		display(AREA_MSG, GREEN, "EFFECTS OFF");
 
 
 #---------------------------------------
@@ -513,6 +513,9 @@ BUTTON(18):											# ECHO effect
 # A long click of the Dub Button sends a LOOP_COMMAND_CC
 #   message to the Serial Midi Port ON Channel 0
 #   with the value of LOOP_COMMAND_CLEAR_ALL=1
+#
+# Don't want any Looper buttons writing to screen, as
+# they are INHERITed by the default_modal.rig.
 
 BUTTON(19):
 	setButtonColor(19,
@@ -521,10 +524,8 @@ BUTTON(19):
 		LED_BLACK);
 	click:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, VALUE[stop_cmd]);
-		display(AREA_MSG, YELLOW, VALUE[stop_cmd] == 2 ? "STOP!" : VALUE[stop_cmd] == 3 ? "STOP" : "");
 	long:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_CLEAR_ALL);
-		display(AREA_MSG, YELLOW, "LOOP CLEAR");
 		# even though we will get these back, clear them for testing
 		setValue(stop_cmd, 0);
 		setValue(track_state_base + 0, 0);
@@ -560,7 +561,6 @@ BUTTON(20):				# track1 button
 	press:
 		setValue(_selected_track, 0);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 0);
-		display(AREA_MSG, YELLOW, "TRACK1");
 
 BUTTON(21):
 	setButtonColor(21,
@@ -572,7 +572,6 @@ BUTTON(21):
 	press:
 		setValue(_selected_track, 1);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 1);
-		display(AREA_MSG, YELLOW, "TRACK2");
 
 BUTTON(22):
 	setButtonColor(22,
@@ -584,7 +583,6 @@ BUTTON(22):
 	press:
 		setValue(_selected_track, 2);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 2);
-		display(AREA_MSG, YELLOW, "TRACK3");
 
 BUTTON(23):
 	setButtonColor(23,
@@ -596,7 +594,6 @@ BUTTON(23):
 	press:
 		setValue(_selected_track, 3);
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_TRACK_BASE + 3);
-		display(AREA_MSG, YELLOW, "TRACK4");
 
 
 #---------------------------------------
@@ -615,10 +612,8 @@ BUTTON(24):
 	setButtonColor(24,VALUE[dub_mode] ? LED_ORANGE : LED_WHITE);
 	click:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_DUB);
-		display(AREA_MSG, YELLOW, VALUE[dub_mode] ? "DUB OFF" : "DUB ON");
 	long:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_CLEAR_ALL);
-		display(AREA_MSG, YELLOW, "LOOP CLEAR");
 		# even though we will get these back, clear them for testing
 		setValue(stop_cmd, 0);
 		setValue(track_state_base + 0, 0);

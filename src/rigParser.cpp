@@ -155,6 +155,7 @@ const char *argTypeToString(int i)
 		case PARAM_VALUE_NUM    	: return "VALUE_NUM";
 		case PARAM_VALUE			: return "VALUE";
 
+		case PARAM_LISTEN_DIR		: return "LISTEN_DIR";
 		case PARAM_MIDI_PORT    	: return "MIDI_PORT";
 		case PARAM_MIDI_CHANNEL 	: return "MIDI_CHANNEL";
 		case PARAM_LISTEN_CHANNEL	: return "LISTEN_CHANNEL";
@@ -212,6 +213,7 @@ static const int METER_ARGS[] = {			// METER(0, 32, BOLD, LEFT, 5, 5, 299, 40);
 static const int LISTEN_ARGS[] = {			// LISTEN(37, SERIAL, 0, 20);
 	PARAM_VALUE_NUM,
 	PARAM_MIDI_PORT,
+	PARAM_LISTEN_DIR,
 	PARAM_LISTEN_CHANNEL,
 	PARAM_MIDI_CC,
 	0
@@ -766,8 +768,22 @@ static bool handleArg(int statement_type, int arg_type)
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
-			// in a variety of calls
 
+			case PARAM_LISTEN_DIR :
+				if (rig_token.id < RIG_TOKEN_INPUT ||
+					rig_token.id > RIG_TOKEN_BOTH)
+				{
+					parse_error("LISTEN_DIRECTION must be INPUT, OUTPUT, or BOTH");
+					ok = 0;
+				}
+				else
+				{
+					uint8_t listen_dir = rig_token.id - RIG_TOKEN_INPUT;
+					display(dbg_parse + 1, "LISTEN_DIR = %s (%d)",rigTokenToString(rig_token.id),listen_dir);
+					ok = addStatementByte(listen_dir);
+					ok = ok && getRigToken();
+				}
+				break;
 			case PARAM_MIDI_PORT    :
 				if (!IS_MIDI_PORT(rig_token.id))
 				{

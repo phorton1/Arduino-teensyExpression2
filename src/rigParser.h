@@ -159,6 +159,7 @@ extern uint8_t  rig_pool[RIG_POOL_SIZE];
 #define PARAM_VALUE_NUM      30		// LISTEN, setValue, and endModal
 #define PARAM_VALUE			 31		// setValue value
 
+#define PARAM_LISTEN_DIR 	 39
 #define PARAM_MIDI_PORT      40
 #define PARAM_MIDI_CHANNEL   41
 #define PARAM_LISTEN_CHANNEL 42

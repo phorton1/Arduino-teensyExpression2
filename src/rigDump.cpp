@@ -226,6 +226,10 @@ static bool dumpParam(const rig_t *rig, int arg_type, bool last, const uint8_t *
 			byte = code[(*offset)++];
 			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_USB1));
 			break;
+		case PARAM_LISTEN_DIR :
+			byte = code[(*offset)++];
+			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_INPUT));
+			break;
 
 		case PARAM_BUTTON_NUM :
 		case PARAM_FONT_SIZE :

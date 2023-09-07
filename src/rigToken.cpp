@@ -193,6 +193,10 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_HORZ					: return "HORZ";
 		case RIG_TOKEN_VERT					: return "VERT";
 
+		case RIG_TOKEN_INPUT				: return("INPUT");
+		case RIG_TOKEN_OUTPUT				: return("OUTPUT");
+		case RIG_TOKEN_BOTH					: return("BOTH");
+
 		case RIG_TOKEN_TEXT					: return "TEXT";
 		case RIG_TOKEN_NUMBER				: return "NUMBER";
 		case RIG_TOKEN_IDENTIFIER			: return "IDENTIFIER";

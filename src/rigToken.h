@@ -224,7 +224,13 @@ extern bool parse_error_found;							// true if any parsing errors occured; clea
 #define RIG_TOKEN_HORZ					76	// "HORZ"
 #define RIG_TOKEN_VERT					77	// "VERT"
 
-#define LAST_RIG_IDENTIFIER				77	// end of identifier range
+// LISTEN direction types
+
+#define RIG_TOKEN_INPUT					78	// INPUT
+#define RIG_TOKEN_OUTPUT				79	// OUTPUT
+#define RIG_TOKEN_BOTH					80	// BOTH
+
+#define LAST_RIG_IDENTIFIER				80	// end of identifier range
 
 // Literal Types
 

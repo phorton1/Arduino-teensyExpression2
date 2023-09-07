@@ -88,9 +88,10 @@ public:
 	void updateUI();
     void onButton(int row, int col, int event);
 	void onMidiCC(const msgUnion &msg);
-	uint16_t getListenMask()  { return m_listen_mask; }
+	uint32_t getListenMask()  { return m_listen_mask; }
 		// returns a mask of 1<<msg.portEnum() of any ports
-		// which have listen statements
+		// which have listen statements.  OUTPUTS are shifted
+		// to the high order word.
 
 	void restartRig();
 
@@ -105,7 +106,7 @@ private:
 	rigStack_t m_stack[MAX_RIG_STACK];
 
 	uint16_t m_load_state;
-	uint16_t m_listen_mask;
+	uint32_t m_listen_mask;
 		// 7 bits for each port for more rapid processing
 
 	void popRig();

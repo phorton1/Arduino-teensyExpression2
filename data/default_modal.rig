@@ -78,6 +78,8 @@ define(50, _clip_offset,  70);
 define(51, _clip_volume,  71);
 define(52, _update_vol,   72);
 define(53, _update_mute,  73);
+define(54, _dummy,        74);
+
 
 # Fixed rectangles from the program.
 #
@@ -118,13 +120,21 @@ onUpdate:
 	displayNumber(number_base + 3, 	VALUE[3 + VALUE[_update_mute ]] ? DARKGREY : YELLOW, VALUE[3 + VALUE[_update_vol ]]);
 		# numbers and meters are smart enough to only re-display when changed
 
-#------------------------------------
-# the exit mode button
-#------------------------------------
-# it is important to use click to end modals,
-# because press will leave the button active,
-# and the release will be interpreted as a click
-# by the underlying window.
+#-----------------------------------------------
+# THE_SYSTEM_BUTTON && EXIT_MODE mode button
+#-----------------------------------------------
+# THE_SYSTEM_BUTTON is implemented to do nothing
+# 		in onclick, just so i can make it purple,
+#  		and allow theSystem to go to configWin from there
+# For the EXIT_MODE(14) button
+# 		it is important to use click to end modals,
+# 		because press will leave the button active,
+# 		and the release will be interpreted as a click
+# 		by the underlying window.
+
+BUTTON(4) :
+	setButtonColor(_BUTTON_NUM,LED_PURPLE);
+	click: setValue(_dummy,0);
 
 BUTTON(14) :
 	setButtonColor(_BUTTON_NUM,LED_ORANGE);

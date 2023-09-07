@@ -228,8 +228,9 @@ void enqueueMidi(msgUnion &msg)
 
 	bool enqueue_it = false;
 
+	uint32_t mask = 1 << (msg.portEnum() + (msg.isOutput() ? 16 : 0));
 	if (msg.type() == MIDI_TYPE_CC &&
-		(rig_machine.getListenMask() & (1 << msg.portEnum())))
+		(rig_machine.getListenMask() & mask))
 	{
 		enqueue_it = true;
 	}
@@ -457,8 +458,9 @@ static void _processMsg(uint32_t msg32)
 
 	// dequeue messages to listen statements in the rigMachine
 
+	uint32_t mask = 1 << (msg.portEnum() + (msg.isOutput() ? 16 : 0));
 	if (msg.type() == MIDI_TYPE_CC &&
-		(rig_machine.getListenMask() & (1 << msg.portEnum())))
+		(rig_machine.getListenMask() & mask))
 	{
 		rig_machine.onMidiCC(msg);
 	}
