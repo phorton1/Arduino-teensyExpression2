@@ -176,9 +176,15 @@ bool winConfig::onChildEnd(uint16_t param)
 
 		// dumping h files is a little different
 		// we dump the rig, and even if there is no errror
-		// we return false.  The user must cancel this window.
+		// we return false so the window remains open.
 
-		parseRig(rig_name,PARSE_HOW_DUMP_H_FILE);
+		if (parseRig(rig_name,PARSE_HOW_DUMP_H_FILE))
+		{
+			char buffer[80];
+			sprintf(buffer,"%s.rig.h dumped OK",rig_name);
+			ok_dlg.setMessage(TFT_GREEN,"Dump Finished",buffer);
+			the_system.startWindow(&ok_dlg);
+		}
 		return false;
 	}
 	else if (param == OPTION_FACTORY_RESET)

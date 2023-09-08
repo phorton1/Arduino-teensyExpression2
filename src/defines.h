@@ -9,6 +9,10 @@
 
 #define TEENSY_EXPRESSION_VERSION  	"v2.0"
 
+#define SERIAL_DEVICE	   Serial3
+	// the serial port to use for our 'Serial' device
+	// will be Serial2 on Teensy 4.1
+
 #define MAX_RIG_NAME   		31
 
 #define	DEFAULT_RIG_NAME	"rpiLooper"
@@ -54,10 +58,6 @@
 	//   And then I could have a system option to "dump H files",
 	//   which would default to OFF, and there would be no extra
 	//   penalty if they wanted to try to load the default.rig file.
-
-#define SERIAL_DEVICE	   Serial3
-	// the serial port to use for our 'Serial' device
-	// will be Serial2 on Teensy 4.1
 
 
 extern void mem_check(const char *where = 0);
@@ -121,7 +121,7 @@ extern bool legalFilename(const char *name);
 #define ACTIVITY_INDICATOR_USB_OUT		5
 
 
-// Midi
+// Midi Message Type
 
 #define MIDI_TYPE_NOTE_OFF		0x08
 #define MIDI_TYPE_NOTE_ON		0x09

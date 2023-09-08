@@ -45,7 +45,8 @@ define(5, TRACK_STATE_RECORDING, 1);
 define(6, TRACK_STATE_PLAYING,   2);
 
 define(10, LOOP_COMMAND_CC,				  1 );
-define(11, LOOP_COMMAND_ERASE_TRACK_BASE, 32 );
+define(11, LOOP_COMMAND_ABORT_RECORDING,  6 );
+define(12, LOOP_COMMAND_ERASE_TRACK_BASE, 32 );
 
 define(15,	LOOP_COMMAND_CC,	1 );
 define(16,	CLIP_VOL_BASE_CC,	32 );
@@ -83,7 +84,8 @@ define(50, _clip_offset,  70);
 define(51, _clip_volume,  71);
 define(52, _update_vol,   72);
 define(53, _update_mute,  73);
-define(54, _dummy,        74);
+define(54, _track_state,  74);
+define(55, _track_abort,  75);
 
 
 # Fixed rectangles from the program.
@@ -92,14 +94,13 @@ define(54, _dummy,        74);
 # int_rect full_client_rect(0,37,479,319);	// under line to bottom of screen
 # int_rect client_rect(0,37,479,235);		// 199 high under line to above pedals
 # int_rect pedal_rect(0,235,479,319);		// 89 high, starting at 230
-
+#
 # The modal rig takes place inside the client rect,
-# which is 0..198 (or 199 pixels high)
-
+#    which is 0..198 (or 199 pixels high)
+#
 # Each progress meter is 80 pixels wide.
 # There are margins of 20 pixels on the left and right,
 # 		and 40 pixels between meters.
-
 
 Area(number_base + 0, 20, BOLD, CENTER, 19,  8,  99,  40);
 Area(number_base + 1, 20, BOLD, CENTER, 139, 8,  219, 40);
@@ -111,6 +112,10 @@ Meter(meter_base + 1,  VERT,  139, 44, 219, 194);
 Meter(meter_base + 2,  VERT,  259, 44, 339, 194);
 Meter(meter_base + 3,  VERT,  379, 44, 459, 194);
 
+
+# The onUpdate section is called very often,
+# upto hundreds of times per second, and so should be
+# used carefully and only contain certain statements!
 
 onUpdate:
 	setTitle(STRING[track_title_base + VALUE[_selected_track]]);
@@ -145,18 +150,37 @@ BUTTON(14) :
 # Erase Track buttons
 #-----------------------------------
 # The erase buttons are for TRACKs - not clips!
-# The LED is set to RED if erasing the track will stop recording,
-# PURPLE if it can be erased and won't stop recording, or
-# BLACK if there's nothing to erase.
+# There are four possibilities:
+#     Track is NOT the current running track
+#         BLACK  = it is empty and not pending, so is not interesting
+#         PURPLE = it has content, or is the pending track,
+#			 and can be erased. This also has the effect of 'cancelling'
+#            a pending command to an otherwise empty track.
+#     Track IS the current running track
+#         ORANGE it both RECORDING and PLAYING so the ABORT_RECORDING
+#             command can safely be used to abort the recording without
+#             stopping the looper.
+#         RED it is (RECORDING && !PLAYING) or just PLAYING
+#             i.e. recording the primary clip, or is just playing
+#             so ERASE or ABORT would both stop the lopoer
 
 BUTTON(0,1,2,3):	# erase track buttons
+	setValue(_track_state, VALUE[track_state_base + _BUTTON_NUM]);
+	setValue(_track_abort, (VALUE[_track_state] & TRACK_STATE_PLAYING) && (VALUE[_track_state] & TRACK_STATE_RECORDING));
 	setButtonColor(_BUTTON_NUM,
-		!VALUE[track_state_base + _BUTTON_NUM] ? LED_BLACK :
-		(VALUE[track_state_base + _BUTTON_NUM] & TRACK_STATE_PLAYING) &&
-		!(VALUE[track_state_base + _BUTTON_NUM] & TRACK_STATE_RECORDING) ? LED_RED :
-		LED_PURPLE);
+		!VALUE[_track_state] ? LED_BLACK :
+		VALUE[_track_abort] ? LED_ORANGE :
+		!(VALUE[_track_state] & (TRACK_STATE_PLAYING | TRACK_STATE_RECORDING)) ? LED_PURPLE :
+		LED_RED);
 	press:
-		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_ERASE_TRACK_BASE + _BUTTON_NUM);
+		setValue(_track_state, VALUE[track_state_base + _BUTTON_NUM]);
+		setValue(_track_abort, (VALUE[_track_state] & TRACK_STATE_PLAYING) && (VALUE[_track_state] & TRACK_STATE_RECORDING));
+		# zero is an unused CC number LOOP_COMMAND_NONE
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC,
+			!VALUE[_track_state] ? 0 :
+			VALUE[_track_abort] ? LOOP_COMMAND_ABORT_RECORDING :
+			LOOP_COMMAND_ERASE_TRACK_BASE + _BUTTON_NUM);
+
 
 #-----------------------------
 # Volume Up and Down buttons

@@ -8,7 +8,7 @@
 #include "myTFT.h"
 
 
-errorDialog	error_dlg;
+okDialog	ok_dlg;
 yesNoDialog	yes_no_dlg;
 
 
@@ -18,7 +18,7 @@ yesNoDialog	yes_no_dlg;
 
 #define BUTTON_OK    17
 
-void errorDialog::begin(bool cold)
+void okDialog::begin(bool cold)
 {
     sysWindow::begin(cold);
     the_buttons.setButtonType(BUTTON_OK, BUTTON_EVENT_CLICK, LED_GREEN);
@@ -29,13 +29,13 @@ void errorDialog::begin(bool cold)
 		client_rect.xe - 60,
 		client_rect.ye - 60,
         LCD_JUST_CENTER,
-		TFT_RED,
+		m_color,
 		TFT_BLACK,
 		1,	// use bc
 		m_msg);
 }
 
-void errorDialog::onButton(int row, int col, int event)
+void okDialog::onButton(int row, int col, int event)
 {
     endWindow(0);
 }

@@ -342,7 +342,8 @@ BUTTON(15,16,17,18):
 	click:
 		setValue(_guitar_base_on + _BUTTON_NUM-15, VALUE[_guitar_base_on + _BUTTON_NUM-15] ? 0 : 127);
 		sendCC(USB1, GUITAR_EFFECTS_CHANNEL, VALUE[GUITAR_BASE_CC + _BUTTON_NUM-15],VALUE[_guitar_base_on + _BUTTON_NUM-15]);
-		display(AREA_GUITAR_BASE + _BUTTON_NUM-15, GREEN, STRING[ GUITAR_BASE_NAME + _BUTTON_NUM-15]);
+		display(AREA_GUITAR_BASE + _BUTTON_NUM-15, GREEN,
+			VALUE[_guitar_base_on + _BUTTON_NUM-15] ? STRING[ GUITAR_BASE_NAME + _BUTTON_NUM-15] : "");
 	long:
 		# any long press turns them all off?
 		setValue(_guitar_base_on + 0, 0);
@@ -405,8 +406,8 @@ BUTTON(19):
 #
 # The Dub LED is BLACK if the looper is not detected
 #   (i.e. dub_mode is the special value 2)
-# 	ORANGE if the DUB button is available (value 0)
-# 	and YELLOW (value 1) if activated.
+# 	CYAN if the DUB button is available (value 0)
+# 	and ORANGE (value 1) if activated.
 # A click of the Dub Button sends a LOOP_COMMAND_CC
 #   message to the Serial Midi Port on Channel 0,
 #   with the value of LOOP_COMMAND_DUB_MODE=4
@@ -416,8 +417,8 @@ BUTTON(19):
 
 BUTTON(24):
 	setButtonColor(24,
-		VALUE[dub_mode] == 1 ? LED_YELLOW :
-		VALUE[dub_mode] == 0 ? LED_ORANGE : LED_BLACK);
+		VALUE[dub_mode] == 1 ? LED_ORANGE :
+		VALUE[dub_mode] == 0 ? LED_CYAN : LED_BLACK);
 	click:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_DUB);
 	long:

@@ -632,7 +632,7 @@ void rigMachine::rigDisplay(uint16_t area_num, uint16_t color_idx, const char *t
 
 
 //-------------------------------------------------------------------
-// Expression Evaluation
+// Statement Expressions
 //-------------------------------------------------------------------
 
 bool rigMachine::evalExpression(const rig_t *rig, evalResult_t *rslt, const char *what, const uint8_t *code, uint16_t *offset)
@@ -741,7 +741,7 @@ bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const 
 
 
 //---------------------------------------------------
-// Statement execution
+// Parameters and Statements
 //---------------------------------------------------
 
 bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int arg_type, const uint8_t *code, uint16_t *offset)
@@ -759,13 +759,14 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 	switch (arg_type)
 	{
 		case PARAM_AREA_NUM :		max = RIG_NUM_AREAS - 1;	break;
-		case PARAM_VALUE_NUM :		max = RIG_NUM_VALUES - 1;	break;
-		case PARAM_VALUE :			max = MAX_RIG_VALUE;		break;
 		case PARAM_PEDAL_NUM :		max = NUM_PEDALS - 1;		break;
 		case PARAM_ROTARY_NUM :		max = NUM_ROTARY - 1;		break;
+		case PARAM_VALUE_NUM :		max = RIG_NUM_VALUES - 1;	break;
+		case PARAM_VALUE :			max = MAX_RIG_VALUE;		break;
 		case PARAM_LISTEN_CHANNEL :	max = MIDI_MAX_CHANNEL;		break;
 		case PARAM_MIDI_CC :		max = MIDI_MAX_VALUE;		break;
 		case PARAM_MIDI_VALUE :		max = MIDI_MAX_VALUE;		break;
+
 	}
 
 	switch (arg_type)
@@ -778,6 +779,31 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 			else
 				rslt->value = code[*offset];
 			(*offset)++;
+			break;
+
+		case PARAM_METER_TYPE :
+		case PARAM_FONT_TYPE :
+		case PARAM_FONT_JUST :
+		case PARAM_FONT_SIZE :
+		case PARAM_MIDI_PORT :
+		case PARAM_LISTEN_DIR :
+			rslt->value = code[(*offset)++];
+			break;
+		case PARAM_END_X :
+		case PARAM_END_Y :
+		case PARAM_START_X :
+		case PARAM_START_Y :
+			ptr16 = (uint16_t *) &code[*offset];
+			rslt->value = *ptr16;
+			*offset += 2;
+			break;
+
+		case PARAM_RIG_NAME :
+		case PARAM_PEDAL_NAME :
+			ptr16 = (uint16_t *) &code[*offset];
+			rslt->text = &rig->string_pool[*ptr16];
+			rslt->is_string = 1;
+			*offset += 2;
 			break;
 
 		case PARAM_MIDI_CHANNEL :
@@ -837,31 +863,6 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 				*offset += 2;
 			break;
 
-		case PARAM_METER_TYPE :
-		case PARAM_FONT_TYPE :
-		case PARAM_FONT_JUST :
-		case PARAM_FONT_SIZE :
-		case PARAM_MIDI_PORT :
-		case PARAM_LISTEN_DIR :
-			rslt->value = code[(*offset)++];
-			break;
-		case PARAM_END_X :
-		case PARAM_END_Y :
-		case PARAM_START_X :
-		case PARAM_START_Y :
-			ptr16 = (uint16_t *) &code[*offset];
-			rslt->value = *ptr16;
-			*offset += 2;
-			break;
-
-		case PARAM_RIG_NAME :
-		case PARAM_PEDAL_NAME :
-			ptr16 = (uint16_t *) &code[*offset];
-			rslt->text = &rig->string_pool[*ptr16];
-			rslt->is_string = 1;
-			*offset += 2;
-			break;
-
 		default:
 			rig_error(1,*offset,"evalParam(%d) - unknown arg_type(%d)",num,arg_type);
 			ok = 0;
@@ -908,67 +909,6 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 		uint16_t idx = 0;
 		switch (tt)
 		{
-			case RIG_TOKEN_SETVALUE:
-				display(dbg_calls+in_update_cycle,"setValue(%d,%d)",
-					m_params[0].value,
-					m_params[1].value);
-				m_rig_state.values[m_params[0].value] = m_params[1].value;
-				break;
-
-			case RIG_TOKEN_SET_BUTTON_COLOR:
-				display(dbg_calls+in_update_cycle,"setButtonColor(%d,%d=%s)",
-					m_params[0].value,
-					m_params[1].value,
-					rigTokenToText(m_params[1].value + RIG_TOKEN_LED_BLACK));
-				the_buttons.setButtonColor(m_params[0].value,LED_COLORS[m_params[1].value]);
-				break;
-			case RIG_TOKEN_SET_BUTTON_BLINK:
-				display(dbg_calls+in_update_cycle,"setButtonBlink(%d,%d)",
-					m_params[0].value,
-					m_params[1].value);
-				the_buttons.setButtonBlink(m_params[0].value,m_params[1].value);
-				break;
-
-			case RIG_TOKEN_AREA:
-				display(dbg_calls,"AREA(%d,%d,%s,%s,%d,%d,%d,%d)",
-					m_params[0].value,
-					m_params[1].value,
-					rigTokenToText(m_params[2].value + RIG_TOKEN_NORMAL),
-					rigTokenToText(m_params[3].value + RIG_TOKEN_LEFT),
-					m_params[4].value,
-					m_params[5].value,
-					m_params[6].value,
-					m_params[7].value);
-				idx = m_params[0].value;
-				m_rig_state.areas[idx].type      = AREA_TYPE_STRING;
-				m_rig_state.areas[idx].font_size = m_params[1].value;
-				m_rig_state.areas[idx].font_type = m_params[2].value;
-				m_rig_state.areas[idx].font_just = m_params[3].value;
-				m_rig_state.areas[idx].xs   	 = m_params[4].value;
-				m_rig_state.areas[idx].ys   	 = m_params[5].value;
-				m_rig_state.areas[idx].xe   	 = m_params[6].value;
-				m_rig_state.areas[idx].ye   	 = m_params[7].value;
-				break;
-			case RIG_TOKEN_METER:
-			{
-				int area_num = m_params[0].value;
-				int type 	 = m_params[1].value;
-				display(dbg_calls,"METER(%d,%d=%s,%d,%d,%d,%d)",
-					area_num,
-					type,
-					rigTokenToText(type + RIG_TOKEN_HORZ),
-					m_params[2].value,
-					m_params[3].value,
-					m_params[4].value,
-					m_params[5].value);
-				m_rig_state.areas[area_num].type = AREA_TYPE_HMETER + type;
-				m_rig_state.areas[area_num].xs   = m_params[2].value;
-				m_rig_state.areas[area_num].ys   = m_params[3].value;
-				m_rig_state.areas[area_num].xe   = m_params[4].value;
-				m_rig_state.areas[area_num].ye   = m_params[5].value;
-				break;
-			}
-
 			case RIG_TOKEN_LISTEN:
 			{
 				int inout = m_params[2].value;
@@ -990,6 +930,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				// display(dbg_calls,"m_listen_mask=0x%08x",m_listen_mask);
 				break;
 			}
+
 			case RIG_TOKEN_LISTEN_RANGED:
 			{
 				int range 	   = m_params[0].value;
@@ -1021,6 +962,48 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 					m_rig_state.listens[base_value + idx].channel = channel;
 					m_rig_state.listens[base_value + idx].cc      = base_cc + idx;
 				}
+				break;
+			}
+
+
+			case RIG_TOKEN_AREA:
+				display(dbg_calls,"AREA(%d,%d,%s,%s,%d,%d,%d,%d)",
+					m_params[0].value,
+					m_params[1].value,
+					rigTokenToText(m_params[2].value + RIG_TOKEN_NORMAL),
+					rigTokenToText(m_params[3].value + RIG_TOKEN_LEFT),
+					m_params[4].value,
+					m_params[5].value,
+					m_params[6].value,
+					m_params[7].value);
+				idx = m_params[0].value;
+				m_rig_state.areas[idx].type      = AREA_TYPE_STRING;
+				m_rig_state.areas[idx].font_size = m_params[1].value;
+				m_rig_state.areas[idx].font_type = m_params[2].value;
+				m_rig_state.areas[idx].font_just = m_params[3].value;
+				m_rig_state.areas[idx].xs   	 = m_params[4].value;
+				m_rig_state.areas[idx].ys   	 = m_params[5].value;
+				m_rig_state.areas[idx].xe   	 = m_params[6].value;
+				m_rig_state.areas[idx].ye   	 = m_params[7].value;
+				break;
+
+			case RIG_TOKEN_METER:
+			{
+				int area_num = m_params[0].value;
+				int type 	 = m_params[1].value;
+				display(dbg_calls,"METER(%d,%d=%s,%d,%d,%d,%d)",
+					area_num,
+					type,
+					rigTokenToText(type + RIG_TOKEN_HORZ),
+					m_params[2].value,
+					m_params[3].value,
+					m_params[4].value,
+					m_params[5].value);
+				m_rig_state.areas[area_num].type = AREA_TYPE_HMETER + type;
+				m_rig_state.areas[area_num].xs   = m_params[2].value;
+				m_rig_state.areas[area_num].ys   = m_params[3].value;
+				m_rig_state.areas[area_num].xe   = m_params[4].value;
+				m_rig_state.areas[area_num].ye   = m_params[5].value;
 				break;
 			}
 
@@ -1056,6 +1039,13 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 					m_params[4].value);			// cc
 				break;
 
+			case RIG_TOKEN_SETVALUE:
+				display(dbg_calls+in_update_cycle,"setValue(%d,%d)",
+					m_params[0].value,
+					m_params[1].value);
+				m_rig_state.values[m_params[0].value] = m_params[1].value;
+				break;
+
 			case RIG_TOKEN_SETTITLE:
 			{
 				const char *new_title = m_params[0].text;
@@ -1071,6 +1061,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				}
 				break;
 			}
+
 			case RIG_TOKEN_DISPLAY:
 			{
 				int area_num = m_params[0].value;
@@ -1136,6 +1127,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				}
 				break;
 			}
+
 			case RIG_TOKEN_SEND_CC:
 				display(dbg_calls,"sendCC(%d=%s,%d,%d,%d)",
 					m_params[0].value,
@@ -1150,7 +1142,6 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 					m_params[2].value,
 					m_params[3].value);
 				break;
-
 			case RIG_TOKEN_SEND_PGM_CHG:
 				display(dbg_calls,"sendPgmChg(%d=%s,%d,%d)",
 					m_params[0].value,
@@ -1168,13 +1159,18 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 			case RIG_TOKEN_ALL_NOTES_OFF:
 				break;
 
-			case RIG_TOKEN_FTP_SENSITIVITY:
-				display(dbg_calls,"ftpSensitivity()",0);
-				the_system.startWindow(&win_ftp_sensitivity);
+			case RIG_TOKEN_SET_BUTTON_COLOR:
+				display(dbg_calls+in_update_cycle,"setButtonColor(%d,%d=%s)",
+					m_params[0].value,
+					m_params[1].value,
+					rigTokenToText(m_params[1].value + RIG_TOKEN_LED_BLACK));
+				the_buttons.setButtonColor(m_params[0].value,LED_COLORS[m_params[1].value]);
 				break;
-			case RIG_TOKEN_FTP_TUNER:
-				display(dbg_calls,"ftpTuner()",0);
-				the_system.startWindow(&win_ftp_tuner);
+			case RIG_TOKEN_SET_BUTTON_BLINK:
+				display(dbg_calls+in_update_cycle,"setButtonBlink(%d,%d)",
+					m_params[0].value,
+					m_params[1].value);
+				the_buttons.setButtonBlink(m_params[0].value,m_params[1].value);
 				break;
 
 			case RIG_TOKEN_LOAD_RIG:
@@ -1189,6 +1185,14 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 					m_params[1].value);
 				m_rig_state.values[m_params[0].value] = m_params[1].value;
 				popRig();
+				break;
+			case RIG_TOKEN_FTP_SENSITIVITY:
+				display(dbg_calls,"ftpSensitivity()",0);
+				the_system.startWindow(&win_ftp_sensitivity);
+				break;
+			case RIG_TOKEN_FTP_TUNER:
+				display(dbg_calls,"ftpTuner()",0);
+				the_system.startWindow(&win_ftp_tuner);
 				break;
 
 			default:
@@ -1230,7 +1234,7 @@ bool rigMachine::executeStatementList(const rig_t *rig, int statement_num)
 
 
 //--------------------------------------------------
-// rig events
+// Event Handlers
 //--------------------------------------------------
 
 void rigMachine::onMidiCC(const msgUnion &msg)
@@ -1392,7 +1396,7 @@ void rigMachine::updateUI()
 		return;
 
 	//-------------------------------------
-	// rig loaded
+	// Update Cycle
 	//-------------------------------------
 	// for safety we only allow one update error
 
@@ -1418,4 +1422,8 @@ void rigMachine::updateUI()
 			update_failed = 1;
 		in_update_cycle = 0;
 	}
-}
+
+}	// rigMachine::updateUI()
+
+
+// end of rigMachine.cpp

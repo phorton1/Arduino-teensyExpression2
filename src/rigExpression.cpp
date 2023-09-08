@@ -1,14 +1,16 @@
 //-------------------------------------------------------
 // rigExpression.cpp
 //-------------------------------------------------------
-// Contains the implementation of the rig Expression Code
-// genearator and interpreter.
+// Contains the implementation of the rig Expression
+// Code Generator
 
 #include <myDebug.h>
 #include "rigExpression.h"
 #include "rigParser.h"
 
 static int debug_exp_offset = -1;	// 208;
+	// set this to the offset of a known problem expression
+	// and it will be displayed at dbg_exp = -2 level
 
 static int dbg_exp = 1;
 	// 0 = outer level expressions
@@ -72,7 +74,6 @@ static uint16_t findIdentifier(rig_t *rig, const char *id)
 static int factor(rig_t *rig);
 static int term(rig_t *rig);
 static int exp(rig_t *rig);
-
 
 
 static int atom(rig_t *rig)
@@ -566,7 +567,6 @@ static uint16_t genericExpression(rig_t *rig, const char *what, int expected, ui
 //-------------------------------------------
 // specific expression types
 //-------------------------------------------
-
 
 uint16_t rigNumericExpression(rig_t *rig)
 {

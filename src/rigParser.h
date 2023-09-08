@@ -133,14 +133,13 @@ extern uint8_t  rig_pool[RIG_POOL_SIZE];
 #define PARAM_DEFINE_NUM	 1
 #define PARAM_USER_IDENT	 2
 #define PARAM_DEFINE_VALUE	 3
-
 #define PARAM_STRING_NUM     5
 #define PARAM_TEXT    		 6		// limited to 79 in length
 
 // Area & Meter statements
 
-#define PARAM_METER_TYPE	 9
-#define PARAM_AREA_NUM       10		// also used for display area
+#define PARAM_AREA_NUM       9		// also used for display area
+#define PARAM_METER_TYPE	 10
 #define PARAM_FONT_SIZE      11
 #define PARAM_FONT_TYPE      12
 #define PARAM_FONT_JUST		 13
@@ -156,7 +155,7 @@ extern uint8_t  rig_pool[RIG_POOL_SIZE];
 #define PARAM_PEDAL_NAME     22		// lmited to 7 in length
 #define PARAM_ROTARY_NUM	 23
 
-#define PARAM_VALUE_NUM      30		// LISTEN, setValue, and endModal
+#define PARAM_VALUE_NUM      30		// LISTEN, setValue
 #define PARAM_VALUE			 31		// setValue value
 
 #define PARAM_LISTEN_DIR 	 39

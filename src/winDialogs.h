@@ -8,30 +8,33 @@
 #pragma once
 
 #include "theSystem.h"
+#include "myTFT.h"
 
 #define MAX_DIALOG_MSG	 255
 
 
 //------------------------------------
-// rigErrorDialog
+// okDialog
 //------------------------------------
 
-class errorDialog : public sysWindow
+class okDialog : public sysWindow
 {
     public:
 
-        errorDialog() {}
+        okDialog() {}
 
-		void setMessage(const char *name, const char *msg)
+		void setMessage(uint16_t display_color, const char *name, const char *msg)
 		{
+			m_color = display_color;
 			strcpy(m_name,name);
 			strcpy(m_msg,msg);
 		}
 
     private:
 
-		char m_name[32];
-		char m_msg[MAX_DIALOG_MSG + 1];
+		uint16_t m_color;
+		char     m_name[32];
+		char     m_msg[MAX_DIALOG_MSG + 1];
 
         virtual const char *name() override      { return m_name[0] ? m_name : "Error"; }
         virtual const char *shortName() override { return m_name[0] ? m_name :  "Error"; }
@@ -40,7 +43,7 @@ class errorDialog : public sysWindow
         virtual void onButton(int row, int col, int event) override;
 };
 
-extern errorDialog error_dlg;
+extern okDialog ok_dlg;
 
 
 //------------------------------------

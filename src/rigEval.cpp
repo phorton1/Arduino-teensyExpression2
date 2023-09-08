@@ -68,8 +68,8 @@ void rig_error(int type, uint16_t offset, const char *format, ...)
 		dbgSerial->println(error_buffer);
 	}
 
-	error_dlg.setMessage("Rig Error",error_buffer);
-	the_system.startWindow(&error_dlg);
+	ok_dlg.setMessage(TFT_RED,"Rig Error",error_buffer);
+	the_system.startWindow(&ok_dlg);
 
 }
 

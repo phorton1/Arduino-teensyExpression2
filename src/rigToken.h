@@ -89,18 +89,6 @@ extern int parse_section;		// section of the parse we are currently in determine
 //------------------------------------------
 // tokens
 //------------------------------------------
-// add token
-//		BUTTON_NUM
-// add section
-//		onUpdate
-// add statments
-//		setButtonColor
-//		setButtonBlink
-//      Meter (derivative of Area)
-//      setMeter
-//	    displayNumber
-
-
 
 #define RIG_TOKEN_EOF					0
 

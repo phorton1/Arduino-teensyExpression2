@@ -1,9 +1,7 @@
 //-------------------------------------------------------
 // rigExpression.h
 //-------------------------------------------------------
-
-// need to add LEFT RIGHT CENTER tokens
-// need to add MINUS DIVIDE NE GT GE LT LE tokens
+// Would like to add EXP_MOD % operator
 
 #pragma once
 
@@ -45,6 +43,8 @@
 
 #define EXP_INLINE			0x80
 #define EXP_INLINE_BUTTON   0x40
+	// low order byte contains one of the EXP_BUTTON constants
+	// for first-order interpretation
 
 // opcodes
 
@@ -57,7 +57,8 @@
 #define EXP_TEXT			0x08		// expression is an inline null terminated string
 #define EXP_RIGHT_BRACKET   0x09
 
-// these are in the same order as their token numbers
+// these MUST BE in the same order as their token numbers
+// are there must be NO GAPS in the sequence!
 
 #define EXP_LEFT_PAREN		0x0E
 #define EXP_RIGHT_PAREN		0x0F
@@ -80,16 +81,17 @@
 #define EXP_LOGICAL_OR		0x1F
 #define EXP_LOGICAL_AND		0x20
 
+// button number values
 
 #define EXP_BUTTON_NUM		0x30
 #define EXP_BUTTON_ROW		0x31
 #define EXP_BUTTON_COL		0x32
-	// thesr values are conveniently both above
+	// these values are conveniently both above
 	// the number of buttons and below the maximum
 	// for value or string indexes
 
-
 #define EXP_END				0xFF
+
 
 //-----------------------------------
 // methods

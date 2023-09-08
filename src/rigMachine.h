@@ -20,7 +20,6 @@
 typedef struct
 {
 	uint8_t		type;
-
 	uint8_t		font_size;
 	uint8_t     font_type;		// NORMAL, BOLD
 	uint8_t		font_just;		// LEFT, CENTER, RIGHT
@@ -28,10 +27,8 @@ typedef struct
 	int16_t		ys;
 	int16_t		xe;
 	int16_t		ye;
-
 	int			last_display_value;
 	int			last_display_color;
-
 } rigArea_t;	// 10 bytes
 
 
@@ -61,7 +58,6 @@ typedef struct
 		const char *text;
 	};
 } evalResult_t;
-
 
 
 typedef struct
@@ -138,12 +134,9 @@ private:
 };	// class rigMachine
 
 
-
 extern rigMachine rig_machine;
 
 extern void rig_error(int type, uint16_t offset, const char *format, ...);	// in rigEval.cpp
-extern bool rig_error_found;												// reset in various places
-
 
 
 // end of rigMachine.h

@@ -11,6 +11,7 @@
 #include "theSystem.h"	// for client rect
 #include "rigExpression.h"
 #include "rigDump.h"
+
 #if WITH_DEFAULT_RIG
 	#include "default.rig.h"
 	#include "default_modal.rig.h"
@@ -27,37 +28,24 @@
 
 #define MAX_RIG_NAME		31
 
-static uint8_t parse_pool[MAX_RIG_SIZE];
-static rig_t *parse_rig = (rig_t *) parse_pool;
 
+// externs
+
+bool is_parse_button;		// available to rigExpression.cpp
 uint16_t rig_pool_len;
 uint8_t  rig_pool[RIG_POOL_SIZE];
-const rig_t *base_rig = (const rig_t *) parse_pool;
 
+// static global variables
 
+static uint8_t parse_pool[MAX_RIG_SIZE];
+static rig_t *parse_rig = (rig_t *) parse_pool;
+static const rig_t *base_rig = (const rig_t *) parse_pool;
 static bool any_end_modal;
 
-bool is_parse_button;
-	// available to rigExpression.cpp
 
-
-
-bool legalFilename(const char *name)
-	// public, extern'd in defines.h
-{
-	for (uint16_t i=0; i<strlen(name); i++)
-	{
-		if (!((name[i] == '-' || name[i] == '.' || name[i] == '_' ) ||
-			  (name[i] >= 'A' && name[i] <= 'Z') ||
-			  (name[i] >= 'a' && name[i] <= 'z') ||
-			  (name[i] >= '0' && name[i] <= '9') ))
-		{
-			return 0;
-		}
-	}
-	return 1;
-}
-
+//---------------------------------------
+// utilities
+//---------------------------------------
 
 static void init_parse()
 {
@@ -77,6 +65,25 @@ static void init_parse()
 	offset += MAX_STATEMENT_POOL;
 	parse_rig->expression_pool = &parse_pool[offset];
 }
+
+
+// extern
+bool legalFilename(const char *name)
+	// public, extern'd in defines.h
+{
+	for (uint16_t i=0; i<strlen(name); i++)
+	{
+		if (!((name[i] == '-' || name[i] == '.' || name[i] == '_' ) ||
+			  (name[i] >= 'A' && name[i] <= 'Z') ||
+			  (name[i] >= 'a' && name[i] <= 'z') ||
+			  (name[i] >= '0' && name[i] <= '9') ))
+		{
+			return 0;
+		}
+	}
+	return 1;
+}
+
 
 
 static rig_t *relocate()
@@ -141,6 +148,7 @@ const char *argTypeToString(int i)
 		case PARAM_TEXT  			: return "TEXT";
 
 		case PARAM_AREA_NUM     	: return "AREA_NUM";
+		case PARAM_METER_TYPE		: return "METER_TYPE";
 		case PARAM_FONT_SIZE    	: return "FONT_SIZE";
 		case PARAM_FONT_TYPE    	: return "FONT_TYPE";
 		case PARAM_FONT_JUST    	: return "FONT_JUST";
@@ -182,6 +190,7 @@ static const int DEFINE_ARGS[] = {		// DEFINE(0, _bank,  1);
 	PARAM_DEFINE_VALUE,
 	0
 };
+
 static const int STRING_DEF_ARGS[] = {		// STRING_DEF(0, "BASS1");
 	PARAM_STRING_NUM,
 	PARAM_TEXT,
@@ -189,6 +198,25 @@ static const int STRING_DEF_ARGS[] = {		// STRING_DEF(0, "BASS1");
 };
 
 // init only statements
+
+static const int LISTEN_ARGS[] = {			// LISTEN(37, SERIAL, 0, 20);
+	PARAM_VALUE_NUM,
+	PARAM_MIDI_PORT,
+	PARAM_LISTEN_DIR,
+	PARAM_LISTEN_CHANNEL,
+	PARAM_MIDI_CC,
+	0
+};
+
+static const int LISTEN_RANGED_ARGS[] = {			// LISTEN(16, clip_mute_base, SERIAL, 0, CLIP_MUTE_BASE_CC);
+	PARAM_VALUE,				// should really be a PARAM_NUMBER or PARAM_CONSTANT_NUMBER
+	PARAM_VALUE_NUM,
+	PARAM_MIDI_PORT,
+	PARAM_LISTEN_DIR,
+	PARAM_LISTEN_CHANNEL,
+	PARAM_MIDI_CC,
+	0
+};
 
 static const int AREA_ARGS[] = {			// AREA(0, 32, BOLD, LEFT, 5, 5, 299, 40);
 	PARAM_AREA_NUM,
@@ -212,24 +240,7 @@ static const int METER_ARGS[] = {			// METER(0, 32, BOLD, LEFT, 5, 5, 299, 40);
 	0
 };
 
-static const int LISTEN_ARGS[] = {			// LISTEN(37, SERIAL, 0, 20);
-	PARAM_VALUE_NUM,
-	PARAM_MIDI_PORT,
-	PARAM_LISTEN_DIR,
-	PARAM_LISTEN_CHANNEL,
-	PARAM_MIDI_CC,
-	0
-};
-static const int LISTEN_RANGED_ARGS[] = {			// LISTEN(16, clip_mute_base, SERIAL, 0, CLIP_MUTE_BASE_CC);
-	PARAM_VALUE,				// should really be a PARAM_NUMBER or PARAM_CONSTANT_NUMBER
-	PARAM_VALUE_NUM,
-	PARAM_MIDI_PORT,
-	PARAM_LISTEN_DIR,
-	PARAM_LISTEN_CHANNEL,
-	PARAM_MIDI_CC,
-	0
-};
-// generic statements
+// end init only statement range
 
 static const int PEDAL_ARGS[] = {		// PEDAL(0, "Synth", MIDI, 1, 7);
 	PARAM_PEDAL_NUM,
@@ -239,6 +250,7 @@ static const int PEDAL_ARGS[] = {		// PEDAL(0, "Synth", MIDI, 1, 7);
 	PARAM_MIDI_CC,
 	0
 };
+
 static const int ROTARY_ARGS[] = {		// ROTARY(0, "thru", SERIAL, 1, LOOP_CONTROL_BASE + n);
 	PARAM_ROTARY_NUM,
 	PARAM_PEDAL_NAME,
@@ -255,16 +267,6 @@ static const int SETVALUE_ARGS[] = {		// setValue(20, VALUE[0] + 2);
 
 static const int SETTITLE_ARGS[] = {		// setTitle2"Track ONE");
 	PARAM_STRING_EXPRESSION,
-	0 };
-
-static const int SET_BUTTON_COLOR_ARGS[] = {
-	PARAM_BUTTON_NUM,
-	PARAM_LED_COLOR_EXPRESSION,
-	0 };
-
-static const int SET_BUTTON_BLINK_ARGS[] = {
-	PARAM_BUTTON_NUM,
-	PARAM_VALUE,
 	0 };
 
 static const int DISPLAY_ARGS[] = {			// display(AREA, VALUE[0] ? BLUE : BLACK, "test");
@@ -284,7 +286,6 @@ static const int SET_METER_ARGS[] = {		// setMeter(AREA, GREEN, VALUE[_blah]);
 	PARAM_DISPLAY_COLOR_EXPRESSION,
 	PARAM_VALUE,
 	0 };
-
 
 static const int SEND_CC_ARGS[] = {			// sendCC(SERIAL, 1, 192, VALUE[3]);
 	PARAM_MIDI_PORT,
@@ -322,6 +323,19 @@ static const int ALL_NOTE_OFF_ARGS[] = {	// AllNotesOff(MIDI0, 9,);
 	0
 };
 
+// end init statement range
+
+static const int SET_BUTTON_COLOR_ARGS[] = {
+	PARAM_BUTTON_NUM,
+	PARAM_LED_COLOR_EXPRESSION,
+	0 };
+
+static const int SET_BUTTON_BLINK_ARGS[] = {
+	PARAM_BUTTON_NUM,
+	PARAM_VALUE,
+	0 };
+
+
 static const int LOAD_RIG_ARGS[] = {		// LoadRig("modal")
 	PARAM_RIG_NAME,
 	0
@@ -338,30 +352,29 @@ static const statement_param_t statement_params[] = {
 	{ RIG_TOKEN_DEFINE_DEF,			DEFINE_ARGS },
 	{ RIG_TOKEN_STRING_DEF, 		STRING_DEF_ARGS },
 
-	{ RIG_TOKEN_AREA, 				AREA_ARGS },
-	{ RIG_TOKEN_METER,				METER_ARGS },
 	{ RIG_TOKEN_LISTEN, 			LISTEN_ARGS },
 	{ RIG_TOKEN_LISTEN_RANGED,		LISTEN_RANGED_ARGS },
+	{ RIG_TOKEN_AREA, 				AREA_ARGS },
+	{ RIG_TOKEN_METER,				METER_ARGS },
 
 	{ RIG_TOKEN_PEDAL, 				PEDAL_ARGS },
 	{ RIG_TOKEN_ROTARY, 			ROTARY_ARGS },
 	{ RIG_TOKEN_SETVALUE, 			SETVALUE_ARGS },
 	{ RIG_TOKEN_SETTITLE, 			SETTITLE_ARGS },
-	{ RIG_TOKEN_SET_BUTTON_COLOR,	SET_BUTTON_COLOR_ARGS },
-	{ RIG_TOKEN_SET_BUTTON_BLINK,	SET_BUTTON_BLINK_ARGS },
 	{ RIG_TOKEN_DISPLAY, 			DISPLAY_ARGS },
 	{ RIG_TOKEN_DISPLAY_NUMBER, 	DISPLAY_NUMBER_ARGS },
 	{ RIG_TOKEN_SET_METER, 			SET_METER_ARGS },
-
 	{ RIG_TOKEN_SEND_CC, 			SEND_CC_ARGS },
 	{ RIG_TOKEN_SEND_PGM_CHG,		SEND_PGM_CHG_ARGS },
 	{ RIG_TOKEN_NOTE_ON,			NOTE_ON_ARGS },
 	{ RIG_TOKEN_NOTE_OFF,			NOTE_OFF_ARGS },
 	{ RIG_TOKEN_ALL_NOTES_OFF,		ALL_NOTE_OFF_ARGS },
 
+	{ RIG_TOKEN_SET_BUTTON_COLOR,	SET_BUTTON_COLOR_ARGS },
+	{ RIG_TOKEN_SET_BUTTON_BLINK,	SET_BUTTON_BLINK_ARGS },
 	{ RIG_TOKEN_LOAD_RIG,			LOAD_RIG_ARGS },
-	{ RIG_TOKEN_END_MODAL,			NO_ARGS },
 
+	{ RIG_TOKEN_END_MODAL,			NO_ARGS },
 	{ RIG_TOKEN_FTP_TUNER,			NO_ARGS },
 	{ RIG_TOKEN_FTP_SENSITIVITY,	NO_ARGS },
 	{ 0, 0 } };
@@ -491,9 +504,6 @@ static bool getNumber(int *retval, const char *what, int max)
 	return true;
 }
 
-
-
-
 static const char *getText(const char *what, int max_len)
 {
 	static char buf[MAX_RIG_TOKEN+1];
@@ -519,7 +529,6 @@ static const char *getText(const char *what, int max_len)
 	return buf;
 }
 
-
 static const char *getUserIdent()
 {
 	static char buf[MAX_RIG_TOKEN+1];
@@ -542,7 +551,6 @@ static const char *getUserIdent()
 //--------------------------------------------------------
 // token handlers
 //--------------------------------------------------------
-
 
 static bool handleArg(int tt, int arg_type)
 {
@@ -625,26 +633,8 @@ static bool handleArg(int tt, int arg_type)
 	{
 		switch (arg_type)
 		{
-			// AREA(areaExpression, FONT_SIZE, FONT_TYPE, STARTX, STARTY, ENDX, ENDY )
+			// AREAs and METERS
 
-			case PARAM_BUTTON_NUM :	// prh - to become an expression
-				if (rig_token.id == RIG_TOKEN_BUTTON_NUM)
-				{
-					if (!is_parse_button)
-					{
-						parse_error("_BUTTON_NUM may only be used in button sections",0);
-						ok = false;
-					}
-					else
-					{
-						value = EXP_BUTTON_NUM;
-						ok = getRigToken();
-					}
-				}
-				else if (!getNumber(&value,"BUTTON_NUM",NUM_BUTTONS-1))
-					ok = 0;
-				ok = ok && addStatementByte(value);
-				break;
 			case PARAM_AREA_NUM :
 				value = rigAreaNumExpression(parse_rig);
 				ok = ok && value;
@@ -734,42 +724,36 @@ static bool handleArg(int tt, int arg_type)
 				ok = ok && addStatementInt(value);
 				break;
 
-			// LISTEN and setValue
+			// Button Num
 
-			case PARAM_VALUE_NUM :	// in setValue and LISTEN
-				value = rigValueNumExpression(parse_rig);
-				ok = ok && value;
-				ok = ok && addStatementInt(value);
-				break;
-			case PARAM_VALUE :	    // in setValue
-				value = rigValueExpression(parse_rig);
-				ok = ok && value;
-				ok = ok && addStatementInt(value);
-				break;
-
-			case PARAM_RIG_NAME  :
-				text = getText("RIG_NAME",MAX_RIG_NAME);
-				if (!text)
-					ok = 0;
-				else
+			case PARAM_BUTTON_NUM :	// prh - to become an expression
+				if (rig_token.id == RIG_TOKEN_BUTTON_NUM)
 				{
-					if (!legalFilename(text))
+					if (!is_parse_button)
 					{
-						parse_error("RIG_NAME(%s) may only contain A-Z,a-z,0-9,dash,period, or underscore characters");
-						ok = 0;
+						parse_error("_BUTTON_NUM may only be used in button sections",0);
+						ok = false;
 					}
-					if (ok)
+					else
 					{
-						ok = ok && addStatementInt(parse_rig->string_pool_len);
-						ok = ok && addStringPool(text);
+						value = EXP_BUTTON_NUM;
+						ok = getRigToken();
 					}
 				}
+				else if (!getNumber(&value,"BUTTON_NUM",NUM_BUTTONS-1))
+					ok = 0;
+				ok = ok && addStatementByte(value);
 				break;
 
-			// PEDAL
+			// Pedals and Rotaries
 
 			case PARAM_PEDAL_NUM :
 				value = rigPedalNumExpression(parse_rig);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
+				break;
+			case PARAM_ROTARY_NUM :
+				value = rigRotaryNumExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
@@ -779,11 +763,21 @@ static bool handleArg(int tt, int arg_type)
 				ok = ok && addStatementInt(parse_rig->string_pool_len);
 				ok = ok && addStringPool(text);
 				break;
-			case PARAM_ROTARY_NUM :
-				value = rigRotaryNumExpression(parse_rig);
+
+			// LISTEN and setValue
+
+			case PARAM_VALUE_NUM :	// in setValue and LISTEN
+				value = rigValueNumExpression(parse_rig);
 				ok = ok && value;
 				ok = ok && addStatementInt(value);
 				break;
+			case PARAM_VALUE :
+				value = rigValueExpression(parse_rig);
+				ok = ok && value;
+				ok = ok && addStatementInt(value);
+				break;
+
+			// LISTEN() and things that do MIDI
 
 			case PARAM_LISTEN_DIR :
 				if (rig_token.id < RIG_TOKEN_INPUT ||
@@ -831,6 +825,27 @@ static bool handleArg(int tt, int arg_type)
 				ok = ok && addStatementInt(value);
 				break;
 
+			// loadRig()
+
+			case PARAM_RIG_NAME  :
+				text = getText("RIG_NAME",MAX_RIG_NAME);
+				if (!text)
+					ok = 0;
+				else
+				{
+					if (!legalFilename(text))
+					{
+						parse_error("RIG_NAME(%s) may only contain A-Z,a-z,0-9,dash,period, or underscore characters");
+						ok = 0;
+					}
+					if (ok)
+					{
+						ok = ok && addStatementInt(parse_rig->string_pool_len);
+						ok = ok && addStringPool(text);
+					}
+				}
+				break;
+
 			// Generic Expression
 
 			case PARAM_STRING_EXPRESSION :
@@ -864,14 +879,8 @@ static bool handleArg(int tt, int arg_type)
 
 
 
-// static int display_count = 0;
-// extern int dbg_exp;
-
 static bool handleStatement()
 {
-	// if (tt == RIG_TOKEN_DISPLAY && !display_count++)
-	// 	dbg_exp = -3;
-
 	display(dbg_parse + 1,"handleStatement(%s)",rigTokenToString(rig_token.id));
 	proc_entry();
 
@@ -945,7 +954,6 @@ static bool handleStatement()
 
 	display(dbg_parse + 2,"handleStatement() finished",0);
 	proc_leave();
-	// dbg_exp = 1;
 	return true;
 }
 
@@ -1224,8 +1232,6 @@ static void rigStats(const char *name, const rig_t *rig)
 	display(dbg_stats + 1,"MAX_RIG_SIZE    = %d",MAX_RIG_SIZE);
 	display(dbg_stats + 1,"RIG_POOL_SIZE   = %d",RIG_POOL_SIZE);
 }
-
-
 
 
 //---------------------------------------
