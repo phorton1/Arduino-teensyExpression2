@@ -1,315 +1,218 @@
 //-------------------------------------------------------
-// rigDump.cpp
+// rigDumpCode.cpp
 //-------------------------------------------------------
 
 #include "rigDump.h"		// by convention
 #include <myDebug.h>
 #include "rigParser.h"
-#include "rigExpression.h"
-
-
-#define dbg_code 1
-	// 0 = show header details (arrrays)
-	// -1 = show bytes of code
-#define dbg_dump 1
-	// 1 = basic header vars
-	// 0 = dump
-	// -1 = details
-	// -2 = expressions
-	// -3 = opcodes
-
-
-// a buffer to build output text
+#include "fileSystem.h"
+#include "rigMachine.h"
 
 #define MAX_DUMP_BUF 255
 
-static char dump_buf[MAX_DUMP_BUF + 1];
+// limited macros to use dbgSerial if it is set
+
+#define dbgPrintln()		{if (dbgSerial) dbgSerial->println(); }
+#define dbgPrint(a)			{if (dbgSerial) dbgSerial->print(a); }
 
 
-//------------------------------------
-// methods
-//------------------------------------
+static myFileType_t rig_file;
+
+static int print_level = 0;
 
 
+//-------------------------------------
+// display methods
+//-------------------------------------
 
-
-static bool dumpInline(const rig_t *rig, const uint8_t *code, uint16_t *offset)
+static void displayIndent()
 {
-	int dbg_offset = *offset;
-	uint8_t opcode = code[(*offset)++] & ~EXP_INLINE;
-	uint8_t value = code[(*offset)++];
-
-	display(dbg_dump+3,"# op at %d=INLINE(0x%02x) value=%d",
-		dbg_offset,
-		opcode,
-		value);
-
-	switch (opcode)
-	{
-		case EXP_NUMBER :
-			sprintf(&dump_buf[strlen(dump_buf)],"%d",value);
-			break;
-		case EXP_LED_COLOR :
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(RIG_TOKEN_LED_BLACK + value));
-			break;
-		case EXP_DISPLAY_COLOR :
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(RIG_TOKEN_DISPLAY_BLACK + value));
-			break;
-		case EXP_VALUE :
-			sprintf(&dump_buf[strlen(dump_buf)],"VALUE[");
-			sprintf(&dump_buf[strlen(dump_buf)],"%d",value);;
-			sprintf(&dump_buf[strlen(dump_buf)],"]");
-			break;
-		case EXP_STRING :
-			sprintf(&dump_buf[strlen(dump_buf)],"STRING[");
-			sprintf(&dump_buf[strlen(dump_buf)],"%d",value);;
-			sprintf(&dump_buf[strlen(dump_buf)],"]");
-			break;
-		default :
-			my_error("dumpRig() - unknown inline op(0x%02x,0x%02x) at offset(%d)",opcode,value,*offset);
-			return false;
-			break;
-	}
-	return true;
+	for (int i=0; i<print_level; i++)
+		rig_file.print("    ");
+}
+static void displayNum(const char *name,uint16_t value)
+{
+	dbgPrint("=");
+	displayIndent();
+	rig_file.print(name);
+	rig_file.print(" = ");
+	rig_file.print(value);
+	rig_file.println(",");
+}
+static void displayAssign(const char *name,const char *prefix)
+{
+	dbgPrint("<");
+	displayIndent();
+	rig_file.print(".");
+	rig_file.print(name);
+	rig_file.print(" = ");
+	rig_file.print(prefix);
+	rig_file.print("_");
+	rig_file.print(name);
+	rig_file.println(",");
+}
+static void dumpDisplay(const char *line)
+{
+	dbgPrint(".");
+	displayIndent();
+	rig_file.println(line);
 }
 
 
+//------------------------------------------
+// aggregate dumper
+//------------------------------------------
 
-static bool dumpOp(const uint8_t *code, uint16_t *offset)
+#define DT_16				0x0001		// otherwise it's 8 bits
+#define DT_HEX				0x0002		// otherwise it's a number
+#define DT_CHAR				0x0004		// line oriented on zeros; otherwise it's hex
+#define DT_SEMI_COLON		0x0008		// otherwise it's ends with a comma and followed with two blank lines
+#define DT_STOP_ZERO		0x0010		// stop on first zero found
+#define DT_CONST_CHAR   	0x0020		// it's a const char * declaration
+#define DT_CONST_UINT8  	0x0040		// it's a const uint8_t * declaration
+#define DT_GROUP_BY_REFS	0x0080		// group button_refs by 3's
+#define DT_SHOW_OFFSETS		0x0100		// show offsets on each line
+
+
+static void dumpArray(
+	uint16_t how,
+	const char *prefix,
+	const char *name,
+	const void *ptr,
+	uint16_t num)
 {
-	display(dbg_dump+3,"# op at %d=0x%02x",
-		*offset,
-		code[*offset]);
+	dbgPrint("{");
 
-	uint8_t op = code[(*offset)++];
-	switch(op)
+	displayIndent();
+
+	if (how & DT_CONST_CHAR)
+		rig_file.print("const char ");
+	else if (how & DT_CONST_UINT8)
+		rig_file.print("const uint8_t ");
+
+	if (how & (DT_CONST_CHAR | DT_CONST_UINT8))
+		rig_file.print(prefix);
+
+	rig_file.print(name);
+	if (how & (DT_CONST_CHAR | DT_CONST_UINT8))
+		rig_file.print("[]");
+	rig_file.println(" = {");
+	print_level++;
+
+	int width =
+		how & DT_CHAR ? 4 :
+		how & DT_HEX ?
+			how & DT_16 ? 8 : 6 :
+			how & DT_16 ? 7 : 5 ;
+
+	int num_per_line =
+		how & DT_GROUP_BY_REFS ? NUM_REFS_PER_BUTTON :
+		how & DT_16 ? 10 : 16;
+
+	char format1[12];
+	char format2[12];
+	if (how & DT_CHAR)
 	{
-		case EXP_VALUE :
-			sprintf(&dump_buf[strlen(dump_buf)],"VALUE[");
-			break;
-		case EXP_STRING :
-			sprintf(&dump_buf[strlen(dump_buf)],"STRING[");
-			break;
-		case EXP_TEXT :
-			sprintf(&dump_buf[strlen(dump_buf)],"\"%s\"",&code[*offset]);
-			*offset += strlen((const char *) &code[*offset]) + 1;
-			break;
-		case EXP_RIGHT_BRACKET	:
-			sprintf(&dump_buf[strlen(dump_buf)],"]");
-			break;
-		case EXP_LEFT_PAREN	:
-			sprintf(&dump_buf[strlen(dump_buf)],"(");
-			break;
-		case EXP_RIGHT_PAREN :
-			sprintf(&dump_buf[strlen(dump_buf)],"]");
-			break;
-		case EXP_QUESTION :
-			sprintf(&dump_buf[strlen(dump_buf)]," ? ");
-			break;
-		case EXP_COLON :
-			sprintf(&dump_buf[strlen(dump_buf)]," : ");
-			break;
-
-		case EXP_NOT :
-			sprintf(&dump_buf[strlen(dump_buf)]," %s ",rigTokenToText(RIG_TOKEN_NOT));
-			break;
-
-		case EXP_PLUS :
-		case EXP_MINUS :
-		case EXP_TIMES :
-		case EXP_DIVIDE :
-		case EXP_EQ :
-		case EXP_NE :
-		case EXP_GT :
-		case EXP_GE :
-		case EXP_LT :
-		case EXP_LE :
-		case EXP_BITWISE_OR :
-		case EXP_BITWISE_AND :
-		case EXP_LOGICAL_OR :
-		case EXP_LOGICAL_AND :
-			sprintf(&dump_buf[strlen(dump_buf)]," %s ",rigTokenToText(op+RIG_TOKEN_PLUS-EXP_PLUS));
-			break;
-		default :
-			my_error("dumpRig() - unknown expression op(0x%02x) at offset(%d)",op,*offset);
-			return false;
-			break;
+		strcpy(format1,"'%c',");
+		strcpy(format2,"%s");
 	}
-
-	return true;
-}
-
-
-
-static bool dumpExpression(const rig_t *rig, const char *what, const uint8_t *code, uint16_t *offset)
-{
-	display(dbg_dump+2,"# dumpExpression(%s) at offset(%d)",what,*offset);
-
-	bool ok = 1;
-	while (ok &&  code[*offset] != EXP_END)
+	else
 	{
-		if (code[*offset] & EXP_INLINE)
-			ok = dumpInline(rig, code,offset);
+		if (how & DT_HEX)
+			sprintf(format1,"0x%%0%dx,", how & DT_16 ? 4 : 2);
 		else
-			ok = dumpOp(code,offset);
+			strcpy(format1,"%d,");
+		sprintf(format2,"%%-%ds ",width);
 	}
 
-	return ok;
-}
+	char *cptr = (char *) ptr;
+	uint8_t *ptr8 = (uint8_t *) ptr;
+	uint16_t *ptr16 = (uint16_t *) ptr;
 
+	bool more = 1;
+	uint16_t offset = 0;
+	char dump_buf[MAX_DUMP_BUF] = {0};
 
-
-static bool dumpCodeExpression(const rig_t *rig, const char *what, uint16_t offset)
-{
-	if (offset & (EXP_INLINE << 8))
+	while (offset < num && more)
 	{
-		uint8_t byte0 = offset >> 8;
-		uint8_t byte1 = offset & 0xff;
-		uint8_t code[] = {byte0, byte1, EXP_END};
-
-		display(dbg_dump+2,"# dumpInlineExpression(%s) == 0x%02x%02x",what,byte0,byte1);
-
-		offset = 0;
-		if (!dumpExpression(rig, what, code, &offset))
-			return false;
-	}
-	else	// dumpExpression for real
-	{
-		offset -= 1;		// real expression offset are one based
-		const uint8_t *code = rig->expression_pool;
-		if (!dumpExpression(rig, what, code, &offset))
-			return false;
-	}
-	return true;
-}
-
-
-static bool dumpParam(const rig_t *rig, int arg_type, bool last, const uint8_t *code, uint16_t *offset)
-{
-	uint8_t byte;
-	uint16_t *ptr16;
-	display(dbg_dump+1, "# dumpParam(%s) at offset %d",argTypeToString(arg_type),*offset);
-
-	switch (arg_type)
-	{
-		case PARAM_AREA_NUM :
-		case PARAM_VALUE_NUM :
-		case PARAM_VALUE :
-		case PARAM_PEDAL_NUM :
-		case PARAM_ROTARY_NUM :
-		case PARAM_MIDI_CHANNEL :
-		case PARAM_LISTEN_CHANNEL :
-		case PARAM_MIDI_CC :
-		case PARAM_MIDI_VALUE :
-		case PARAM_STRING_EXPRESSION :
-		case PARAM_LED_COLOR_EXPRESSION :
-		case PARAM_DISPLAY_COLOR_EXPRESSION :
-			ptr16 = (uint16_t *) &code[*offset];
-			if (!dumpCodeExpression(rig,argTypeToString(arg_type),*ptr16))
-				return false;
-			*offset += 2;
-			break;
-
-		case PARAM_METER_TYPE :
-			byte = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_HORZ));
-			break;
-		case PARAM_FONT_TYPE :
-			byte = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_NORMAL));
-			break;
-		case PARAM_FONT_JUST :
-			byte = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_LEFT));
-			break;
-		case PARAM_MIDI_PORT :
-			byte = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_USB1));
-			break;
-		case PARAM_LISTEN_DIR :
-			byte = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",rigTokenToText(byte + RIG_TOKEN_INPUT));
-			break;
-
-		case PARAM_BUTTON_NUM :
-		case PARAM_FONT_SIZE :
-			byte = code[(*offset)++];
-			sprintf(&dump_buf[strlen(dump_buf)],"%d",byte);
-			break;
-		case PARAM_END_X :
-		case PARAM_END_Y :
-		case PARAM_START_X :
-		case PARAM_START_Y :
-			ptr16 = (uint16_t *) &code[*offset];
-			sprintf(&dump_buf[strlen(dump_buf)],"%d",*ptr16);
-			*offset += 2;
-			break;
-
-		case PARAM_RIG_NAME :
-		case PARAM_PEDAL_NAME :
-			ptr16 = (uint16_t *) &code[*offset];
-			sprintf(&dump_buf[strlen(dump_buf)],"%s",&rig->string_pool[*ptr16]);
-			*offset += 2;
-			break;
-
-
-		default:
-			my_error("dumpRig() - unknown arg_type(%d) at offset(%d)",arg_type,*offset);
-			return false;
-			break;
-	}
-	sprintf(&dump_buf[strlen(dump_buf)],"%s",last?");":", ");
-	return true;
-}
-
-
-static bool dumpStatement(const rig_t *rig, uint16_t *offset, uint16_t last_offset)
-{
-	const uint8_t *code = rig->statement_pool;
-	uint8_t tt = code[(*offset)++];
-
-	display(dbg_dump+1,"# dumping statement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
-
-	sprintf(dump_buf,"%s(",rigTokenToText(tt));
-	const statement_param_t *params = findParams(tt);
-
-	if (params) // opposite should never happen
-	{
-		const int *arg = params->args;
-		while (*arg)
+		dbgPrint(".");
+		if (how & DT_CHAR)
 		{
-			const int *args = arg++;
-			if (!dumpParam(rig,*args,!*arg,code,offset))
+			displayIndent();
+			if (how & DT_SHOW_OFFSETS)
 			{
-				proc_level = 0;
-				return false;
+				sprintf(dump_buf,"/* 0x%04x = %-5d */  ",offset,offset);
+				rig_file.print(dump_buf);
 			}
+			while (*cptr)
+			{
+				sprintf(dump_buf,format1,*cptr++);
+				rig_file.print(dump_buf);
+				offset++;
+				dump_buf[0] = 0;
+			}
+			rig_file.println("0,");
+			cptr++;
+			offset++;
+		}
+		else
+		{
+			char line_buf[12];
+			if (offset % num_per_line == 0)
+			{
+				if (dump_buf[0])
+				{
+					if (how & DT_GROUP_BY_REFS)
+						sprintf(&dump_buf[strlen(dump_buf)],"},");
+					rig_file.println(dump_buf);
+					dump_buf[0] = 0;
+				}
+				displayIndent();
+				if (how & DT_SHOW_OFFSETS)
+				{
+					sprintf(dump_buf,"/* 0x%04x = %-5d */  ",offset,offset);
+					rig_file.print(dump_buf);
+				}
+				dump_buf[0] = 0;
+				if (how & DT_GROUP_BY_REFS)
+					rig_file.print("{ ");
+			}
+
+			if (how & DT_16)
+			{
+				sprintf(line_buf,format1,*ptr16++);
+				more = *ptr16 || !(how & DT_STOP_ZERO);
+			}
+			else // how && DT_8
+			{
+				sprintf(line_buf,format1,*ptr8++);
+				more = *ptr8 || !(how & DT_STOP_ZERO);
+			}
+
+			sprintf(&dump_buf[strlen(dump_buf)],format2,line_buf);
+			offset++;
 		}
 	}
 
-	display(0,dump_buf,0);
-	return true;
-}
-
-
-static bool dumpStatementList(const rig_t *rig, int indent, int statement_num)
-{
-	uint16_t offset = rig->statements[statement_num];
-	uint16_t last_offset  = rig->statements[statement_num+1];
-
-	proc_level = indent;
-	display(dbg_dump+1,"# dumping statement list(%d) from %d to %d (%d bytes)",
-		statement_num,
-		offset,
-		last_offset,
-		last_offset-offset);
-
-	while (offset < last_offset)
+	if (dump_buf[0])
 	{
-		if (!dumpStatement(rig,&offset,last_offset))
-			return false;
+		if (how & DT_GROUP_BY_REFS)
+			sprintf(&dump_buf[strlen(dump_buf)],"},");
+		rig_file.println(dump_buf);
 	}
-	return true;
+
+	print_level--;
+	displayIndent();
+	if (how & DT_SEMI_COLON)
+	{
+		rig_file.println("};");
+		rig_file.println();
+		rig_file.println();
+	}
+	else
+		rig_file.println("},");
+
+	dbgPrint("}");
 }
 
 
@@ -318,162 +221,90 @@ static bool dumpStatementList(const rig_t *rig, int indent, int statement_num)
 //-------------------------------------------------
 
 // extern
-void dumpRig(const rig_t *rig)
+void dumpRigHeaderFile(const char *prefix, const rig_t *rig)
 {
-	int save_proc_level = proc_level;
-	proc_level = 0;
+	char filename[80];
+	sprintf(filename,"%s.rig.h",prefix);
+	display(0,"dumpRigCode(%s) = %s",prefix,filename);
 
-	delay(500);
-
-	// display interesting numbers]
-
-	display(dbg_dump-1,"Dumping Rig",0);
-	display(dbg_dump-1,"define_pool_len=%d",rig->define_pool_len);
-	display(dbg_dump-1,"string_pool_len=%d",rig->string_pool_len);
-	display(dbg_dump-1,"statement_pool_len=%d",rig->statement_pool_len);
-	display(dbg_dump-1,"expression_pool_len=%d",rig->expression_pool_len);
-	display(dbg_dump-1,"num_statements=%d",rig->num_statements);
-
-	for (int i=0; i<=rig->num_statements; i++)
-		display(dbg_code,"    statement[%d] = %d",i,rig->statements[i]);
-
-	display(dbg_code,"button_types",0);
-	for (int i=0; i<NUM_BUTTONS; i++)
+    SD.remove(filename);
+	rig_file = SD.open(filename, FILE_WRITE);
+	if (!rig_file)
 	{
-		display(dbg_code,"    button_type(%d) = 0x%04x",i,rig->button_type[i]);
-	}
-
-	display(dbg_code,"button_refs",0);
-	for (int i=0; i<NUM_BUTTONS; i++)
-	{
-		const uint16_t *refs = rig->button_refs[i];
-		display(dbg_code,"    refs(%d)  0x%04x  0x%04x  0x%04x",
-			i,
-			refs[0],
-			refs[1],
-			refs[2]);
-	}
-
-	display(dbg_code+1,"statements",0);
-	display_bytes_long(dbg_code+1,0,rig->statement_pool,rig->statement_pool_len);
-	display(dbg_code+1,"expressions",0);
-	display_bytes_long(dbg_code+1,0,rig->expression_pool,rig->expression_pool_len);
-
-	// dump the program
-
-	if (dbg_dump > 0)
-	{
-		proc_level = save_proc_level;
+		rig_error(0,0,"dumpRigCode() could not open %s for writing ..",filename);
 		return;
 	}
 
-	display(0,"------------------------------------------------",0);
-	display(0,"",0);
-	display(0,"%s",rig->rig_type & RIG_TYPE_MODAL ?"ModalRig":"BaseRig");
-	display(0,"",0);
+	print_level = 0;
 
-	bool ok = 1;
-	bool any = 0;
-	int prev_define = 0;
+	rig_file.println("//------------------------------------------------------------------------------");
+	rig_file.print("// ");
+	rig_file.print(prefix);
+	rig_file.println(".rig.h");
+	rig_file.println("//------------------------------------------------------------------------------");
+	rig_file.println();
+	rig_file.println("#pragma once ");
+	rig_file.println();
+	rig_file.println();
 
-	for (int i=0; i<RIG_NUM_DEFINES; i++)
-	{
-		uint16_t idxP1 = rig->define_ids[i];
-		if (idxP1)	// definition indicator - they must name em'
-		{
-			any = 1;
+	dumpArray( DT_CHAR | DT_CONST_CHAR | DT_SEMI_COLON | DT_SHOW_OFFSETS,
+		prefix,"_define_pool",rig->define_pool,rig->define_pool_len);
 
-			// blank line between non-subsequent definitions
-			if (prev_define && i != prev_define + 1)
-				display(0,"",0);
+	dumpArray( DT_CHAR | DT_CONST_CHAR | DT_SEMI_COLON | DT_SHOW_OFFSETS,
+		prefix,"_string_pool",rig->string_pool,rig->string_pool_len);
 
-			display(0,"define(%d, %s, %d);",
-				i,
-				&rig->define_pool[idxP1-1],
-				rig->define_values[i]);
-			prev_define = i;
-		}
-	}
+	dumpArray( DT_HEX | DT_CONST_UINT8 | DT_SEMI_COLON | DT_SHOW_OFFSETS,
+		prefix,"_statement_pool",rig->statement_pool,rig->statement_pool_len);
 
-	if (any)
-		display(0,"",0);
-	for (int i=0; i<RIG_NUM_STRINGS; i++)
-	{
-		// the offset is incremented so that we can identify
-		// accesses to string 0 explicitly.
-		uint16_t string_offset = rig->strings[i];
+	dumpArray( DT_HEX | DT_CONST_UINT8 | DT_SEMI_COLON | DT_SHOW_OFFSETS,
+		prefix,"_expression_pool",rig->expression_pool,rig->expression_pool_len);
 
-		if (string_offset--)	// test and adjust offset
-		{
-			any = 1;
-			display(0,"STRING(%d, \"%s\");",
-				i,
-				&rig->string_pool[string_offset]);
-		}
-	}
+	rig_file.println();
+	rig_file.print("const rig_t ");
+	rig_file.print(prefix);
+	rig_file.println("_rig = { ");
 
-	// dump init_statements
+	print_level = 1;
 
-	if (any)
-		display(0,"",0);
-	if (rig->statements[0] < rig->statements[0])
-	{
-		ok = ok && dumpStatementList(rig,0,0);
-		if (ok)	display(0,"",0);
-	}
-	if (rig->statements[1] < rig->statements[2])
-	{
-		display(0,"onUpdate:",0);
-		ok = ok && dumpStatementList(rig,1,1);
-		if (ok)	display(0,"",0);
-	}
+	displayNum(".rig_type", rig->rig_type | RIG_TYPE_SYSTEM);
+	displayNum(".num_statements",rig->num_statements);
+	displayNum(".define_pool_len",rig->define_pool_len);
+	displayNum(".string_pool_len",rig->string_pool_len);
+	displayNum(".statement_pool_len",rig->statement_pool_len);
+	displayNum(".expression_pool_len",rig->expression_pool_len);
 
-	bool started = 0;
-	for (int i=0; i<NUM_BUTTONS && ok; i++)
-	{
-		uint16_t type = rig->button_type[i];
-		if (type)
-		{
-			if (started)
-				display(0,"",0);
-			started = 1;
+	dumpArray( DT_16,
+		prefix,".define_ids",rig->define_ids,RIG_NUM_DEFINES);
+	dumpArray( 0,
+		prefix,".define_values",rig->define_values,RIG_NUM_DEFINES);
+	dumpArray( DT_16 | DT_STOP_ZERO,
+		prefix,".statements",rig->statements,MAX_STATEMENTS+1);
+	dumpArray( DT_16 | DT_HEX,
+		prefix,".button_type",rig->button_type,NUM_BUTTONS);
+	dumpArray( DT_16 | DT_HEX | DT_GROUP_BY_REFS,
+		prefix,".button_refs",(const uint16_t *)rig->button_refs,NUM_BUTTONS*NUM_REFS_PER_BUTTON);
+	dumpArray( DT_16,
+		prefix,".strings",rig->strings,RIG_NUM_STRINGS);
 
-			if (type == BUTTON_TYPE_INHERIT)
-			{
-				display(0,"BUTTON(%d): INHERIT",i);
-				continue;
-			}
+	displayAssign("define_pool",prefix);
+	displayAssign("string_pool",prefix);
+	displayAssign("statement_pool",prefix);
+	displayAssign("expression_pool",prefix);
 
-			display(0,"BUTTON(%d):",i);
-			if (type & BUTTON_TYPE_UPDATE)
-			{
-				ok = dumpStatementList(rig,1,rig->button_refs[i][0]-1);
-			}
-			if (ok && (type & BUTTON_TYPE_MASK_REF1))
-			{
-				display(0,"    %s:",
-					type & BUTTON_TYPE_CLICK ? "repeat" :
-					type & BUTTON_TYPE_PRESS ? "press" :
-					"click");
-				ok = dumpStatementList(rig,2,rig->button_refs[i][1]-1);
-			}
-			if (ok && (type & BUTTON_TYPE_MASK_REF2))
-			{
-				display(0,"    %s:",
-					type & BUTTON_TYPE_CLICK ? "release" :
-					"long");
-				ok = dumpStatementList(rig,2,rig->button_refs[i][2]-1);
-			}
-		}
-	}
+	print_level = 0;
 
-	if (ok)
-	{
-		display(0,"",0);
-		display(0,"# end of rig ",0);
-		display(0,"",0);
-	}
+	dumpDisplay("};");	// end the rig_t
+	rig_file.println();
+	rig_file.println();
 
-	proc_level = save_proc_level;
+	rig_file.print("// end of ");
+	rig_file.print(prefix);
+	rig_file.println("_rig.h");
+	rig_file.println();
+	rig_file.println();
+	rig_file.close();
+
+	dbgPrintln();
+	display(0,"dumpRigCode(%s) finished",filename);
 
 }

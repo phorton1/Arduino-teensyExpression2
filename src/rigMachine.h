@@ -9,6 +9,7 @@
 
 #define MAX_PARAMS			8		// from AREA statement
 #define MAX_RIG_STACK  		10
+#define MAX_RIG_TITLE		MAX_RIG_NAME
 
 #define AREA_TYPE_NONE		0
 #define AREA_TYPE_STRING	1
@@ -108,6 +109,9 @@ private:
 	uint16_t m_load_state;
 	uint32_t m_listen_mask;
 		// 7 bits for each port for more rapid processing
+
+	char m_rig_title[MAX_RIG_TITLE+1];
+
 
 	void popRig();
 	bool pushRig(const rig_t *rig, const char *name);

@@ -21,14 +21,7 @@
 	// 0 = show calls to rewindRigFile
 
 
-#define DUMP_PARSE  0
-	// dump a structured parse as we go
-
-// extern
-int parse_section;			// 0=none, 1=program, 2=buttons, 3=end
-
 static myFileType_t rig_file;
-
 static uint32_t rig_text_len;
 static uint32_t parse_ptr;
 static int parse_line_num;
@@ -36,29 +29,12 @@ static int parse_char_num;
 static int rig_token_len;
 static bool modal_rig;
 
+// externa
 
-
-// extern
 token_t rig_token;
 bool parse_error_found;
+int parse_section;
 
-
-#if DUMP_PARSE
-	static void dumpToken();
-		// forward
-#endif
-
-
-
-// void rewindRigFile(uint32_t offset, int line_num, int char_num)
-// {
-// 	display(dbg_rewind,"rewindRigFile(%d,%d,%d)",offset,line_num,char_num);
-// 	parse_ptr = offset;
-// 	parse_line_num = line_num;
-// 	parse_char_num = char_num;
-// 	rig_file.seek(parse_ptr);
-// }
-//
 
 
 //------------------------------
@@ -126,6 +102,7 @@ const char *rigTokenToString(int token_id)
 		case RIG_TOKEN_AREA					: return "AREA";
 		case RIG_TOKEN_METER				: return "METER";
 		case RIG_TOKEN_SETVALUE				: return "SETVALUE";
+		case RIG_TOKEN_SETTITLE				: return "SETTITLE";
 		case RIG_TOKEN_DISPLAY 				: return "DISPLAY";
 		case RIG_TOKEN_DISPLAY_NUMBER		: return "DISPLAYNUMBER";
 		case RIG_TOKEN_SET_METER			: return "SETMETER";
@@ -243,6 +220,50 @@ const char *rigTokenToString(int token_id)
 }
 
 
+//---------------------------------------------
+// API
+//---------------------------------------------
+
+// extern
+void closeRigFile()
+{
+	rig_file.close();
+}
+
+
+// extern
+bool openRigFile(const char *name)
+{
+	parse_ptr = 0;
+	parse_line_num = 1;
+	parse_char_num = 0;
+	parse_section = 0;
+	rig_text_len = 0;
+	modal_rig = 0;
+
+	#if DUMP_PARSE
+		initDump();
+	#endif
+
+    char name_buffer[128];
+    strcpy(name_buffer,"/");
+    strcat(name_buffer,name);
+    strcat(name_buffer,".rig");
+    display(dbg_open,"openRigFile(%s)",name);
+
+	rig_file = SD.open(name_buffer, FILE_READ );
+    if (!rig_file)
+    {
+        parse_error("Could not open Rig file: %s",name_buffer);
+        return 0;
+    }
+
+    rig_text_len = rig_file.size();
+    display(dbg_open,"Rig file(%s) opened - length=%d",name,rig_text_len);
+	return 1;
+}
+
+
 // extern
 const char *rigTokenToText(int token_id)
 	// used to generate readable files
@@ -266,6 +287,7 @@ const char *rigTokenToText(int token_id)
 		case RIG_TOKEN_METER				: return "Meter";
 
 		case RIG_TOKEN_SETVALUE				: return "setValue";
+		case RIG_TOKEN_SETTITLE				: return "setTitle";
 		case RIG_TOKEN_DISPLAY 				: return "display";
 		case RIG_TOKEN_DISPLAY_NUMBER		: return "displayNumber";
 		case RIG_TOKEN_SET_METER			: return "setMeter";
@@ -385,7 +407,6 @@ int getRigToken()
 {
 	rig_token_len = 0;
 	memset(&rig_token,0,sizeof(token_t));
-	rig_token.offset = parse_ptr;
 	rig_token.line_num = parse_line_num;
 	rig_token.char_num = parse_char_num;
 
@@ -768,172 +789,8 @@ int getRigToken()
 
 	// finished
 
-	#if DUMP_PARSE
-		dumpToken();
-	#endif
-
 	if (!rig_token.id)
 		display(dbg_low,"getRigToken() returning EOF!",0);
 
     return rig_token.id;
-}
-
-
-//-------------------------------------------------
-// dumpToken
-//-------------------------------------------------
-
-#if DUMP_PARSE
-
-	static void dumpToken()
-	{
-		int tt = rig_token.id;
-		static bool write_colon_return = 0;
-		if (!dbgSerial)
-			return;
-
-		if (tt == RIG_TOKEN_EOF)
-		{
-			dbgSerial->println();
-			dbgSerial->println();
-			dbgSerial->println("# end of rig ");
-			dbgSerial->println();
-			return;
-		}
-		if (tt == RIG_TOKEN_BASERIG ||
-			tt == RIG_TOKEN_MODAL)
-		{
-			dbgSerial->print(rigTokenToText(tt));
-			dbgSerial->println();
-			dbgSerial->println();
-			return;
-		}
-		if (tt == RIG_TOKEN_SEMICOLON)
-		{
-			dbgSerial->println(";");
-			return;
-		}
-		if (tt == RIG_TOKEN_COLON)
-		{
-			dbgSerial->print(" : ");
-			if (write_colon_return)
-				dbgSerial->println();
-			write_colon_return = 0;
-			return;
-		}
-
-
-		if (tt == RIG_TOKEN_ON_UPDATE)
-			write_colon_return = 1;
-		else if (tt == RIG_TOKEN_BUTTON)
-			write_colon_return = 1;
-		else if (IS_SUBSECTION(tt))
-		{
-			dbgSerial->print("    ");
-			write_colon_return = 1;
-		}
-		else if (parse_section == PARSE_SECTION_UPDATE)
-		{
-			dbgSerial->print("    ");
-		}
-		else if (parse_section == PARSE_SECTION_BUTTON && IS_STATEMENT(tt))
-		{
-			dbgSerial->print("        ");
-		}
-
-		if (tt == RIG_TOKEN_NUMBER)
-		{
-			dbgSerial->print(rig_token.int_value);
-		}
-		else if (tt == RIG_TOKEN_IDENTIFIER)
-		{
-			dbgSerial->print(rig_token.text);
-		}
-		else if (tt == RIG_TOKEN_TEXT)
-		{
-			dbgSerial->print("\"");
-			dbgSerial->print(rig_token.text);
-			dbgSerial->print("\"");
-		}
-		else
-		{
-			if (tt == RIG_TOKEN_PLUS ||
-				tt == RIG_TOKEN_MINUS ||
-				tt == RIG_TOKEN_EQ ||
-				tt == RIG_TOKEN_NE ||
-				tt == RIG_TOKEN_GT ||
-				tt == RIG_TOKEN_GE ||
-				tt == RIG_TOKEN_LT ||
-				tt == RIG_TOKEN_LE ||
-				tt == RIG_TOKEN_BITWISE_OR ||
-				tt == RIG_TOKEN_BITWISE_AND ||
-				tt == RIG_TOKEN_LOGICAL_OR ||
-				tt == RIG_TOKEN_LOGICAL_AND ||
-				tt == RIG_TOKEN_QUESTION)
-				dbgSerial->print(" ");
-			dbgSerial->print(rigTokenToText(tt));
-			if (tt == RIG_TOKEN_COMMA ||
-				tt == RIG_TOKEN_PLUS ||
-				tt == RIG_TOKEN_MINUS ||
-				tt == RIG_TOKEN_EQ ||
-				tt == RIG_TOKEN_NE ||
-				tt == RIG_TOKEN_GT ||
-				tt == RIG_TOKEN_GE ||
-				tt == RIG_TOKEN_LT ||
-				tt == RIG_TOKEN_LE ||
-				tt == RIG_TOKEN_BITWISE_OR ||
-				tt == RIG_TOKEN_BITWISE_AND ||
-				tt == RIG_TOKEN_LOGICAL_OR ||
-				tt == RIG_TOKEN_LOGICAL_AND ||
-				tt == RIG_TOKEN_QUESTION)
-				dbgSerial->print(" ");
-		}
-	}
-#endif	// DUMP_PARSE
-
-
-
-
-
-//-------------------------------------------------
-// parser
-//-------------------------------------------------
-
-// extern
-void closeRigFile()
-{
-	rig_file.close();
-}
-
-
-// extern
-bool openRigFile(const char *name)
-{
-	parse_ptr = 0;
-	parse_line_num = 1;
-	parse_char_num = 0;
-	parse_section = 0;
-	rig_text_len = 0;
-	modal_rig = 0;
-
-	#if DUMP_PARSE
-		initDump();
-	#endif
-
-    char name_buffer[128];
-    strcpy(name_buffer,"/");
-    strcat(name_buffer,name);
-    strcat(name_buffer,".rig");
-    display(dbg_open,"openRigFile(%s)",name);
-
-	rig_file = SD.open(name_buffer, FILE_READ );
-    if (!rig_file)
-    {
-        parse_error("Could not open Rig file: %s",name_buffer);
-        return 0;
-    }
-
-    rig_text_len = rig_file.size();
-    display(dbg_open,"Rig file(%s) opened - length=%d",name,rig_text_len);
-	return 1;
 }

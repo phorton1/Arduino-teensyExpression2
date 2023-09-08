@@ -52,11 +52,8 @@ define(16,	CLIP_VOL_BASE_CC,	32 );
 define(17,	CLIP_MUTE_BASE_CC,	64 );
 
 # these must agree with base rig
-# note that we removed the underscore from _selected_track
-# 		because it is read-only in this rig
-# these are only changes from default_modal.rig
 
-define(20, selected_track,		12);                # The most recently selected track
+define(20, _selected_track,		12);                # The most recently selected track
 define(21, track_state_base,	20);				# TRACK1..4 STATE
 define(22, clip_vol_base,		30);                # 16 CLIP VOLUMES
 define(23, clip_mute_base,		50);                # 16 CLIP MUTES
@@ -68,6 +65,13 @@ define(23, clip_mute_base,		50);                # 16 CLIP MUTES
 
 define(40, number_base,   0);
 define(41, meter_base,    5);
+define(42, track_title_base, 0);
+
+define_string(0, "Track ONE");
+define_string(1, "Track TWO");
+define_string(2, "Track THREE");
+define_string(3, "Track FOUR");
+
 
 # temp variable used in ranged BUTTON statements.
 # 		this rig keeps no state of it's own.
@@ -109,8 +113,9 @@ Meter(meter_base + 3,  VERT,  379, 44, 459, 194);
 
 
 onUpdate:
-	setValue(_update_vol,  clip_vol_base  + VALUE[selected_track]*CLIPS_PER_TRACK);
-	setValue(_update_mute, clip_mute_base + VALUE[selected_track]*CLIPS_PER_TRACK);
+	setTitle(STRING[track_title_base + VALUE[_selected_track]]);
+	setValue(_update_vol,  clip_vol_base  + VALUE[_selected_track]*CLIPS_PER_TRACK);
+	setValue(_update_mute, clip_mute_base + VALUE[_selected_track]*CLIPS_PER_TRACK);
 	setMeter(meter_base + 0,  		VALUE[0 + VALUE[_update_mute ]] ? DARKGREY : GREEN,	 VALUE[0 + VALUE[_update_vol ]]);
 	setMeter(meter_base + 1,  		VALUE[1 + VALUE[_update_mute ]] ? DARKGREY : GREEN,	 VALUE[1 + VALUE[_update_vol ]]);
 	setMeter(meter_base + 2,  		VALUE[2 + VALUE[_update_mute ]] ? DARKGREY : GREEN,	 VALUE[2 + VALUE[_update_vol ]]);
@@ -162,7 +167,7 @@ BUTTON(0,1,2,3):	# erase track buttons
 BUTTON(5,6,7,8):	# volume up buttons
 	setButtonColor(_BUTTON_NUM, LED_GREEN);
 	repeat:
-		setValue(_clip_offset, (VALUE[selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 5);
+		setValue(_clip_offset, (VALUE[_selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 5);
 		setValue(_clip_volume, VALUE[clip_vol_base + VALUE[_clip_offset]]);
 		setValue(_clip_volume, VALUE[_clip_volume] < 127 ? VALUE[_clip_volume] + 1 : 127);
 		sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + VALUE[_clip_offset], VALUE[_clip_volume] );
@@ -171,25 +176,27 @@ BUTTON(5,6,7,8):	# volume up buttons
 BUTTON(10,11,12,13):	# volume down buttons
 	setButtonColor(_BUTTON_NUM, LED_RED);
 	repeat:
-		setValue(_clip_offset, (VALUE[selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 10);
+		setValue(_clip_offset, (VALUE[_selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 10);
 		setValue(_clip_volume, VALUE[clip_vol_base + VALUE[_clip_offset]]);
 		setValue(_clip_volume, VALUE[_clip_volume] > 0 ? VALUE[_clip_volume] - 1 : 0);
 		sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + VALUE[_clip_offset], VALUE[_clip_volume] );
 
 #------------------------------
-# Mute Buttons
+# Mute/Select Track Buttons
 #------------------------------
 # The buttons are dark BLUE if muted, CYAN if mutable
 # Even un-recorded clips can be muted
 
 BUTTON(15,16,17,18):	# volume mute buttons
-	setValue(_clip_offset, (VALUE[selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 15);
+	setValue(_clip_offset, (VALUE[_selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 15);
 	setButtonColor(_BUTTON_NUM, VALUE[clip_mute_base + VALUE[_clip_offset]] ?
 		LED_BLUE : LED_CYAN);
-	press:
-		setValue(_clip_offset, (VALUE[selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 15);
+	click:
+		setValue(_clip_offset, (VALUE[_selected_track] * CLIPS_PER_TRACK) + _BUTTON_NUM - 15);
 		setValue(clip_mute_base + VALUE[_clip_offset], !VALUE[clip_mute_base + VALUE[_clip_offset]]);
 		sendCC(SERIAL, 1, CLIP_MUTE_BASE_CC + VALUE[_clip_offset], VALUE[clip_mute_base + VALUE[_clip_offset]]);
+	long:
+		setValue(_selected_track,_BUTTON_NUM - 15);
 
 
 #--------------------------------------------------

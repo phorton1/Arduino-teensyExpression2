@@ -21,7 +21,9 @@
 	// 0 = just show ParsingRig() and finished messages
 	// -1 = show statements and params
 	// -2 = show details
-
+#define dbg_stats	-1
+	// 0 = show rig size
+	// -1 = show rig size details
 
 #define MAX_RIG_NAME		31
 
@@ -251,6 +253,10 @@ static const int SETVALUE_ARGS[] = {		// setValue(20, VALUE[0] + 2);
 	PARAM_VALUE,
 	0 };
 
+static const int SETTITLE_ARGS[] = {		// setTitle2"Track ONE");
+	PARAM_STRING_EXPRESSION,
+	0 };
+
 static const int SET_BUTTON_COLOR_ARGS[] = {
 	PARAM_BUTTON_NUM,
 	PARAM_LED_COLOR_EXPRESSION,
@@ -340,6 +346,7 @@ static const statement_param_t statement_params[] = {
 	{ RIG_TOKEN_PEDAL, 				PEDAL_ARGS },
 	{ RIG_TOKEN_ROTARY, 			ROTARY_ARGS },
 	{ RIG_TOKEN_SETVALUE, 			SETVALUE_ARGS },
+	{ RIG_TOKEN_SETTITLE, 			SETTITLE_ARGS },
 	{ RIG_TOKEN_SET_BUTTON_COLOR,	SET_BUTTON_COLOR_ARGS },
 	{ RIG_TOKEN_SET_BUTTON_BLINK,	SET_BUTTON_BLINK_ARGS },
 	{ RIG_TOKEN_DISPLAY, 			DISPLAY_ARGS },
@@ -1197,6 +1204,29 @@ static bool handleButton()
 
 
 
+//--------------------------
+// rigStats
+//--------------------------
+
+static void rigStats(const char *name, const rig_t *rig)
+{
+	display(dbg_stats,"Rig(%s) Total Size = %d",name,
+		sizeof(rig_t) +
+		rig->define_pool_len +
+		rig->string_pool_len +
+		rig->statement_pool_len +
+		rig->expression_pool_len);
+	display(dbg_stats + 1,"define_pool     = %d",rig->define_pool_len);
+	display(dbg_stats + 1,"string_pool     = %d",rig->string_pool_len);
+	display(dbg_stats + 1,"statement_pool  = %d",rig->statement_pool_len);
+	display(dbg_stats + 1,"expression_pool = %d",rig->expression_pool_len);
+	display(dbg_stats + 1,"num_statements  = %d",rig->num_statements);
+	display(dbg_stats + 1,"MAX_RIG_SIZE    = %d",MAX_RIG_SIZE);
+	display(dbg_stats + 1,"RIG_POOL_SIZE   = %d",RIG_POOL_SIZE);
+}
+
+
+
 
 //---------------------------------------
 // loadDefaultRig()
@@ -1393,14 +1423,14 @@ const rig_t *parseRig(const char *rig_name, uint16_t how)
 			new_rig = how ? parse_rig : relocate();
 			if (new_rig)
 			{
-				dumpRig(new_rig);
+				rigStats(rig_name,new_rig);
 
 				// here we dump H files solely dependent on the actual filenames,
 				// this has nothing to do with what shows, or is passed around
 				// to accomplish things.
 
 				if (how & PARSE_HOW_DUMP_H_FILE)
-					dumpRigCode(rig_name, new_rig);
+					dumpRigHeaderFile(rig_name, new_rig);
 			}
 			else
 			{

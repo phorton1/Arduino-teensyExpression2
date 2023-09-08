@@ -35,6 +35,9 @@
 	// -1 = show functions called during update cycle
 #define dbg_display  0
 	// 0 = show rigDisplay() details
+#define dbg_meter	0
+	// 0 = show calls (only when it changes)
+	//-1 = show details (only shen it changes)
 #define dbg_param	1
 	// 0  = just show final param value
 	// -1 = show param details and expression header
@@ -112,12 +115,15 @@ const uint32_t LED_COLORS[] = {
 void rigMachine::showRigName()
 {
 	const char *use_name = m_stack[m_stack_ptr-1].name;
+
 	warning(0,"showName(%s)",use_name);
 	if (!strcmp(use_name,DEFAULT_RIG_TOKEN))
 		use_name = DEFAULT_RIG_NAME;
 	else if (!strcmp(use_name,DEFAULT_MODAL_TOKEN))
 		use_name = DEFAULT_MODAL_NAME;
-	the_system.setTitle(use_name,true);
+
+	strcpy(m_rig_title,use_name);
+	the_system.setTitle(m_rig_title,true);
 }
 
 
@@ -393,7 +399,7 @@ void rigMachine::rigDrawMeter(int area_num, uint16_t color_idx, int value, int l
 		return;
 
 	proc_entry();
-	display(dbg_display,"rigDrawMeter(%d,%d=%s,%d) area(%d,%d,%d,%d) last=%d",
+	display(dbg_meter,"rigDrawMeter(%d,%d=%s,%d) area(%d,%d,%d,%d) last=%d",
 		area_num,
 		color_idx,
 		rigTokenToText(color_idx + RIG_TOKEN_DISPLAY_BLACK),
@@ -429,7 +435,7 @@ void rigMachine::rigDrawMeter(int area_num, uint16_t color_idx, int value, int l
 
 	uint32_t from = last_value;
 	uint32_t to = value;
-	display(0,"    initial from(%d) to(%d)",from,to);
+	display(dbg_meter+1,"    initial from(%d) to(%d)",from,to);
 
 	if (from != to)		// value changed
 	{
@@ -450,7 +456,7 @@ void rigMachine::rigDrawMeter(int area_num, uint16_t color_idx, int value, int l
 
 		from = (from * extent) / 127;
 		to =  (to * extent) / 127;
-		display(0,"    pixels from(%d) to(%d) extent(%d)",from,to,extent);
+		display(dbg_meter+1,"    pixels from(%d) to(%d) extent(%d)",from,to,extent);
 
 		// switch from-to as needed
 
@@ -459,7 +465,7 @@ void rigMachine::rigDrawMeter(int area_num, uint16_t color_idx, int value, int l
 			uint32_t temp = from;
 			from = to;
 			to = temp;
-			display(0,"    switch from(%d) to(%d)",from,to);
+			display(dbg_meter+1,"    switch from(%d) to(%d)",from,to);
 		}
 
 		// draw horizontal or vertical
@@ -469,22 +475,25 @@ void rigMachine::rigDrawMeter(int area_num, uint16_t color_idx, int value, int l
 
 		if (area->type == AREA_TYPE_HMETER)
 		{
+			display(dbg_meter+1,"    fillRect(%d,%d,%d,%d)",
+				client_rect.xs + area->xs + 1 + from,
+				client_rect.ys + area->ys + 1,
+				to - from + 1,
+				area->ye - area->ys - 1);
 			mylcd.fillRect(
 				client_rect.xs + area->xs + 1 + from,
 				client_rect.ys + area->ys + 1,
 				to - from + 1,						// width
-				area->ye - area->ys - 1,		// height
+				area->ye - area->ys - 1,			// height
 				color);
 		}
 		else
 		{
-			display(0,"    fillRect(%d,%d,%d,%d)",
+			display(dbg_meter+1,"    fillRect(%d,%d,%d,%d)",
 				client_rect.xs + area->xs + 1,
 				client_rect.ys + area->ye - to - 1,
 				area->xe - area->xs - 1,
 				to - from + 1);
-
-
 			mylcd.fillRect(
 				client_rect.xs + area->xs + 1,
 				client_rect.ys + area->ye - to - 1,	// to is on top
@@ -1047,6 +1056,21 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 					m_params[4].value);			// cc
 				break;
 
+			case RIG_TOKEN_SETTITLE:
+			{
+				const char *new_title = m_params[0].text;
+				display(dbg_calls+in_update_cycle,"setTitle(%s)",new_title);
+				if (strcmp(m_rig_title,new_title))
+				{
+					int len = strlen(new_title);
+					if (len > MAX_RIG_TITLE)
+						len = MAX_RIG_TITLE;
+					memcpy(m_rig_title,new_title,len);
+					m_rig_title[len] = 0;
+					the_system.setTitle(m_rig_title,true);
+				}
+				break;
+			}
 			case RIG_TOKEN_DISPLAY:
 			{
 				int area_num = m_params[0].value;

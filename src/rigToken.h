@@ -7,10 +7,16 @@
 
 #define MAX_RIG_TOKEN 	79
 
+#define PARSE_SECTION_NONE      0
+#define PARSE_SECTION_INIT		1
+#define PARSE_SECTION_UPDATE	2
+#define PARSE_SECTION_BUTTONS	3
+#define PARSE_SECTION_END		4
+
+
 typedef struct
 {
 	int 	 id;
-	uint32_t offset;
 	int 	 line_num;
 	int 	 char_num;
 	int 	 int_value;
@@ -22,35 +28,15 @@ extern bool openRigFile(const char *name);
 extern void closeRigFile();
 extern int getRigToken();
 
-//  extern void rewindRigFile(uint32_t offset, int line_num, int char_num);
-
-
-extern const char *rigTokenToString(int token_id);				// for debugging and UC comparison
-extern const char *rigTokenToText(int token_id);				// for text output
-
-
-#define PARSE_SECTION_NONE      0
-#define PARSE_SECTION_INIT		1
-#define PARSE_SECTION_UPDATE	2
-#define PARSE_SECTION_BUTTONS	3
-#define PARSE_SECTION_END		4
-
-extern int parse_section;
-
-extern token_t rig_token;		// the current token now includes the file offset
-
-
-//---------------------------------------------------------------
-// Rig Error Reporting differs depending upon when it is found
-//---------------------------------------------------------------
-// They are normally reported through a dialog while parsing
-// and executing statements, but are not reported while
-// evaluating button sections.
-
-
+extern const char *rigTokenToString(int token_id);		// for debugging and UC comparison
+extern const char *rigTokenToText(int token_id);		// for text output
 
 extern void parse_error(const char *format, ...);		// parse error reporting with token line_num and char_num
 extern bool parse_error_found;							// true if any parsing errors occured; cleared in parseRig::init_parse()
+
+extern token_t rig_token;		// the current token now includes the file offset
+extern int parse_section;		// section of the parse we are currently in determined by getRigToken()
+
 
 
 
@@ -141,100 +127,101 @@ extern bool parse_error_found;							// true if any parsing errors occured; clea
 #define RIG_TOKEN_PEDAL					16	// "PEDAL"
 #define RIG_TOKEN_ROTARY				17	// "ROTARY"
 #define RIG_TOKEN_SETVALUE				18	// "setValue"
-#define RIG_TOKEN_DISPLAY 				19	// "display"
-#define RIG_TOKEN_DISPLAY_NUMBER 		20	// "displayNumber"
-#define RIG_TOKEN_SET_METER				21	// "setMeter'
-#define RIG_TOKEN_SEND_CC 				22	// "sendCC"
-#define RIG_TOKEN_SEND_PGM_CHG			23	// "sendPgmChg"
-#define RIG_TOKEN_NOTE_ON				24	// "noteOn"
-#define RIG_TOKEN_NOTE_OFF				25	// "noteOff"
-#define RIG_TOKEN_ALL_NOTES_OFF			26	// "allNotesOff"	// end init statement range
-#define RIG_TOKEN_SET_BUTTON_COLOR		27	// "setButtonColor"
-#define RIG_TOKEN_SET_BUTTON_BLINK		28	// "setButtonBlink"
-#define RIG_TOKEN_LOAD_RIG				29	// "loadRig"
-#define RIG_TOKEN_END_MODAL				30	// "endModal"
-#define RIG_TOKEN_FTP_TUNER				31	// "ftpTuner"
-#define RIG_TOKEN_FTP_SENSITIVITY		32	// "ftpSensitivity"	// end statement range
+#define RIG_TOKEN_SETTITLE				19	// "setTitle"
+#define RIG_TOKEN_DISPLAY 				20	// "display"
+#define RIG_TOKEN_DISPLAY_NUMBER 		21	// "displayNumber"
+#define RIG_TOKEN_SET_METER				22	// "setMeter'
+#define RIG_TOKEN_SEND_CC 				23	// "sendCC"
+#define RIG_TOKEN_SEND_PGM_CHG			24	// "sendPgmChg"
+#define RIG_TOKEN_NOTE_ON				25	// "noteOn"
+#define RIG_TOKEN_NOTE_OFF				26	// "noteOff"
+#define RIG_TOKEN_ALL_NOTES_OFF			27	// "allNotesOff"	// end init statement range
+#define RIG_TOKEN_SET_BUTTON_COLOR		28	// "setButtonColor"
+#define RIG_TOKEN_SET_BUTTON_BLINK		29	// "setButtonBlink"
+#define RIG_TOKEN_LOAD_RIG				30	// "loadRig"
+#define RIG_TOKEN_END_MODAL				31	// "endModal"
+#define RIG_TOKEN_FTP_TUNER				32	// "ftpTuner"
+#define RIG_TOKEN_FTP_SENSITIVITY		33	// "ftpSensitivity"	// end statement range
 
 // LED COLORS
 
-#define RIG_TOKEN_LED_BLACK  			33	// start led_color range
-#define RIG_TOKEN_LED_RED    			34
-#define RIG_TOKEN_LED_GREEN  			35
-#define RIG_TOKEN_LED_BLUE   			36
-#define RIG_TOKEN_LED_YELLOW 			37
-#define RIG_TOKEN_LED_PURPLE 			38
-#define RIG_TOKEN_LED_ORANGE 			39
-#define RIG_TOKEN_LED_WHITE  			40
-#define RIG_TOKEN_LED_CYAN   			41	// end led_color range
+#define RIG_TOKEN_LED_BLACK  			34	// start led_color range
+#define RIG_TOKEN_LED_RED    			35
+#define RIG_TOKEN_LED_GREEN  			36
+#define RIG_TOKEN_LED_BLUE   			37
+#define RIG_TOKEN_LED_YELLOW 			38
+#define RIG_TOKEN_LED_PURPLE 			39
+#define RIG_TOKEN_LED_ORANGE 			40
+#define RIG_TOKEN_LED_WHITE  			41
+#define RIG_TOKEN_LED_CYAN   			42	// end led_color range
 
 // DISPLAY COLORS
 
-#define RIG_TOKEN_DISPLAY_BLACK     	42	// start display_color range
-#define RIG_TOKEN_DISPLAY_BLUE      	43
-#define RIG_TOKEN_DISPLAY_RED       	44
-#define RIG_TOKEN_DISPLAY_GREEN     	45
-#define RIG_TOKEN_DISPLAY_CYAN      	46
-#define RIG_TOKEN_DISPLAY_MAGENTA   	47
-#define RIG_TOKEN_DISPLAY_YELLOW    	48
-#define RIG_TOKEN_DISPLAY_WHITE     	49
-#define RIG_TOKEN_DISPLAY_NAVY      	50
-#define RIG_TOKEN_DISPLAY_DARKGREEN 	51
-#define RIG_TOKEN_DISPLAY_DARKCYAN  	52
-#define RIG_TOKEN_DISPLAY_MAROON    	53
-#define RIG_TOKEN_DISPLAY_PURPLE    	54
-#define RIG_TOKEN_DISPLAY_OLIVE     	55
-#define RIG_TOKEN_DISPLAY_LIGHTGREY 	56
-#define RIG_TOKEN_DISPLAY_DARKGREY  	57
-#define RIG_TOKEN_DISPLAY_ORANGE    	58
-#define RIG_TOKEN_DISPLAY_GREENYELLOW 	59
-#define RIG_TOKEN_DISPLAY_PINK			60	// end display_color range
+#define RIG_TOKEN_DISPLAY_BLACK     	43	// start display_color range
+#define RIG_TOKEN_DISPLAY_BLUE      	44
+#define RIG_TOKEN_DISPLAY_RED       	45
+#define RIG_TOKEN_DISPLAY_GREEN     	46
+#define RIG_TOKEN_DISPLAY_CYAN      	47
+#define RIG_TOKEN_DISPLAY_MAGENTA   	48
+#define RIG_TOKEN_DISPLAY_YELLOW    	49
+#define RIG_TOKEN_DISPLAY_WHITE     	50
+#define RIG_TOKEN_DISPLAY_NAVY      	51
+#define RIG_TOKEN_DISPLAY_DARKGREEN 	52
+#define RIG_TOKEN_DISPLAY_DARKCYAN  	53
+#define RIG_TOKEN_DISPLAY_MAROON    	54
+#define RIG_TOKEN_DISPLAY_PURPLE    	55
+#define RIG_TOKEN_DISPLAY_OLIVE     	56
+#define RIG_TOKEN_DISPLAY_LIGHTGREY 	57
+#define RIG_TOKEN_DISPLAY_DARKGREY  	58
+#define RIG_TOKEN_DISPLAY_ORANGE    	59
+#define RIG_TOKEN_DISPLAY_GREENYELLOW 	60
+#define RIG_TOKEN_DISPLAY_PINK			61	// end display_color range
 
 // midi ports
 
-#define RIG_TOKEN_USB1					61	// in code gen order
-#define RIG_TOKEN_USB2					62
-#define RIG_TOKEN_USB3					63
-#define RIG_TOKEN_USB4					64
-#define RIG_TOKEN_HOST1					65
-#define RIG_TOKEN_HOST2					66
-#define RIG_TOKEN_SERIAL				67
+#define RIG_TOKEN_USB1					62	// in code gen order
+#define RIG_TOKEN_USB2					63
+#define RIG_TOKEN_USB3					64
+#define RIG_TOKEN_USB4					65
+#define RIG_TOKEN_HOST1					66
+#define RIG_TOKEN_HOST2					67
+#define RIG_TOKEN_SERIAL				68
 
 // font decoration
 
-#define RIG_TOKEN_NORMAL         		68	// in code gen order
-#define RIG_TOKEN_BOLD         			69
+#define RIG_TOKEN_NORMAL         		69	// in code gen order
+#define RIG_TOKEN_BOLD         			70
 
 // font justification
 
-#define RIG_TOKEN_LEFT					70	// in code gen order
-#define RIG_TOKEN_CENTER				71
-#define RIG_TOKEN_RIGHT					72
+#define RIG_TOKEN_LEFT					71	// in code gen order
+#define RIG_TOKEN_CENTER				72
+#define RIG_TOKEN_RIGHT					73
 
 // Expression Tokens
 
-#define RIG_TOKEN_STRING				73	// "STRING"
-#define RIG_TOKEN_VALUE					74	// "VALUE"
+#define RIG_TOKEN_STRING				74	// "STRING"
+#define RIG_TOKEN_VALUE					75	// "VALUE"
 
 // The special button tokens
 
-#define RIG_TOKEN_INHERIT				75	// "INHERIT"
-#define RIG_TOKEN_BUTTON_NUM			76	// "_BUTTON_NUM"
-#define RIG_TOKEN_BUTTON_ROW			77  // "_BUTTON_ROW"
-#define RIG_TOKEN_BUTTON_COL			78	// "_BUTTON_COL"
+#define RIG_TOKEN_INHERIT				76	// "INHERIT"
+#define RIG_TOKEN_BUTTON_NUM			77	// "_BUTTON_NUM"
+#define RIG_TOKEN_BUTTON_ROW			78  // "_BUTTON_ROW"
+#define RIG_TOKEN_BUTTON_COL			79	// "_BUTTON_COL"
 
 // Meter Types
 
-#define RIG_TOKEN_HORZ					79	// "HORZ"
-#define RIG_TOKEN_VERT					80	// "VERT"
+#define RIG_TOKEN_HORZ					80	// "HORZ"
+#define RIG_TOKEN_VERT					81	// "VERT"
 
 // LISTEN direction types
 
-#define RIG_TOKEN_INPUT					81	// INPUT
-#define RIG_TOKEN_OUTPUT				82	// OUTPUT
-#define RIG_TOKEN_BOTH					83	// BOTH
+#define RIG_TOKEN_INPUT					82	// INPUT
+#define RIG_TOKEN_OUTPUT				83	// OUTPUT
+#define RIG_TOKEN_BOTH					84	// BOTH
 
-#define LAST_RIG_IDENTIFIER				83	// end of identifier range
+#define LAST_RIG_IDENTIFIER				84	// end of identifier range
 
 // Literal Types
 
