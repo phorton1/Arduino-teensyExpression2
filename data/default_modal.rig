@@ -121,6 +121,7 @@ onUpdate:
 	displayNumber(number_base + 3, 	VALUE[3 + VALUE[_update_mute ]] ? DARKGREY : YELLOW, VALUE[3 + VALUE[_update_vol ]]);
 		# numbers and meters are smart enough to only re-display when changed
 
+
 #-----------------------------------------------
 # THE_SYSTEM_BUTTON && EXIT_MODE mode button
 #-----------------------------------------------
@@ -133,7 +134,6 @@ onUpdate:
 BUTTON(14) :
 	setButtonColor(_BUTTON_NUM,LED_ORANGE);
 	click: endModal();
-
 
 
 #-----------------------------------

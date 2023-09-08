@@ -1,7 +1,8 @@
 #--------------------------------------------
 # default.rig
 #--------------------------------------------
-# Does NOT currently use buttons 9 or 14
+# Does NOT currently use button 9
+#    which is reserved for future songMachine
 # This BaseRig reserves variable slots 0..69
 
 BaseRig		 # required initial rig type
