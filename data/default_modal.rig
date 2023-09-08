@@ -44,21 +44,22 @@ define(1, CLIPS_PER_TRACK, 4);
 define(5, TRACK_STATE_RECORDING, 1);
 define(6, TRACK_STATE_PLAYING,   2);
 
-define(10, LOOP_COMMAND_ERASE_TRACK_BASE, 32);
-define(11, LOOP_COMMAND_GET_STATE, 	48);
+define(10, LOOP_COMMAND_CC,				  1 );
+define(11, LOOP_COMMAND_ERASE_TRACK_BASE, 32 );
 
 define(15,	LOOP_COMMAND_CC,	1 );
 define(16,	CLIP_VOL_BASE_CC,	32 );
 define(17,	CLIP_MUTE_BASE_CC,	64 );
 
 # these must agree with base rig
+# note that we removed the underscore from _selected_track
+# 		because it is read-only in this rig
+# these are only changes from default_modal.rig
 
-define(20, track_state_base,	10);				# TRACK1..4 STATE
-define(21, clip_vol_base,		20);                # 16 CLIP VOLUMES
-define(22, clip_mute_base,		40);                # 16 CLIP MUTES
-define(23, selected_track,		60);                # The most recently selected track
-	# note that we removed the underscore from _selected_track
-	# because it is read-only in this rig
+define(20, selected_track,		12);                # The most recently selected track
+define(21, track_state_base,	20);				# TRACK1..4 STATE
+define(22, clip_vol_base,		30);                # 16 CLIP VOLUMES
+define(23, clip_mute_base,		50);                # 16 CLIP MUTES
 
 #----------------------------------------
 # Implementation
@@ -123,18 +124,11 @@ onUpdate:
 #-----------------------------------------------
 # THE_SYSTEM_BUTTON && EXIT_MODE mode button
 #-----------------------------------------------
-# THE_SYSTEM_BUTTON is implemented to do nothing
-# 		in onclick, just so i can make it purple,
-#  		and allow theSystem to go to configWin from there
 # For the EXIT_MODE(14) button
 # 		it is important to use click to end modals,
 # 		because press will leave the button active,
 # 		and the release will be interpreted as a click
 # 		by the underlying window.
-
-BUTTON(4) :
-	setButtonColor(_BUTTON_NUM,LED_PURPLE);
-	click: setValue(_dummy,0);
 
 BUTTON(14) :
 	setButtonColor(_BUTTON_NUM,LED_ORANGE);
@@ -157,7 +151,7 @@ BUTTON(0,1,2,3):	# erase track buttons
 		!(VALUE[track_state_base + _BUTTON_NUM] & TRACK_STATE_RECORDING) ? LED_RED :
 		LED_PURPLE);
 	press:
-		sendCC(SERIAL, 1, LOOP_COMMAND_ERASE_TRACK_BASE + _BUTTON_NUM, 1);
+		sendCC(SERIAL, 1, LOOP_COMMAND_CC, LOOP_COMMAND_ERASE_TRACK_BASE + _BUTTON_NUM);
 
 #-----------------------------
 # Volume Up and Down buttons

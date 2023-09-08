@@ -88,23 +88,24 @@ static int atom(rig_t *rig)
 		rig_token.id == RIG_TOKEN_BUTTON_ROW ||
 		rig_token.id == RIG_TOKEN_BUTTON_COL )
 	{
-		extern int parse_button_num;
-		display(dbg_exp+1,"%s  parse_button_num=%d",rigTokenToString(rig_token.id),parse_button_num);
-		if (parse_button_num < 0)
+		extern int is_parse_button;
+		display(dbg_exp+1,"%s  is_parse_button=%d",rigTokenToString(rig_token.id),is_parse_button);
+		if (!is_parse_button)
 		{
 			parse_error("%s may only used within button statements",rigTokenToString(rig_token.id));
 		}
 		else
 		{
 			type = EXP_TYPE_NUMBER;
-			uint8_t val =
-				rig_token.id == RIG_TOKEN_BUTTON_ROW ? parse_button_num / NUM_BUTTON_COLS :
-				rig_token.id == RIG_TOKEN_BUTTON_ROW ? parse_button_num % NUM_BUTTON_COLS :
-				parse_button_num;
-			ok = addExpByte(rig,EXP_INLINE | EXP_NUMBER);
-			ok = ok && addExpByte(rig,val);
+			uint8_t byte1 =
+				rig_token.id == RIG_TOKEN_BUTTON_ROW ? EXP_BUTTON_ROW :
+				rig_token.id == RIG_TOKEN_BUTTON_COL ? EXP_BUTTON_COL :
+				EXP_BUTTON_NUM;
+			uint8_t byte0 = EXP_INLINE | EXP_INLINE_BUTTON | EXP_NUMBER;
+			ok = addExpByte(rig,byte0);
+			ok = ok && addExpByte(rig,byte1);
 			ok = ok && getRigToken();
-			dbg_ret = ((EXP_INLINE | EXP_NUMBER) << 8) | parse_button_num;
+			dbg_ret = (byte0 << 8) | byte1;
 		}
 	}
 	else if (IS_LED_COLOR(rig_token.id))
@@ -219,7 +220,15 @@ static int atom(rig_t *rig)
 
 				uint8_t byte0 = rig->expression_pool[where];
 				uint8_t byte1 = rig->expression_pool[where + 1];
-				uint8_t inline_op = byte0 & ~EXP_INLINE;
+				uint8_t inline_bits = byte0 & (EXP_INLINE | EXP_INLINE_BUTTON);
+				uint8_t inline_op = byte0 & ~(EXP_INLINE | EXP_INLINE_BUTTON);
+
+				// note that INLINE_BUTTON is retained when promoting, so,
+				// for exmple, it is possible to have VALUE[_BUTTON_NUM] be
+				// represented by a single inline expression, i.e.
+				//
+				//    byte0 = EXP_INLINE | EXP_INLINE_BUTTON | EXP_VALUE
+				//    byte1 = EXP_BUTTON_NUM, ROW, or COL
 
 				if (rig->expression_pool_len - where == 2)
 				{
@@ -243,10 +252,11 @@ static int atom(rig_t *rig)
 
 					// note that the EXP_NUMBER gets lost here,
 					// because the result is EXP_VALUE or EXP_STRING.
+					// but that EXP_INLINE_BUTTON, if present, is retained
 
 					if (ok)
 					{
-						byte0 = opcode | EXP_INLINE;
+						byte0 = opcode | inline_bits;
 						uint8_t *pool = (uint8_t *) rig->expression_pool;
 						pool[where-1] = byte0;
 						pool[where]   = byte1;

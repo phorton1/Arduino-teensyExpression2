@@ -50,15 +50,15 @@ bool parse_error_found;
 
 
 
-void rewindRigFile(uint32_t offset, int line_num, int char_num)
-{
-	display(dbg_rewind,"rewindRigFile(%d,%d,%d)",offset,line_num,char_num);
-	parse_ptr = offset;
-	parse_line_num = line_num;
-	parse_char_num = char_num;
-	rig_file.seek(parse_ptr);
-}
-
+// void rewindRigFile(uint32_t offset, int line_num, int char_num)
+// {
+// 	display(dbg_rewind,"rewindRigFile(%d,%d,%d)",offset,line_num,char_num);
+// 	parse_ptr = offset;
+// 	parse_line_num = line_num;
+// 	parse_char_num = char_num;
+// 	rig_file.seek(parse_ptr);
+// }
+//
 
 
 //------------------------------

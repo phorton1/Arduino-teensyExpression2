@@ -44,6 +44,7 @@
 // order bye contains the info
 
 #define EXP_INLINE			0x80
+#define EXP_INLINE_BUTTON   0x40
 
 // opcodes
 
@@ -78,6 +79,15 @@
 #define EXP_BITWISE_AND		0x1E
 #define EXP_LOGICAL_OR		0x1F
 #define EXP_LOGICAL_AND		0x20
+
+
+#define EXP_BUTTON_NUM		0x30
+#define EXP_BUTTON_ROW		0x31
+#define EXP_BUTTON_COL		0x32
+	// thesr values are conveniently both above
+	// the number of buttons and below the maximum
+	// for value or string indexes
+
 
 #define EXP_END				0xFF
 

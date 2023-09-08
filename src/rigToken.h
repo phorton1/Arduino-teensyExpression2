@@ -21,7 +21,8 @@ typedef struct
 extern bool openRigFile(const char *name);
 extern void closeRigFile();
 extern int getRigToken();
-extern void rewindRigFile(uint32_t offset, int line_num, int char_num);
+
+//  extern void rewindRigFile(uint32_t offset, int line_num, int char_num);
 
 
 extern const char *rigTokenToString(int token_id);				// for debugging and UC comparison

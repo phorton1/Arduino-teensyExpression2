@@ -35,7 +35,7 @@ const rig_t *base_rig = (const rig_t *) parse_pool;
 
 static bool any_end_modal;
 
-int parse_button_num = -1;
+bool is_parse_button;
 	// available to rigExpression.cpp
 
 
@@ -623,14 +623,14 @@ static bool handleArg(int tt, int arg_type)
 			case PARAM_BUTTON_NUM :	// prh - to become an expression
 				if (rig_token.id == RIG_TOKEN_BUTTON_NUM)
 				{
-					if (parse_button_num == -1)
+					if (!is_parse_button)
 					{
 						parse_error("_BUTTON_NUM may only be used in button sections",0);
 						ok = false;
 					}
 					else
 					{
-						value = parse_button_num;
+						value = EXP_BUTTON_NUM;
 						ok = getRigToken();
 					}
 				}
@@ -980,40 +980,32 @@ static bool handleStatementList()
 
 
 
-static bool handleSubsections(int button_num)
+static bool handleSubsections(uint16_t *type, uint16_t *refs)
 {
-	display(dbg_parse + 2,"handleSubsections(%d) %s",button_num,rigTokenToText(rig_token.id));
+	display(dbg_parse + 2,"handleSubsections(%s)",rigTokenToText(rig_token.id));
 
 	bool ok = 1;
 	while (ok && (IS_SUBSECTION(rig_token.id) || IS_STATEMENT(rig_token.id)))
 	{
 		int ref_num = 0;
-		uint16_t type = 0;
-
+		uint16_t new_type = 0;
 		if (IS_SUBSECTION(rig_token.id))
 		{
-			display(dbg_parse + 1,"parsing subsections(%d,%s)",button_num,rigTokenToText(rig_token.id));
-			type =
+			display(dbg_parse + 1,"parsing subsections(%s)",rigTokenToText(rig_token.id));
+			new_type =
 				rig_token.id == RIG_TOKEN_RELEASE ? BUTTON_TYPE_RELEASE :
 				rig_token.id == RIG_TOKEN_REPEAT ? BUTTON_TYPE_REPEAT :
 				rig_token.id == RIG_TOKEN_PRESS ? BUTTON_TYPE_PRESS :
 				rig_token.id == RIG_TOKEN_LONG ? BUTTON_TYPE_LONG :
 				BUTTON_TYPE_CLICK;
 
-			uint16_t existing_type = parse_rig->button_type[button_num] & ~BUTTON_TYPE_UPDATE;
-			bool type_is_clicky = (type == BUTTON_TYPE_CLICK || type == BUTTON_TYPE_LONG);
+			uint16_t existing_type = *type & ~BUTTON_TYPE_UPDATE;
+			bool type_is_clicky = (new_type == BUTTON_TYPE_CLICK || new_type == BUTTON_TYPE_LONG);
 			bool existing_is_clicky = (existing_type == BUTTON_TYPE_CLICK || existing_type == BUTTON_TYPE_LONG);
-			bool type_is_release = (type == BUTTON_TYPE_RELEASE);
+			bool type_is_release = (new_type == BUTTON_TYPE_RELEASE);
 			bool existing_is_release = (existing_type == BUTTON_TYPE_RELEASE);
 
-			if ((parse_rig->rig_type & RIG_TYPE_MODAL) &&
-				button_num == THE_SYSTEM_BUTTON &&
-				type != BUTTON_TYPE_CLICK)
-			{
-				parse_error("Only CLICK can be specified for THE_SYSTEM_BUTTON(4) in BaseRigs",0);
-				ok = 0;
-			}
-			else if (existing_type && type_is_clicky != existing_is_clicky)
+			if (existing_type && type_is_clicky != existing_is_clicky)
 			{
 				parse_error("CLICK can only be used with LONG");
 				ok = 0;
@@ -1025,7 +1017,7 @@ static bool handleSubsections(int button_num)
 				ok = 0;
 			}
 
-			ref_num = type & BUTTON_TYPE_MASK_REF1 ? 1 : 2;
+			ref_num = new_type & BUTTON_TYPE_MASK_REF1 ? 1 : 2;
 
 			if (ok)
 				ok = getRigToken();			// skip the section identifier
@@ -1035,47 +1027,53 @@ static bool handleSubsections(int button_num)
 		}
 		else if (IS_STATEMENT(rig_token.id))
 		{
-			display(dbg_parse + 1,"parsing update list(%d,%s)",button_num,rigTokenToText(rig_token.id));
-			type = BUTTON_TYPE_UPDATE;
-			if (parse_rig->button_type[button_num] & BUTTON_TYPE_UPDATE)
+			display(dbg_parse + 1,"parsing update list(%s)",rigTokenToText(rig_token.id));
+			if (*type & BUTTON_TYPE_UPDATE)
 			{
 				parse_error("There is already an update section defined for this button");
 				ok = 0;
 			}
+			new_type = BUTTON_TYPE_UPDATE;
 		}
 
 		if (ok)
 		{
-			parse_button_num = button_num;
-			parse_rig->button_type[button_num] |= type;
-			parse_rig->button_refs[button_num][ref_num] = parse_rig->num_statements + 1;
+			is_parse_button = 1;
+			*type |= new_type;
+			refs[ref_num] = parse_rig->num_statements + 1;
 				// statement refs are 1 based
 			ok = handleStatementList();
-			parse_button_num = -1;
+			is_parse_button = 0;
 		}
 	}
 
 	if (ok)
-		display(dbg_parse + 2,"handleSubsections(%d) finished",button_num);
+		display(dbg_parse + 2,"handleSubsections() finished on %s",rigTokenToText(rig_token.id));
 	return ok;
 }
 
 
 
 static bool handleButton()
+	// button update sections and buttons are parsed once
+	// and then applied to all buttons in the list
 {
 	display(dbg_parse + 1,"handleButton()",0);
 	proc_entry();
 
-	int button_idx = 0;
-	uint32_t button_mask = 0;
+	//-----------------------------------
+	// Parse the BUTTON(...) part
+	//-----------------------------------
+	// to get a mask of buttons
 
+	bool started = 0;
+	uint32_t button_mask = 0;
 	bool ok = getRigToken();
 	ok = ok && skip(RIG_TOKEN_LEFT_PAREN);
 
 	while (ok && rig_token.id == RIG_TOKEN_NUMBER)
 	{
-		if (!button_idx && rig_token.id != RIG_TOKEN_NUMBER)
+		if (!started && rig_token.id != RIG_TOKEN_NUMBER)
 		{
 			parse_error("at least one BUTTON number expected");
 			ok = 0;
@@ -1091,7 +1089,7 @@ static bool handleButton()
 			else
 			{
 				display(dbg_parse + 2,"BUTTON_NUM = %d",button_num);
-				button_idx++;
+				started = 1;
 				uint32_t mask = 1 << button_num;
 				display(dbg_parse + 2,"added button_num(0x%02x) to mask(0x%02x)",button_num,mask);
 				// PRH still need to check that this button was not previously defined
@@ -1126,70 +1124,70 @@ static bool handleButton()
 	ok = ok && skip(RIG_TOKEN_RIGHT_PAREN);
 	ok = ok && skip(RIG_TOKEN_COLON);
 
-	bool is_inherit = 0;
+	//-----------------------------------
+	// Now parse the sections
+	//------------------------------------
+	// to get the type and three refs
 
+	uint16_t type = 0;
+	uint16_t refs[3] = {0,0,0};
 	if (ok)
 	{
-		uint32_t parse_offset = rig_token.offset;
-		int		 parse_line_num = rig_token.line_num;
-		int		 parse_char_num = rig_token.char_num;
-
-		for (int idx=0; idx<button_idx && ok; idx++)
+		if (rig_token.id == RIG_TOKEN_INHERIT)
 		{
-			if (idx && !is_inherit)
+			if (!(parse_rig->rig_type & RIG_TYPE_MODAL))
 			{
-				rewindRigFile(parse_offset,parse_line_num,parse_char_num);
-				if (!getRigToken())
-					break;
-			}
-
-			int num = 0;
-			int button_num = -1;
-			int skip_mask = idx;
-			uint32_t mask = button_mask;
-			while (mask && parse_button_num == -1)
-			{
-				if (mask & 1)
-				{
-					if (!skip_mask--)	// this is the one we're looking for
-					{
-						button_num = num;
-						break;
-					}
-				}
-				num++;
-				mask >>= 1;
-			}
-
-			display(dbg_parse + 1,"PARSING BUTTON(%d) at offset(%d) line(%d) char(%d)",
-				button_num,parse_offset,parse_line_num,parse_char_num);
-
-			is_inherit = rig_token.id == RIG_TOKEN_INHERIT;
-			if (is_inherit)
-			{
-				if (!(parse_rig->rig_type & RIG_TYPE_MODAL))
-				{
-					parse_error("INHERIT may only be used in ModalRigs");
-					ok = 0;
-				}
-				else
-				{
-					display(dbg_parse + 1,"    INHERIT(%d)",button_num);
-					parse_rig->button_type[button_num] = BUTTON_TYPE_INHERIT;
-				}
+				parse_error("INHERIT may only be used in ModalRigs");
+				ok = 0;
 			}
 			else
 			{
-				ok = handleSubsections(button_num);
+				display(dbg_parse + 1,"    INHERIT",0);
+				ok = getRigToken();							// skip the INHERIT
+				ok = ok && skip(RIG_TOKEN_SEMICOLON, true);	// may end on this
+				type = BUTTON_TYPE_INHERIT;
 			}
+		}
+		else
+		{
+			ok = handleSubsections(&type,refs);
 		}
 	}
 
-	if (ok && is_inherit)
+	// check special case that THE_SYSTEM_BUTTON may
+	// only specify BUTTON_TYPE_CLICK or INHERIT
+
+	if (ok &&
+		(button_mask & (1 << THE_SYSTEM_BUTTON)) &&
+		((type & ~(BUTTON_TYPE_INHERIT | BUTTON_TYPE_UPDATE)) != BUTTON_TYPE_CLICK))
 	{
-		ok = getRigToken();							// skip the INHERIT
-		ok = ok && skip(RIG_TOKEN_SEMICOLON, true);	// may end on this
+		parse_error("Only CLICK (not 0x%04x) can be specified for THE_SYSTEM_BUTTON(4) in BaseRigs",type);
+		ok = 0;
 	}
+
+	//----------------------------
+	// apply the type and refs
+	//----------------------------
+	// to all the buttons in the mask
+
+
+	if (ok)
+	{
+		int button_num = 0;
+		while (button_mask)
+		{
+			if (button_mask & 1)
+			{
+				display(dbg_parse + 1,"SETTING BUTTON(%d) type(0x%04x) refs: 0x%04x, 0x%04x, 0x%04x",
+					button_num,type,refs[0],refs[1],refs[2]);
+				parse_rig->button_type[button_num] = type;
+				memcpy(parse_rig->button_refs[button_num],refs,3 * sizeof(uint16_t));
+			}
+			button_num++;
+			button_mask >>= 1;
+		}
+	}
+
 
 	proc_leave();
 	if (ok)

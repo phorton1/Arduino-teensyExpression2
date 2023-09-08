@@ -501,6 +501,20 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 	{
 		uint8_t value = code[(*offset)++];
 
+		if (byte & EXP_INLINE_BUTTON)
+		{
+			extern int rig_button_num;
+			uint16_t new_value = rig_button_num;
+			if (value == EXP_BUTTON_ROW)
+				new_value = rig_button_num / NUM_BUTTON_COLS;
+			else if (value == EXP_BUTTON_COL)
+				new_value = rig_button_num % NUM_BUTTON_COLS;
+			else
+				new_value = rig_button_num;
+			display(dbg_eval+2,"INLINE_BUTTON_EXPs(0x%02x) rig_button_num=%d  new_value=%d",value,rig_button_num,new_value);
+			value = new_value;
+		}
+
 		if (inline_op == EXP_LED_COLOR)
 		{
 			display(dbg_eval + 2,"INLINE LED_COLOR(%d) = %s",value,rigTokenToText(RIG_TOKEN_LED_BLACK + value));

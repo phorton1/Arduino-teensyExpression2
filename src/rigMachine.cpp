@@ -58,9 +58,12 @@
 
 rigMachine rig_machine;
 
-int in_update_cycle = 0;
+static int in_update_cycle = 0;
 
-const char *NULL_STRING = "";
+static const char *NULL_STRING = "";
+
+int rig_button_num = -1;
+	// available to rigEval.cpp
 
 
 //------------------------------------------------------
@@ -341,7 +344,8 @@ bool rigMachine::startRig(const rig_t *rig, bool cold)
 			if (type & BUTTON_TYPE_RELEASE)	mask |= BUTTON_EVENT_RELEASE;
 
 			display(dbg_rig+1,"setButton(%d,0x%04x) type(0x%04x)",button_num,mask,type);
-			the_buttons.setButtonType(button_num,mask);
+			the_buttons.setButtonType(button_num,mask,
+				button_num == THE_SYSTEM_BUTTON ? LED_PURPLE : LED_BLACK);
 		}
 	}
 
@@ -647,8 +651,26 @@ bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const 
 {
 	if (offset & (EXP_INLINE << 8))
 	{
-		uint8_t opcode = (offset >> 8) & ~EXP_INLINE;
+		uint8_t byte0 = (offset >> 8);
+		uint8_t opcode = byte0 & ~(EXP_INLINE | EXP_INLINE_BUTTON);
 		uint8_t value = offset & 0xff;
+
+		// turn embedded EXP_INLINE_BUTTONS into their
+		// proper rig_button_number equivilant before
+		// falling through to the other things.
+
+		if (byte0 & EXP_INLINE_BUTTON)
+		{
+			uint16_t new_value = rig_button_num;
+			if (value == EXP_BUTTON_ROW)
+				new_value = rig_button_num / NUM_BUTTON_COLS;
+			else if (value == EXP_BUTTON_COL)
+				new_value = rig_button_num % NUM_BUTTON_COLS;
+			else
+				new_value = rig_button_num;
+			display(dbg_param+1,"INLINE_BUTTON(0x%02x) rig_button_num=%d  new_value=%d",value,rig_button_num,new_value);
+			value = new_value;
+		}
 
 		if (opcode == EXP_LED_COLOR)
 		{
@@ -739,6 +761,16 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 
 	switch (arg_type)
 	{
+		case PARAM_BUTTON_NUM :
+			// PARAM button numbers are a single byte and are either
+			// EXP_BUTTON_NUMBER or the button number number itself.
+			if (code[*offset] == EXP_BUTTON_NUM)
+				rslt->value = rig_button_num;
+			else
+				rslt->value = code[*offset];
+			(*offset)++;
+			break;
+
 		case PARAM_MIDI_CHANNEL :
 			ptr16 = (uint16_t *) &code[*offset];
 			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*offset);
@@ -758,7 +790,9 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 					*offset += 2;
 				}
 			}
-			break;		case PARAM_AREA_NUM :
+			break;
+
+		case PARAM_AREA_NUM :
 		case PARAM_VALUE_NUM :
 		case PARAM_VALUE :
 		case PARAM_PEDAL_NUM :
@@ -784,6 +818,7 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 				}
 			}
 			break;
+
 		case PARAM_STRING_EXPRESSION :
 		case PARAM_LED_COLOR_EXPRESSION :
 		case PARAM_DISPLAY_COLOR_EXPRESSION :
@@ -794,7 +829,6 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 			break;
 
 		case PARAM_METER_TYPE :
-		case PARAM_BUTTON_NUM :
 		case PARAM_FONT_TYPE :
 		case PARAM_FONT_JUST :
 		case PARAM_FONT_SIZE :
@@ -1242,7 +1276,11 @@ void rigMachine::onButton(int row, int col, int event)
 	uint16_t ref = refs[ref_num];
 	display(dbg_rig+1,"checking button(%d) ref_num(%d) ref(%d)",num,ref_num,ref);
 	if (ref)
+	{
+		rig_button_num = num;
 		executeStatementList(context,ref-1);
+		rig_button_num = -1;
+	}
 
 	proc_leave();
 	display(dbg_rig+1,"rigMachine::onButton(%d) 0x%04x finished",num,event);
@@ -1346,7 +1384,11 @@ void rigMachine::updateUI()
 			const rig_t *context;
 			const uint16_t *refs = inheritButtonRefs(num,&context);
 			if (refs[0])
+			{
+				rig_button_num = num;
 				ok = executeStatementList(context,refs[0]-1);
+				rig_button_num = -1;
+			}
 		}
 		if (!ok)
 			update_failed = 1;
