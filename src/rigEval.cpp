@@ -21,9 +21,9 @@
 static int debug_eval_offset = 0x00bd;	// 208;
 
 
-static int dbg_ops		= 1;
+static int dbg_ops	   = 1;
 static int dbg_stack   = 1;
-static int dbg_eval 	= 1;
+static int dbg_eval    = 1;
 	// 0 = just the final return value
 	// -1 = all return values
 	// -2 = all mainline functionality
@@ -254,84 +254,152 @@ static const int precedence(uint8_t op)
 // doOp()
 //----------------------------------------------------------------------------------
 
+
+static bool doPrimitive(int down, uint8_t op, evalResult_t *val1, evalResult_t *val2)
+	// do a primitive operation on first and second, placing the results in first,
+	// which is below second on the value stack.
+{
+	display(dbg_ops,"%s %s %s",VAL_DISPLAY(val1),OP_TOKEN(op),VAL_DISPLAY(val2));
+	switch (op)
+	{
+		case EXP_PLUS :
+			val1->value = val1->value + val2->value;
+			break;
+		case EXP_MINUS :
+			val1->value = val1->value - val2->value;
+			break;
+		case EXP_TIMES :
+			val1->value = val1->value * val2->value;
+			break;
+		case EXP_DIVIDE :
+			if (val2->value == 0)
+			{
+				rig_error(0,0,"rigEval - Divide by zero!!");
+				return false;
+			}
+			val1->value = val1->value / val2->value;
+			break;
+		case EXP_EQ :
+			val1->value = val1->value == val2->value;
+			break;
+		case EXP_NE :
+			val1->value = val1->value != val2->value;
+			break;
+		case EXP_GT :
+			val1->value = val1->value > val2->value;
+			break;
+		case EXP_GE :
+			val1->value = val1->value >= val2->value;
+			break;
+		case EXP_LT :
+			val1->value = val1->value < val2->value;
+			break;
+		case EXP_LE :
+			val1->value = val1->value <= val2->value;
+			break;
+		case EXP_BITWISE_OR :
+			val1->value = val1->value | val2->value;
+			break;
+		case EXP_BITWISE_AND :
+			val1->value = val1->value & val2->value;
+			break;
+		case EXP_LOGICAL_OR :
+			val1->value = val1->value || val2->value;
+			break;
+		case EXP_LOGICAL_AND :
+			val1->value = val1->value && val2->value;
+			break;
+	}	// switch
+
+	return true;
+
+}	// doPrimitive()
+
+
+
+
 static bool doOp(int op_start, uint8_t op)
 {
-	display(dbg_eval+2,"doOp(0x%02x=%s)",op,OP_TOKEN(op));
+	display(dbg_eval+2,"doOp(0x%02x=%s) op_start=%d op_top(%d) val_top(%d)",
+		op,OP_TOKEN(op),op_start,op_top,val_top);
 	proc_entry();
 
-	bool ok = 1;
-	evalResult_t val1;
-	evalResult_t val2;
+	// ok I'm gonna try to do operations from left to right
+	// by looking down the stack for operations of equal precedence,
+	// evaluating them and inserting them back into the stack.
+	// The only exception will be NOT which has immediate right associative binding
 
-	if (ok && op == EXP_NOT)
+	if (op == EXP_NOT)
 	{
-		ok = popVal(&val2);
-		val1.is_string = 0;
-		display(dbg_ops,"NOT %d",val2.value);
-		val1.value = !val2.value;
-	}
-	else
-	{
-		ok = popVal(&val2);
-		ok = ok && popVal(&val1);
-		if (ok)
+		// done directly on the top of the stack
+		// and evaulates strings
+
+		evalResult_t *tos = &val_stack[val_top-1];
+		display(dbg_ops,"NOT %s",VAL_DISPLAY(tos));
+		uint16_t rslt = 0;
+		if (tos->is_string)
 		{
-			display(dbg_ops,"%s %s %s",VAL_DISPLAY(&val1),OP_TOKEN(op),VAL_DISPLAY(&val2));
-			switch (op)
-			{
-				case EXP_PLUS :
-					val1.value += val2.value;
-					break;
-				case EXP_MINUS :
-					val1.value -= val2.value;
-					break;
-				case EXP_TIMES :
-					val1.value *= val2.value;
-					break;
-				case EXP_DIVIDE :
-					if (val2.value == 0)
-					{
-						rig_error(0,0,"rigEval - Divide by zero!!");
-						ok = 0;
-					}
-					val1.value /= val2.value;
-					break;
-				case EXP_EQ :
-					val1.value = val1.value == val2.value;
-					break;
-				case EXP_NE :
-					val1.value = val1.value != val2.value;
-					break;
-				case EXP_GT :
-					val1.value = val1.value > val2.value;
-					break;
-				case EXP_GE :
-					val1.value = val1.value >= val2.value;
-					break;
-				case EXP_LT :
-					val1.value = val1.value < val2.value;
-					break;
-				case EXP_LE :
-					val1.value = val1.value <= val2.value;
-					break;
-				case EXP_BITWISE_OR :
-					val1.value |= val2.value;
-					break;
-				case EXP_BITWISE_AND :
-					val1.value &= val2.value;
-					break;
-				case EXP_LOGICAL_OR :
-					val1.value = val1.value || val2.value;
-					break;
-				case EXP_LOGICAL_AND :
-					val1.value = val1.value && val2.value;
-					break;
-			}	// switch
-		}	// ok
-	}	// bin_ops
+			if (tos->text[0])
+				rslt = 1;
+			else
+				rslt = 0;
+		}
+		else
+		{
+			rslt = !tos->value;
+		}
+
+		tos->is_string = 0;
+		tos->value = rslt;
+		display(dbg_eval+2,"doOp(NOT) returning(%d)  op_top(%d) val_top(%d)",
+			val_stack[val_top-1].value,op_top,val_top);
+		proc_leave();
+		return true;
+	}
 
 
-	ok = ok && pushVal(&val1);
+	// the (last) operand has already been popped off the op_stack
+	// and is sitting in 'op'
+	// now find the firwt operand of equal precedence
+
+	int down = 1;
+	while (op_top - down >= op_start &&
+		   precedence(op) == precedence(op_stack[op_top - down]))
+	{
+		down++;
+	}
+	int new_op_top = op_top - down + 1;
+
+	// check for value stack underflow
+
+	if (val_top < down+1)
+	{
+		rig_error(0,0,"valStackUnderflow val_top(%d) down(%d)");
+		proc_leave();
+		return false;
+	}
+
+	int new_val_top = val_top - down;
+	evalResult_t *val1 = &val_stack[new_val_top - 1];
+
+	// now do all the down ops on all the down values
+
+	bool ok = 1;
+	while (ok && down)
+	{
+		uint8_t do_op = down==1 ? op : op_stack[op_top - down + 1];
+		evalResult_t *val2 = &val_stack[val_top - down];
+		ok = doPrimitive(down,do_op,val1,val2);
+		down--;
+	}
+
+	// set the new tops of stacks
+	// and we're done ...
+
+	op_top = new_op_top;
+	val_top = new_val_top;
+	display(dbg_eval+2,"doOp() returning(%d)  op_top(%d) val_top(%d)",
+		val_stack[val_top-1].value,op_top,val_top);
 	proc_leave();
 	return ok;
 }
