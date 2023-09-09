@@ -65,8 +65,11 @@ static int in_update_cycle = 0;
 
 static const char *NULL_STRING = "";
 
+// available to rigEval.cpp
+
 int rig_button_num = -1;
-	// available to rigEval.cpp
+uint16_t eval_line_num;
+uint16_t eval_param_num;
 
 
 //------------------------------------------------------
@@ -131,7 +134,7 @@ bool rigMachine::pushRig(const rig_t *rig, const char *name)
 {
 	if (m_stack_ptr >= MAX_RIG_STACK)
 	{
-		rig_error(2,0,"RIG_STACK OVERFLOW!!");
+		rig_error(0,0,"RIG_STACK OVERFLOW!!");
 		return 0;
 	}
 	display(dbg_rig,"pushRig(%d,%s) rig_pool_len=%d",m_stack_ptr,name,rig_pool_len);
@@ -227,11 +230,16 @@ void rigMachine::invalidateRig()
 	m_load_state = LOAD_STATE_NONE;
 	m_stack_ptr = 0;
 	m_rig_loaded = 0;
+	eval_line_num = 0;
+	eval_param_num = 0;
 }
 
 
 bool rigMachine::loadRig(const char *rig_name)
 {
+	eval_line_num = 0;
+	eval_param_num = 0;
+
 	if (m_load_state)
 	{
 		my_error("Attempt to call loadRig() in load_state(%d)",m_load_state);
@@ -239,7 +247,7 @@ bool rigMachine::loadRig(const char *rig_name)
 	}
 	if (strlen(rig_name) > MAX_RIG_NAME)
 	{
-		rig_error(2,0,"loadRig() rig_name too long(%d)",strlen(rig_name));
+		rig_error(0,0,"loadRig() rig_name too long(%d)",strlen(rig_name));
 		return false;
 	}
 
@@ -304,6 +312,9 @@ bool rigMachine::startRig(const rig_t *rig, bool cold)
 {
 	display(dbg_rig,"startRig(%d)",cold);
 	proc_entry();
+
+	eval_line_num = 0;
+	eval_param_num = 0;
 
 	if (cold)
 	{
@@ -600,7 +611,6 @@ void rigMachine::rigDisplayNumber(int area_num, uint16_t color_idx, int value, i
 
 void rigMachine::rigDisplay(uint16_t area_num, uint16_t color_idx, const char *text)
 {
-
 	rigArea_t *area = &m_rig_state.areas[area_num];
 
 	proc_entry();
@@ -656,7 +666,7 @@ bool rigMachine::evalExpression(const rig_t *rig, evalResult_t *rslt, const char
 }
 
 
-bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const char *what, uint16_t offset, uint16_t code_offset)
+bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const char *what, uint16_t offset, uint16_t stmt_offset)
 {
 	if (offset & (EXP_INLINE << 8))
 	{
@@ -719,13 +729,13 @@ bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const 
 			}
 			else
 			{
-				rig_error(1,code_offset,"unexpected non-null inline TEXT value(0x%02x)",value);
+				rig_error(1,0,"unexpected non-null inline TEXT value(0x%02x)",value);
 				return false;
 			}
 		}
 		else
 		{
-			rig_error(1,code_offset,"unknown inline opcode(0x%02x)",opcode);
+			rig_error(1,0,"unknown inline opcode(0x%02x)",opcode);
 			return false;
 		}
 	}
@@ -744,17 +754,16 @@ bool rigMachine::evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const 
 // Parameters and Statements
 //---------------------------------------------------
 
-bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int arg_type, const uint8_t *code, uint16_t *offset)
+bool rigMachine::evalParam(const rig_t *rig, evalResult_t *rslt, int arg_type, const uint8_t *stmts, uint16_t *stmt_offset)
 {
 	const char *what = argTypeToString(arg_type);
-	display(dbg_param+1,"evalParam(%d,%s) at code_offset %d",num,what,*offset);
+	display(dbg_param+1,"evalParam(%d,%s) at stmt_offset %d",eval_param_num,what,*stmt_offset);
 	proc_entry();
 
 	bool ok = 1;
 	uint16_t max = 0;
 	uint16_t *ptr16 = 0;
 	rslt->is_string = 0;
-	rslt->offset = *offset;
 
 	switch (arg_type)
 	{
@@ -774,11 +783,11 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 		case PARAM_BUTTON_NUM :
 			// PARAM button numbers are a single byte and are either
 			// EXP_BUTTON_NUMBER or the button number number itself.
-			if (code[*offset] == EXP_BUTTON_NUM)
+			if (stmts[*stmt_offset] == EXP_BUTTON_NUM)
 				rslt->value = rig_button_num;
 			else
-				rslt->value = code[*offset];
-			(*offset)++;
+				rslt->value = stmts[*stmt_offset];
+			(*stmt_offset)++;
 			break;
 
 		case PARAM_METER_TYPE :
@@ -787,42 +796,42 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 		case PARAM_FONT_SIZE :
 		case PARAM_MIDI_PORT :
 		case PARAM_LISTEN_DIR :
-			rslt->value = code[(*offset)++];
+			rslt->value = stmts[(*stmt_offset)++];
 			break;
 		case PARAM_END_X :
 		case PARAM_END_Y :
 		case PARAM_START_X :
 		case PARAM_START_Y :
-			ptr16 = (uint16_t *) &code[*offset];
+			ptr16 = (uint16_t *) &stmts[*stmt_offset];
 			rslt->value = *ptr16;
-			*offset += 2;
+			*stmt_offset += 2;
 			break;
 
 		case PARAM_RIG_NAME :
 		case PARAM_PEDAL_NAME :
-			ptr16 = (uint16_t *) &code[*offset];
+			ptr16 = (uint16_t *) &stmts[*stmt_offset];
 			rslt->text = &rig->string_pool[*ptr16];
 			rslt->is_string = 1;
-			*offset += 2;
+			*stmt_offset += 2;
 			break;
 
 		case PARAM_MIDI_CHANNEL :
-			ptr16 = (uint16_t *) &code[*offset];
-			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*offset);
+			ptr16 = (uint16_t *) &stmts[*stmt_offset];
+			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*stmt_offset);
 			if (ok)
 			{
 				if (rslt->value > MIDI_MAX_CHANNEL ||
 					rslt->value < MIDI_MIN_CHANNEL)
 				{
 					uint16_t actual_code = *ptr16 & (EXP_INLINE << 8) ? *ptr16 : *ptr16-1;
-						// show inline opcode or offset-1 (actual expression offset) for debugging
-					rig_error(1,*offset,"evalParam(%d) code(0x%04x) - %s(%d) must be between %d and %d",
-						num,actual_code,what,rslt->value,MIDI_MIN_CHANNEL,MIDI_MAX_CHANNEL);
+						// show inline opcode or stmt_offset-1 (actual expression offset) for debugging
+					rig_error(1,0,"code(0x%04x) - %s(%d) must be between %d and %d",
+						actual_code,what,rslt->value,MIDI_MIN_CHANNEL,MIDI_MAX_CHANNEL);
 					ok = 0;
 				}
 				else
 				{
-					*offset += 2;
+					*stmt_offset += 2;
 				}
 			}
 			break;
@@ -835,21 +844,21 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 		case PARAM_LISTEN_CHANNEL :
 		case PARAM_MIDI_CC :
 		case PARAM_MIDI_VALUE :
-			ptr16 = (uint16_t *) &code[*offset];
-			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*offset);
+			ptr16 = (uint16_t *) &stmts[*stmt_offset];
+			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*stmt_offset);
 			if (ok)
 			{
 				if (rslt->value > max)
 				{
 					uint16_t actual_code = *ptr16 & (EXP_INLINE << 8) ? *ptr16 : *ptr16-1;
-						// show inline opcode or offset-1 (actual expression offset) for debugging
-					rig_error(1,*offset,"evalParam(%d) code(0x%04x) - %s(%d) must be %d or less",
-						num, actual_code, what,rslt->value,max);
+						// show inline opcode or stmt_offset-1 (actual expression offset) for debugging
+					rig_error(1,0,"code(0x%04x) - %s(%d) must be %d or less",
+						actual_code, what,rslt->value,max);
 					ok = 0;
 				}
 				else
 				{
-					*offset += 2;
+					*stmt_offset += 2;
 				}
 			}
 			break;
@@ -857,14 +866,14 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 		case PARAM_STRING_EXPRESSION :
 		case PARAM_LED_COLOR_EXPRESSION :
 		case PARAM_DISPLAY_COLOR_EXPRESSION :
-			ptr16 = (uint16_t *) &code[*offset];
-			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*offset);
+			ptr16 = (uint16_t *) &stmts[*stmt_offset];
+			ok = evalCodeExpression(rig,rslt,argTypeToString(arg_type),*ptr16,*stmt_offset);
 			if (ok)
-				*offset += 2;
+				*stmt_offset += 2;
 			break;
 
 		default:
-			rig_error(1,*offset,"evalParam(%d) - unknown arg_type(%d)",num,arg_type);
+			rig_error(1,0,"unknown arg_type(%d)",arg_type);
 			ok = 0;
 			break;
 	}
@@ -873,35 +882,35 @@ bool rigMachine::evalParam(const rig_t *rig, int num, evalResult_t *rslt, int ar
 	if (ok)
 	{
 		if (rslt->is_string)
-			display(dbg_param,"evalParam(%s) returning(%s) at code_offset %d",argTypeToString(arg_type),rslt->text,*offset);
+			display(dbg_param,"evalParam(%s) returning(%s) at stmt_offset %d",argTypeToString(arg_type),rslt->text,*stmt_offset);
 		else
-			display(dbg_param,"evalParam(%s) returning(%d) at code_offset %d",argTypeToString(arg_type),rslt->value,*offset);
+			display(dbg_param,"evalParam(%s) returning(%d) at stmt_offset %d",argTypeToString(arg_type),rslt->value,*stmt_offset);
 	}
 	return ok;
 }
 
 
 
-bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t last_offset)
+bool rigMachine::executeStatement(const rig_t *rig, uint16_t *stmt_offset, uint16_t last_offset)
 {
-	const uint8_t *code = rig->statement_pool;
-	uint8_t tt = code[(*offset)++];
+	const uint8_t *stmts = rig->statement_pool;
+	uint8_t tt = stmts[(*stmt_offset)++];
 
-	// if (tt == RIG_TOKEN_DISPLAY)
-	// 	debug_level = 3;
+	eval_line_num = *((uint16_t *) &stmts[*stmt_offset]);
+	display(dbg_stmt+1,"executeStatement(%d=%s) at line(%d) offset(%d)",tt,rigTokenToText(tt),eval_line_num,*stmt_offset - 3);
+	*stmt_offset += 2;
 
-	display(dbg_stmt+1,"executeStatement(%d=%s) at offset %d",tt,rigTokenToText(tt),*offset - 1);
 	proc_entry();
 
 	const statement_param_t *params = findParams(tt);
 	bool ok = params;
 
-	int param_num = 0;
+	eval_param_num = 0;
 	const int *arg = params->args;
 	while (ok && *arg)
 	{
-		ok = evalParam(rig,param_num,&m_params[param_num],*arg++,code,offset);
-		param_num++;
+		ok = evalParam(rig,&m_params[eval_param_num],*arg++,stmts,stmt_offset);
+		eval_param_num++;
 	}
 
 	if (ok)
@@ -1080,7 +1089,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				// debug_level = 0;
 				if (m_rig_state.areas[area_num].type != AREA_TYPE_STRING)
 				{
-					rig_error(1,m_params[0].offset,"Attempt to display in AREA of type(%d=%s)",rigTokenToString(m_rig_state.areas[area_num].type + RIG_TOKEN_HORZ));
+					rig_error(1,0,"Attempt to display in AREA of type(%d=%s)",rigTokenToString(m_rig_state.areas[area_num].type + RIG_TOKEN_HORZ));
 					ok = 0;
 				}
 				else
@@ -1112,7 +1121,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				{
 					if (type != AREA_TYPE_STRING)
 					{
-						rig_error(1,m_params[0].offset,"Attempt to displayNumber in AREA of type(%d=%s)",rigTokenToString(type + RIG_TOKEN_HORZ));
+						rig_error(1,0,"Attempt to displayNumber in AREA of type(%d=%s)",rigTokenToString(type + RIG_TOKEN_HORZ));
 						ok = 0;
 					}
 					else
@@ -1124,7 +1133,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				{
 					if (m_rig_state.areas[area_num].type == AREA_TYPE_STRING)
 					{
-						rig_error(1,m_params[0].offset,"Attempt to setMeter in STRING AREA",0);
+						rig_error(1,0,"Attempt to setMeter in STRING AREA",0);
 						ok = 0;
 					}
 					else
@@ -1203,7 +1212,7 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				break;
 
 			default:
-				rig_error(1,*offset-1,"unknown rigStatement: %d=%s",tt,rigTokenToString(tt));
+				rig_error(1,0,"unknown rigStatement: %d=%s",tt,rigTokenToString(tt));
 				ok = 0;
 				break;
 		}
@@ -1219,19 +1228,19 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 bool rigMachine::executeStatementList(const rig_t *rig, int statement_num)
 {
 	bool ok = 1;
-	uint16_t offset = rig->statements[statement_num];
+	uint16_t stmt_offset = rig->statements[statement_num];
 	uint16_t last_offset = rig->statements[statement_num+1];
 
 	display(dbg_stmt,"executeStatmentList(%d) from %d to %d (%d bytes)",
 		statement_num,
-		offset,
+		stmt_offset,
 		last_offset,
-		last_offset-offset);
+		last_offset-stmt_offset);
 	proc_entry();
 
-	while (ok && offset < last_offset)
+	while (ok && stmt_offset < last_offset)
 	{
-		ok = executeStatement(rig,&offset,last_offset);
+		ok = executeStatement(rig,&stmt_offset,last_offset);
 	}
 
 	proc_leave();

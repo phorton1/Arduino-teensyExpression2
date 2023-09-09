@@ -52,7 +52,6 @@ typedef struct
 typedef struct
 {
 	bool is_string;
-	uint16_t offset;
 	union {
 		uint16_t	value;
 		const char *text;
@@ -116,7 +115,7 @@ private:
 
 	bool executeStatementList(const rig_t *rig, int statement_num);
 	bool executeStatement(const rig_t *rig, uint16_t *offset, uint16_t last_offset);
-	bool evalParam(const rig_t *rig, int num, evalResult_t *rslt,int arg_type, const uint8_t *code, uint16_t *offset);
+	bool evalParam(const rig_t *rig, evalResult_t *rslt,int arg_type, const uint8_t *code, uint16_t *offset);
 	bool evalCodeExpression(const rig_t *rig, evalResult_t *rslt, const char *what, uint16_t offset, uint16_t code_offset);
 	bool evalExpression(const rig_t *rig, evalResult_t *rslt, const char *what, const uint8_t *code, uint16_t *offset);
 

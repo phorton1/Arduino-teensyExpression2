@@ -31,7 +31,7 @@ static bool modal_rig;
 
 // externa
 
-token_t rig_token;
+rig_token_t rig_token;
 bool parse_error_found;
 int parse_section;
 
@@ -49,7 +49,10 @@ void parse_error(const char *format, ...)
 	parse_error_found = 1;
 
 	char error_buffer[255];
-	sprintf(error_buffer,"%d:%d ",rig_token.line_num,rig_token.char_num);
+	if (rig_token.line_num)
+		sprintf(error_buffer,"line(%d) char(%d) - ",rig_token.line_num,rig_token.char_num);
+	else
+		error_buffer[0] = 0;
 	char *text = &error_buffer[strlen(error_buffer)];
 
 	va_list var;
@@ -241,6 +244,8 @@ bool openRigFile(const char *name)
 	rig_text_len = 0;
 	modal_rig = 0;
 
+	memset(&rig_token,0,sizeof(rig_token_t));
+
 	#if DUMP_PARSE
 		initDump();
 	#endif
@@ -406,7 +411,7 @@ static bool myStrcmpI(const char *id, const char *TOKEN)
 int getRigToken()
 {
 	rig_token_len = 0;
-	memset(&rig_token,0,sizeof(token_t));
+	memset(&rig_token,0,sizeof(rig_token_t));
 	rig_token.line_num = parse_line_num;
 	rig_token.char_num = parse_char_num;
 
@@ -774,17 +779,17 @@ int getRigToken()
 	}
 	else if (modal_rig && id == RIG_TOKEN_LISTEN)
 	{
-		parse_error("LISTEN statement only allowed in baseRigs",0);
+		parse_error("LISTEN statement only allowed in baseRigs");
 		return 0;
 	}
 	else if (!modal_rig && id == RIG_TOKEN_END_MODAL)
 	{
-		parse_error("endModal statement only allowed in modalRigs",0);
+		parse_error("endModal statement only allowed in modalRigs");
 		return 0;
 	}
 	else if (!modal_rig && id == RIG_TOKEN_INHERIT)
 	{
-		parse_error("buttons may only INHERIT in modalRigs",0);
+		parse_error("buttons may only INHERIT in modalRigs");
 	}
 
 	// finished

@@ -50,11 +50,24 @@ evalResult_t val_stack[MAX_VAL_STACK];
 
 #define ERROR_COLOR_STRING      "\033[91m"       // red
 
+extern uint16_t eval_line_num;
+extern uint16_t eval_param_num;
+	// in rigMachine.cpp
+
 // extern
 void rig_error(int type, uint16_t offset, const char *format, ...)
+	// type 0 = general rig error
+	// type 1 = statement rig error (offset is always zero)
+	// type 2 = evalation error in code (this cpp file)
 {
 	char error_buffer[255];
-	sprintf(error_buffer,"%d:%d ",type,offset);
+	if (type == 2)
+		sprintf(error_buffer,"line(%d) param(%d) offset(%d) - ",eval_line_num,eval_param_num,offset);
+	else if (type == 1)
+		sprintf(error_buffer,"line(%d) param(%d) - ",eval_line_num,eval_param_num);
+	else
+		error_buffer[0] = 0;
+
 	char *text = &error_buffer[strlen(error_buffer)];
 
 	va_list var;
@@ -114,7 +127,7 @@ static bool pushOp(uint8_t op)
 	display(dbg_stack,"pushOp(%d) 0x%02x=%s",op_top,op,OP_TOKEN(op));
 	if (op_top >= MAX_OP_STACK)
 	{
-		rig_error(0,0,"OP_STACK OVERFLOW");
+		rig_error(2,0,"OP_STACK OVERFLOW");
 		return false;
 	}
 	op_stack[op_top++] = op;
@@ -126,7 +139,7 @@ static bool popOp(uint8_t *op)
 {
 	if (!op_top)
 	{
-		rig_error(0,0,"OP_STACK UNDERFLOW");
+		rig_error(2,0,"OP_STACK UNDERFLOW");
 		return false;
 	}
 	*op = op_stack[--op_top];
@@ -140,7 +153,7 @@ static bool pushVal(evalResult_t *val)
 	display(dbg_stack,"pushVal(%d) %s",val_top,VAL_DISPLAY(val));
 	if (val_top >= MAX_VAL_STACK)
 	{
-		rig_error(0,0,"VAL_STACK OVERFLOW");
+		rig_error(2,0,"VAL_STACK OVERFLOW");
 		return false;
 	}
 	memcpy(&val_stack[val_top++],val,sizeof(evalResult_t));
@@ -166,7 +179,7 @@ static bool pushValText(const char *text)
 	display(dbg_stack,"pushValText(%d) \"%s\"",val_top,text);
 	if (val_top >= MAX_VAL_STACK)
 	{
-		rig_error(0,0,"VAL_STACK(TEXT) OVERFLOW");
+		rig_error(2,0,"VAL_STACK(TEXT) OVERFLOW");
 		return false;
 	}
 	val_stack[val_top].is_string = 1;
@@ -180,7 +193,7 @@ static bool popVal(evalResult_t *val)
 {
 	if (!val_top)
 	{
-		rig_error(0,0,"VAL_STACK UNDERFLOW");
+		rig_error(2,0,"VAL_STACK UNDERFLOW");
 		return false;
 	}
 	memcpy(val,&val_stack[--val_top],sizeof(evalResult_t));
@@ -245,7 +258,7 @@ static const int precedence(uint8_t op)
 		case EXP_LEFT_PAREN :
 			return 99;
 	}
-	rig_error(0,0,"unknown op(0x%02x) in precedence",op);
+	rig_error(2,0,"unknown op(0x%02x) in precedence",op);
 	return 0;
 }
 
@@ -274,7 +287,7 @@ static bool doPrimitive(int down, uint8_t op, evalResult_t *val1, evalResult_t *
 		case EXP_DIVIDE :
 			if (val2->value == 0)
 			{
-				rig_error(0,0,"rigEval - Divide by zero!!");
+				rig_error(2,0,"Divide by zero!!");
 				return false;
 			}
 			val1->value = val1->value / val2->value;
@@ -374,7 +387,7 @@ static bool doOp(int op_start, uint8_t op)
 
 	if (val_top < down+1)
 	{
-		rig_error(0,0,"valStackUnderflow val_top(%d) down(%d)");
+		rig_error(2,0,"valStackUnderflow val_top(%d) down(%d)");
 		proc_leave();
 		return false;
 	}
@@ -443,7 +456,7 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 			uint8_t num = val_stack[--val_top].value;
 			if (num > RIG_NUM_STRINGS-1)
 			{
-				rig_error(0,*offset,"rigEval - STRING INDEX(%d) out of range (0..%d)",num,RIG_NUM_STRINGS-1);
+				rig_error(2,*offset,"STRING INDEX(%d) out of range (0..%d)",num,RIG_NUM_STRINGS-1);
 				ok = 0;
 			}
 			else
@@ -478,7 +491,7 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 			uint8_t num = val_stack[--val_top].value;
 			if (num > RIG_NUM_VALUES-1)
 			{
-				rig_error(0,*offset,"rigEval - VALUE INDEX(%d) out of range (0..%d)",num,RIG_NUM_VALUES-1);
+				rig_error(2,*offset,"VALUE INDEX(%d) out of range (0..%d)",num,RIG_NUM_VALUES-1);
 				ok = 0;
 			}
 			else
@@ -494,7 +507,7 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 
 	else if (!(byte & EXP_INLINE))
 	{
-		rig_error(0,*offset-1,"rigEval - INLINE op expected, not (0x%02x)",byte);
+		rig_error(2,*offset-1,"INLINE op expected, not (0x%02x)",byte);
 		ok = 0;
 	}
 	else
@@ -531,7 +544,7 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 				ok = pushValText("");
 			else
 			{
-				rig_error(0,*offset-2,"rigEval - Unexpected NON-NULL inline EXP_TEXT op!!");
+				rig_error(2,*offset-2,"Unexpected NON-NULL inline EXP_TEXT op!!");
 				ok = 0;
 			}
 		}
@@ -557,7 +570,7 @@ bool rigMachine::getAtom(const rig_t *rig, const uint8_t *code, uint16_t *offset
 		}
 		else
 		{
-			rig_error(0,*offset-2,"rigEval - Unexpected inline_op(0x%02x) value=0x%02x",inline_op,value);
+			rig_error(2,*offset-2,"Unexpected inline_op(0x%02x) value=0x%02x",inline_op,value);
 			ok = 0;
 		}
 	}

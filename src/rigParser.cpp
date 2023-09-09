@@ -536,7 +536,7 @@ static const char *getUserIdent()
 
 	if (rig_token.id != RIG_TOKEN_IDENTIFIER)
 	{
-		parse_error("IDENTIFIER Expected",0);
+		parse_error("IDENTIFIER Expected");
 		return 0;
 	}
 
@@ -732,7 +732,7 @@ static bool handleArg(int tt, int arg_type)
 				{
 					if (!is_parse_button)
 					{
-						parse_error("_BUTTON_NUM may only be used in button sections",0);
+						parse_error("_BUTTON_NUM may only be used in button sections");
 						ok = false;
 					}
 					else
@@ -897,10 +897,21 @@ static bool handleStatement()
 	// not an init_only statement, we write the token as the first byte
 	// of the statement
 
-	if (!IS_INIT_HEADER_STATEMENT(tt) && !addStatementByte(tt))
+	if (!IS_INIT_HEADER_STATEMENT(tt))
 	{
-		proc_leave();
-		return false;
+		if (!addStatementByte(tt))
+		{
+			proc_leave();
+			return false;
+		}
+
+		// statement tokens are folowed by their uint16_t line number
+
+		if (!addStatementInt(rig_token.line_num))
+		{
+			proc_leave();
+			return false;
+		}
 	}
 
 	// get the next token

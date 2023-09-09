@@ -21,7 +21,7 @@ typedef struct
 	int 	 char_num;
 	int 	 int_value;
 	char 	 text[MAX_RIG_TOKEN+1];
-} token_t;
+} rig_token_t;
 
 
 extern bool openRigFile(const char *name);
@@ -34,7 +34,7 @@ extern const char *rigTokenToText(int token_id);		// for text output
 extern void parse_error(const char *format, ...);		// parse error reporting with token line_num and char_num
 extern bool parse_error_found;							// true if any parsing errors occured; cleared in parseRig::init_parse()
 
-extern token_t rig_token;		// the current token now includes the file offset
+extern rig_token_t rig_token;		// the current token now includes the file offset
 extern int parse_section;		// section of the parse we are currently in determined by getRigToken()
 
 
