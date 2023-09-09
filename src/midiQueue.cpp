@@ -11,7 +11,7 @@
 #include "theSystem.h"
 
 
-#define dbg_midi_send  0
+#define dbg_midi_send  1
 #define dbg_queue	   1
 #define dbg_ftp		   0
 	// 0 = show set values
@@ -457,10 +457,9 @@ static void _processMsg(uint32_t msg32)
 			msg.param2());
 
 	// dequeue messages to listen statements in the rigMachine
+	// the rig_machine itself checks the mask
 
-	uint32_t mask = 1 << (msg.portEnum() + (msg.isOutput() ? 16 : 0));
-	if (msg.type() == MIDI_TYPE_CC &&
-		(rig_machine.getListenMask() & mask))
+	if (msg.type() == MIDI_TYPE_CC)
 	{
 		rig_machine.onMidiCC(msg);
 	}

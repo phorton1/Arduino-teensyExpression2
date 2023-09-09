@@ -10,7 +10,9 @@
 #include "midiQueue.h"  // for sendCC methods
 
 
-#define dbg_rotary 1
+#define dbg_rotary   1
+#define dbg_midi_cc  0
+
 
 
 #define INCS_PER_REV        40.00
@@ -30,6 +32,7 @@ typedef struct
     uint8_t port;
     uint8_t channel;      // zero based
     uint8_t cc;
+    bool    listen;
     int     pollA;        // the last value polled for the A part of the switch
     float   value;        // the current value
 }   rotary_t;
@@ -61,6 +64,7 @@ void initRotary()
         rotary[i].port    = MIDI_PORT_USB1;
         rotary[i].channel = 0;
         rotary[i].cc      = 11 + i;
+        rotary[i].listen  = 0;
 
         pinMode(rotary_pin[i].pinA,INPUT_PULLDOWN);
         pinMode(rotary_pin[i].pinB,INPUT_PULLDOWN);
@@ -89,19 +93,48 @@ void setRotaryValue(int num, int value)
 }
 
 
-void setRotary(int num, const char *name, uint8_t port, uint8_t channel, uint8_t cc)
+void setRotary(int num, const char *name, uint8_t port, uint8_t channel, uint8_t cc, bool listen)
 {
-    display(dbg_rotary,"setRotary(%d)(0x%02x,%d,0x%02x)",num,port,channel,cc);
+    display(dbg_rotary,"setRotary(%d)(0x%02x,%d,0x%02x) listen=%d",num,port,channel,cc,listen);
     memcpy(rotary[num].name,name,MAX_PEDAL_NAME);
     rotary[num].name[MAX_PEDAL_NAME] = 0;
     rotary[num].port    = port;
     rotary[num].channel = channel;
     rotary[num].cc      = cc;
+    rotary[num].listen  = listen;
 }
 
 
+void onRotaryMidiCC(const msgUnion &msg)
+{
+    // display(0,"onRotaryMidiCC(0x%02x,%d,0x%02x,0x%02x)",
+    //     msg.port(), msg.channel(), msg.param1(), msg.param2(), msg.param2());
 
-bool _pollRotary(int i)
+    for (int i=0; i<NUM_ROTARY; i++)
+    {
+        //display(0,"checking(%d,0x%02x,%d,0x%02x) listen=%d",
+        //    i,
+        //    rotary[i].port,
+        //    rotary[i].channel,
+        //    rotary[i].cc,
+        //    rotary[i].listen);
+
+        if (!msg.isOutput() &&
+            rotary[i].listen &&
+            rotary[i].port == msg.port() &&
+            rotary[i].channel == msg.channel()-1 &&
+            rotary[i].cc == msg.param1())
+        {
+
+            display(dbg_midi_cc,"---> onRotaryMidiCC(%d,0x%02x,%d,0x%02x,0x%02x) setting value to %d",
+                i, msg.port(), msg.channel(), msg.param1(), msg.param2(), msg.param2());
+            setRotaryValue(i,msg.param2());
+        }
+    }
+}
+
+
+static bool _pollRotary(int i)
 {
     int aval = digitalRead(rotary_pin[i].pinA);
     if (rotary[i].pollA == aval)

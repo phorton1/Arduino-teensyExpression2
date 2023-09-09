@@ -23,7 +23,8 @@
 #define dbg_sys   0
 	// show system startup, etc
 #define dbg_raw_midi 1
-	// show receieved usb and serial midi
+	// show received usb and serial midi
+	// may create timing problems
 #define dbg_win	  0
 	// debug the window stack
 

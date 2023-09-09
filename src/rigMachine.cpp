@@ -1024,19 +1024,26 @@ bool rigMachine::executeStatement(const rig_t *rig, uint16_t *offset, uint16_t l
 				break;
 
 			case RIG_TOKEN_ROTARY:
-				display(dbg_calls,"ROTARY(%d,%s,%d=%s,%d,%d)",
+				display(dbg_calls,"ROTARY(%d,%s,%d=%s,chan=%d, cc=%d, listen=%d)",
 					m_params[0].value,
 					m_params[1].text,
 					m_params[2].value,
 					rigTokenToText(m_params[2].value + RIG_TOKEN_USB1),
 					m_params[3].value,
-					m_params[4].value);
+					m_params[4].value,
+					m_params[5].value);
 				setRotary(
 					m_params[0].value,			// rotary num
-					m_params[1].text,				// name
+					m_params[1].text,			// name
 					MIDI_ENUM_TO_PORT(m_params[2].value),	// port
 					m_params[3].value - 1,		// switch to zero based channel number
-					m_params[4].value);			// cc
+					m_params[4].value,			// cc
+					m_params[5].value);			// listen
+
+					if (m_params[5].value)
+					{
+						m_listen_mask |= 1 << m_params[5].value;
+					}
 				break;
 
 			case RIG_TOKEN_SETVALUE:
@@ -1242,12 +1249,21 @@ void rigMachine::onMidiCC(const msgUnion &msg)
 	// (a) midiQueue only sends us message on ports that match our m_listen_mask.
 	// (b) we accept output OR input ports
 {
+	uint32_t mask = 1 << (msg.portEnum() + (msg.isOutput() ? 16 : 0));
+	if (!(m_listen_mask & mask))
+		return;
+
 	if (dbg_midi <= -1)
-		display_level(dbg_midi+1,0,"onMidiCC(0x%02x,%d,0x%02x,0x%02x)",
+		display_level(dbg_midi+1,0,"onMidiCC(0x%02x,%d,0x%02x,0x%02x) isOutput=%d",
 			msg.port(),
 			msg.channel(),
 			msg.param1(),
-			msg.param2());
+			msg.param2(),
+			msg.isOutput());
+
+	// See if the Rotaries want it
+
+	onRotaryMidiCC(msg);
 
 	// set the value into any SERIAL Listens for the given CC number
 	// with the convention that listening to channel 0 accepts all channels
@@ -1255,12 +1271,6 @@ void rigMachine::onMidiCC(const msgUnion &msg)
 	for (int num=0; num<RIG_NUM_LISTENS; num++)
 	{
 		rigListen_t *listen = &m_rig_state.listens[num];
-
-		if (dbg_midi <= -2 && listen->active)
-			display_level(dbg_midi+1,1,"checking(0x%02x,%d,0x%02x)",
-				listen->port,
-				listen->channel,
-				listen->cc);
 
 		if (listen->active &&
 			listen->port == msg.portEnum() &&
