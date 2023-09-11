@@ -73,11 +73,9 @@
 #define dbg_ts    1
 	// 0 = show timestamp operations
 	// -1 = show callback setting
-#define dbg_dir    1
-	// show recursive directory listings
-#define dbg_hdr	   1
+#define dbg_hdr	   0
 	// show a header for any file system command
-#define dbg_cmd	   0
+#define dbg_cmd	   -1
 	// 0 = show file commands
 	// -1 = show details
 
@@ -97,7 +95,7 @@ uint32_t write_offset;
 uint32_t write_checksum;
 char write_ts[30];  // overused for dtCallback
 
-// buffer for use by getDateTimeStamp
+// buffer for use by getTimeStamp
 
 char static_timestamp[32];
 
@@ -288,6 +286,7 @@ bool fileSystem::init()
 // API
 //------------------------------------------------------------
 
+// static
 uint32_t fileSystem::getFreeMB()
 {
 	#if USE_OLD_FAT
@@ -308,6 +307,7 @@ uint32_t fileSystem::getFreeMB()
 }
 
 
+// static
 uint32_t fileSystem::getTotalMB()
 	// NOWHERE is there an example of how to use these to determine the size of the file system.
 	// bytesPerClusterShift() is really unclear.
@@ -339,14 +339,17 @@ uint32_t fileSystem::getTotalMB()
 // private methods
 //---------------------------------------------
 
-const char *getDateTimeStamp(myFileType_t *entry, const char *filename)
+static const char *getTimeStamp(myFileType_t *file)
 {
     myDir_t dir_entry;
     static_timestamp[0] = 0;
-    if (!entry->dirEntry(&dir_entry))
+
+    if (!file->dirEntry(&dir_entry))
     {
+		char filename[255];
+		file->getName(filename, sizeof(filename));
         my_error("Could not get dir_entry for %s",filename);
-        return static_timestamp;
+        return "";
     }
 
 	#if USE_OLD_FAT 	// PRH PRH PRH - this needs to be reworked
@@ -372,8 +375,22 @@ const char *getDateTimeStamp(myFileType_t *entry, const char *filename)
 }
 
 
+static const char *getTimeStamp(const char *path)
+{
+	myFileType_t file = SD.open(path);
+	if (!file)
+	{
+		my_error("Could not open %s to getTimeStamp",path);
+		return "";
+	}
+	const char *rslt = getTimeStamp(&file);
+	file.close();
+	return rslt;
+}
 
-void setTimeStamp(myFileType_t the_file, char *ts)
+
+
+static void setTimeStamp(myFileType_t the_file, char *ts)
 {
     char *year = &ts[0];
     ts[4] = 0;
@@ -407,7 +424,7 @@ void setTimeStamp(myFileType_t the_file, char *ts)
 
 
 
-void dtCallback(uint16_t* date, uint16_t* time)
+static void dtCallback(uint16_t* date, uint16_t* time)
     // this call back function must be used on diretories
     // instead of setTimeStamp() above. It overuses the
     // global write_ts variable to hold the value for
@@ -433,7 +450,7 @@ void dtCallback(uint16_t* date, uint16_t* time)
     char *second = &ts[17];
     ts[19] = 0;
 
-    display_level(dbg_ts+1,3,"dtCallback(%s,%s,%s,%s,%s,%s)",year,month,day,hour,minute,second);
+    display_level(dbg_ts+1,4,"dtCallback(%s,%s,%s,%s,%s,%s)",year,month,day,hour,minute,second);
 
     *date = FAT_DATE(atoi(year),atoi(month),atoi(day));
     *time = FAT_TIME(atoi(hour),atoi(minute),atoi(second));
@@ -441,50 +458,69 @@ void dtCallback(uint16_t* date, uint16_t* time)
 }
 
 
-//==================================================
-// handleFileCommand()
-//==================================================
-
-void doListRecursive(Stream *fsd, char *full_name, bool recurse, int level, myFileType_t the_dir)
+static void fileReplyError(Stream *fsd, const char *format, ...)
 {
-	char dir_name[255];
-	the_dir.getName(dir_name, sizeof(dir_name));
-	display_level(dbg_dir,3+level,"doListRecursive(%s,%d,%d,%s)",full_name,recurse,level,dir_name);
+	char buffer[255];
 
-	const char *ts = getDateTimeStamp(&the_dir,dir_name);
+	va_list var;
+	va_start(var, format);
+	vsprintf(buffer,format,var);
 
-	fsd->print("file_reply:Directory Listing ");
+	my_error(buffer,0);
+
+	fsd->print("file_reply:");
+	fsd->print("ERROR - ");
+	fsd->print(buffer);
+	fsd->print("\r\n");
+}
+
+
+
+static void doList(Stream *fsd, const char *dir)
+{
+	display_level(dbg_cmd,2,"fileSystem::doList(%s)",dir);
+
+	myFileType_t the_dir = SD.open(dir);
+	if (!the_dir)
+	{
+		fileReplyError(fsd,"Could not open directory %s",dir);
+		return;
+	}
+
+	const char *ts = getTimeStamp(&the_dir);
+
+	fsd->print("file_reply:\t");
 	fsd->print(ts);
-	fsd->print(",");
-	fsd->println(full_name);
+	fsd->print("\t");
+	fsd->print(dir);
+	if (strcmp(dir,"/"))
+		fsd->print("/");
+	fsd->print("\r\n");
 
 	myFileType_t entry = the_dir.openNextFile();
 	while (entry)
 	{
 		char filename[255];
 		entry.getName(filename, sizeof(filename));
+		const char *ts = getTimeStamp(&entry);
 
 		if (entry.isDirectory())
 		{
-			const char *ts = getDateTimeStamp(&entry,filename);
-
-			fsd->print("file_reply:");
+			fsd->print("file_reply:\t");
 			fsd->print(ts);
-			fsd->print(",");
+			fsd->print("\t");
 			fsd->print(filename);
-			fsd->print("/");
-			fsd->print("\r\n");
+			fsd->print("/\r\n");
 		}
 		else
 		{
 			uint32_t size = entry.size();
-			const char *ts = getDateTimeStamp(&entry,filename);
 
 			fsd->print("file_reply:");
-			fsd->print(ts);
-			fsd->print(',');
 			fsd->print(size);
-			fsd->print(',');
+			fsd->print("\t");
+			fsd->print(ts);
+			fsd->print("\t");
 			fsd->print(filename);
 			fsd->print("\r\n");
 		}
@@ -493,30 +529,104 @@ void doListRecursive(Stream *fsd, char *full_name, bool recurse, int level, myFi
 
 	}   // while (entry)
 
-	// rewind if recurse
-
-	if (recurse)
-	{
-		the_dir.rewindDirectory();
-		myFileType_t entry = the_dir.openNextFile();
-		while (entry)
-		{
-			if (entry.isDirectory())
-			{
-				entry.getName(dir_name, sizeof(dir_name));
-
-				char full_path[255];
-				strcpy(full_path,full_name);
-				strcat(full_path,"/");
-				strcat(full_path,dir_name);
-
-				doListRecursive(fsd,full_path,recurse,level+1,entry);
-			}
-			entry = the_dir.openNextFile();
-		}
-
-	}
+	fsd->print("file_reply_end");
+	fsd->print("\r\n");
 }
+
+
+
+static void makeDir(Stream *fsd, const char *dir, const char *name)
+{
+	char path[255];
+	strcpy(path,dir);
+	strcat(path,"/");
+	strcat(path,name);
+
+	display_level(dbg_cmd,2,"fileSystem::makeDir(%s,%s) path=%s",dir,name,path);
+
+	if (SD.exists(path))
+	{
+		fileReplyError(fsd,"Dir/File %s already exists",name);
+		return;
+	}
+
+	// excluded code to set timestamp on dir
+	// strcpy(write_ts,ts);
+
+	#if USE_OLD_FAT
+		// FatFile::dateTimeCallback(dtCallback);
+		int rslt = SD.mkdir(path);
+		// FatFile::dateTimeCallbackCancel();
+	#else
+		// FsDateTime::setCallback(dtCallback);
+		int rslt = SD.mkdir(path);
+		// FsDateTime::clearCallback();
+	#endif
+
+	if (!rslt)
+	{
+		fileReplyError(fsd,"Could not make directory %s",name);
+		return;
+	}
+
+	const char *ts = getTimeStamp(path);
+
+	fsd->print("file_reply:\t");
+	fsd->print(ts);
+	fsd->print("\t");
+	fsd->print(name);
+	fsd->print("/");
+	fsd->print("/\r\n");
+}
+
+
+static void renameObj(Stream *fsd, const char *dir, const char *name1, const char *name2)
+{
+	char path1[255];
+	strcpy(path1,dir);
+	strcat(path1,"/");
+	strcat(path1,name1);
+
+	char path2[255];
+	strcpy(path2,dir);
+	strcat(path2,"/");
+	strcat(path2,name2);
+
+	myFileType_t file = SD.open(path1);
+	if (!file)
+	{
+		fileReplyError(fsd,"Could not open %s in order to rename",name1);
+		return;
+	}
+	bool is_dir = file.isDirectory();
+	const char *ts = getTimeStamp(&file);
+	uint32_t size = file.size();
+	file.close();
+
+	display_level(dbg_cmd,2,"fileSystem::renameObj(%s,%s,%s) path1=%s path2=%s",dir,name1,name2,path1,path2);
+
+	if (!SD.rename(path1,path2))
+	{
+		fileReplyError(fsd,"Could not rename %s to %s",name1,name2);
+		return;
+	}
+
+	fsd->print("file_reply:");
+	if (!is_dir)
+		fsd->print(size);
+	fsd->print("\t");
+	fsd->print(ts);
+	fsd->print("\t");
+	fsd->print(name2);
+	fsd->print("/");
+	fsd->print("/\r\n");
+}
+
+
+
+//-------------------------------------------------------
+// handleFileCommand
+//-------------------------------------------------------
 
 
 #define MAX_DECODED_BUF   10240
@@ -525,8 +635,24 @@ void doListRecursive(Stream *fsd, char *full_name, bool recurse, int level, myFi
 unsigned char decode_buf[MAX_DECODED_BUF];
 
 
-void fileSystem::handleFileCommand(const char *command, const char *param)
+void fileSystem::handleFileCommand(char *ptr)
 {
+	char *command = ptr;
+
+	char *param[3];
+	memset(param,0,3 * sizeof(char *));
+
+	char **pparam = param;
+	while (*ptr)
+	{
+		if (*ptr == '\t')
+		{
+			*ptr++ = 0;
+			*pparam++ = ptr;
+		}
+		ptr++;
+	}
+
     // DIRECTORY LIST
 
 	Stream *fsd = ACTIVE_FILE_SYS_DEVICE;
@@ -536,95 +662,33 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 		return;
 	}
 
-    display_level(dbg_hdr,0,"handleFileCommand %s",command);
+    display_level(dbg_hdr,1,"handleFileCommand(%s) param0(%s) param1(%s) param2(%s)",
+		command,
+		param[0] ? param[0] : "",
+		param[1] ? param[1] : "",
+		param[2] ? param[2] : "");
 
-    if (!strcmp(command,"list"))
+    if (!strcmp(command,"LIST"))
     {
-        // send a blank response if the directory does not exist
+		doList(fsd,param[0]);
+    }
+	else if (!strcmp(command,"MKDIR"))
+	{
+		makeDir(fsd,param[0],param[1]);
+	}
+	else if (!strcmp(command,"RENAME"))
+	{
+		renameObj(fsd,param[0],param[1],param[2]);
+	}
 
-		char *recurse = (char *) param;
-		char *dir_name = recurse;
-		while (*dir_name && *dir_name != ',') dir_name++;
-		if (*dir_name == ',') *dir_name++ = 0;
-
-		display_level(dbg_cmd,1,"fileSystem::list %s - %s",recurse,dir_name);
-
-		myFileType_t the_dir = SD.open(dir_name);
-		if (the_dir)
-		{
-			doListRecursive(fsd,dir_name,*recurse=='1',0,the_dir);
-		}
-
-    }   // list command
-
-
-    // MAKE DIRECTORY
-
-    else if (!strcmp(command,"mkdir"))
-    {
-        char *path = (char *) param;
-        char *ts = path;
-        while (*ts && *ts != ',') ts++;
-        if (*ts == ',') *ts++ = 0;
-
-        display_level(dbg_cmd,1,"fileSystem::mkdir(%s,%s)",path,ts);
-
-        if (SD.exists(path))
-        {
-            fsd->print("file_reply:");
-            fsd->print("ERROR - directory_already_exists ");
-            fsd->print(path);
-            fsd->print("\r\n");
-        }
-        else
-        {
-            display_level(dbg_cmd+1,2,"fileSystem::mkdir(%s) calling SD.mkdir()",param);
-
-            // this snippet is how you have to set the timestamp on a directory
-
-            strcpy(write_ts,ts);
-
-			#if USE_OLD_FAT
-				FatFile::dateTimeCallback(dtCallback);
-				int rslt = SD.mkdir(path);
-				FatFile::dateTimeCallbackCancel();
-			#else
-				FsDateTime::setCallback(dtCallback);
-				int rslt = SD.mkdir(path);
-				FsDateTime::clearCallback();
-			#endif
-
-            if (rslt)
-            {
-                #if 0   // as this does not work
-                    myFileType_t the_dir = SD.open(path);
-                    if (the_dir)
-                    {
-                        setTimeStamp(the_dir,ts);
-                        the_dir.close();
-                    }
-                #endif
-
-                fsd->print("file_reply:");
-                fsd->print("OK - created_directory ");
-            }
-            else
-            {
-                fsd->print("file_reply:");
-                fsd->print("ERROR - could_not_create_directory ");
-            }
-            fsd->print(param);
-            fsd->print("\r\n");
-        }
-    }   // mkdir command
-
+#if 0
 
     // GET FILE
 
     else if (!strcmp(command,"get"))
     {
-        const char *filename = param;
-        display_level(dbg_cmd,1,"fileSystem::get(%s)",filename);
+        const char *filename = param[0];
+        display_level(dbg_cmd,2,"fileSystem::get(%s)",filename);
         myFileType_t the_file = SD.open(filename);
 
         // The result will be
@@ -637,7 +701,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         {
             char filename[255];
             the_file.getName(filename, sizeof(filename));
-            const char *ts = getDateTimeStamp(&the_file,filename);
+            const char *ts = getTimeStamp(&the_file,filename);
             uint32_t size = the_file.size();
 
             fsd->print("file_reply:FILE ");
@@ -662,7 +726,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
             {
                 uint32_t bytes_to_read = size;
                 if (bytes_to_read > BUF_BYTES) bytes_to_read = BUF_BYTES;
-                display_level(dbg_cmd,2,"fsGet::read(%d,%d)",file_off,bytes_to_read);
+                display_level(dbg_cmd,3,"fsGet::read(%d,%d)",file_off,bytes_to_read);
 
                 uint32_t got_bytes = the_file.read(buf,bytes_to_read);
 
@@ -741,7 +805,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
         if (*filename == ',')
             *filename++ = 0;
 
-        display_level(dbg_cmd,1,"fileSystem::put ts=%s sz=%s dir=%s filename=%s",ts,sz,dir,filename);
+        display_level(dbg_cmd,2,"fileSystem::put ts=%s sz=%s dir=%s filename=%s",ts,sz,dir,filename);
 
         write_size = atoi(sz);
         write_offset = 0;
@@ -767,7 +831,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 }
                 else
                 {
-                    display_level(dbg_cmd+1,2,"fsPut::directory %s exists",dir);
+                    display_level(dbg_cmd+1,3,"fsPut::directory %s exists",dir);
                 }
                 the_dir.close();
             }
@@ -776,7 +840,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
                 // prepare for setting timestamp in below call
                 // cannot call setTimeStamp() on dirs
 
-                display_level(dbg_cmd+1,2,"fsPut::mkdir %s",dir);
+                display_level(dbg_cmd+1,3,"fsPut::mkdir %s",dir);
                 strcpy(write_ts,ts);
 
 				#if USE_OLD_FAT
@@ -836,7 +900,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
     else if (!strcmp(command,"BASE64"))
     {
-        display_level(dbg_cmd,1,"fileSystem::base64 offset=%d",write_offset);
+        display_level(dbg_cmd,2,"fileSystem::base64 offset=%d",write_offset);
 
         int decoded_size = base64_decode((char *)decode_buf,(char *)param,strlen(param));
         int bytes_written = write_file.write(decode_buf,decoded_size);
@@ -867,7 +931,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
     else if (!strcmp(command,"CHECKSUM"))
     {
         uint32_t got = atoi(param);
-        display_level(dbg_cmd,1,"fileSystem::CHECKSUM got=%d calculated=%d",got,write_checksum);
+        display_level(dbg_cmd,2,"fileSystem::CHECKSUM got=%d calculated=%d",got,write_checksum);
         if (got == write_checksum)
         {
             fsd->print("file_reply:OK CHECKSUM ");
@@ -895,7 +959,7 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
     else if (!strcmp(command,"delete"))
     {
-        display_level(dbg_cmd,1,"fileSystem::delete %s",param);
+        display_level(dbg_cmd,2,"fileSystem::delete %s",param);
         myFileType_t the_file = SD.open(param);
         if (the_file)
         {
@@ -937,54 +1001,12 @@ void fileSystem::handleFileCommand(const char *command, const char *param)
 
     }   // delete command
 
-    // RENAME file or directory
+#endif
 
-	else if (!strcmp(command,"rename"))
-    {
-        char *old_path = (char *) param;
-        char *new_path = old_path;
-        while (*new_path && *new_path != ',') new_path++;
-        if (*new_path == ',') *new_path++ = 0;
-        display_level(dbg_cmd,1,"fileSystem::rename(%s) to '%s'",old_path,new_path);
-
-        myFileType_t the_file = SD.open(old_path);
-        if (the_file)
-        {
-            uint32_t size = the_file.size();
-            bool is_dir = the_file.isDirectory();
-            const char *ts = getDateTimeStamp(&the_file,old_path);
-            the_file.close();
-
-            display_level(dbg_cmd+1,2,"fsRename::is_dir=%d size=%d ts=%s",is_dir,size,ts);
-
-            if (SD.rename(old_path,new_path))
-            {
-                fsd->print("file_reply:OK RENAME ");
-                fsd->print(is_dir);
-                fsd->print(",");
-                fsd->print(size);
-                fsd->print(",");
-                fsd->print(ts);
-                fsd->print("\r\n");
-            }
-            else
-            {
-                fsd->print("file_reply:ERROR - rename '");
-                fsd->print(old_path);
-                fsd->print("' to '");
-                fsd->print(new_path);
-                fsd->print("' FAILED");
-                fsd->print("\r\n");
-            }
-        }
-        else
-        {
-            fsd->print("file_reply:ERROR - could not open '");
-            fsd->print(old_path);
-            fsd->print("' for renaming");
-            fsd->print("\r\n");
-        }
-    }
+	else
+	{
+		fileReplyError(fsd,"Unknown Command",command);
+	}
 
     fsd->print("file_reply_end");
     fsd->print("\r\n");

@@ -21,13 +21,14 @@
 
 
 #define dbg_sys   0
-	// show system startup, etc
+	// 0 = show system startup, etc
 #define dbg_raw_midi 1
-	// show received usb and serial midi
+	// 0 = show received usb and serial midi
 	// may create timing problems
-#define dbg_win	  0
-	// debug the window stack
-
+#define dbg_win	  1
+	// 0 = debug the window stack
+#define dbg_file_command 1
+	// 0 = show file command buffer before sending to handleFileCommand
 
 #define MIDI_ACTIVITY_TIMEOUT 			150
 #define BATTERY_CHECK_TIME  			30000
@@ -224,21 +225,19 @@ static char usb_buffer[MAX_SERIAL_TEXT_LINE+1];
 static char serial_buffer[MAX_SERIAL_TEXT_LINE+1];
 
 
-static void doFileCommand(bool serial, char *buffer, int len)
+static void doFileCommand(bool is_serial, char *buffer, int len)
 	// not so sure of doing file commands from
 	// timer_handler ... may want to enqueue them
 {
+	display_level(dbg_file_command,0,"doFileCommand: %s",buffer);
 	if (!strncmp(buffer,"file_command:",13))
 	{
-		char *p_command = &buffer[13];
-		char *p_param = p_command;
-		while (*p_param && *p_param != ' ') p_param++;
-		if (*p_param == ' ') *p_param++ = 0;
-		fileSystem::handleFileCommand(p_command,p_param);
+		char *ptr = &buffer[13];
+		fileSystem::handleFileCommand(ptr);
 	}
 	else
 	{
-		my_error("unexpected serial(%d) data(%d)",serial,len);
+		my_error("unexpected is_serial(%d) data(%d)",is_serial,len);
 		if (len > 255) len = 255;		// don't display too much
 		display_bytes(0,"BUF",(uint8_t*)buffer,len);
 	}
@@ -317,7 +316,7 @@ void theSystem::handleSerialData()
 
 		else if (c == 0x0A || serial_buf_ptr >= MAX_SERIAL_TEXT_LINE-1)				// LF comes last
 		{
-			usb_buffer[serial_buf_ptr++] = 0;
+			serial_buffer[serial_buf_ptr++] = 0;
 			doFileCommand(1,serial_buffer,serial_buf_ptr);
 			serial_buf_ptr = 0;
 			serial_timeout = 0;
