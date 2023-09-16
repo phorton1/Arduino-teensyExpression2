@@ -529,8 +529,6 @@ static void doList(Stream *fsd, const char *dir)
 
 	}   // while (entry)
 
-	fsd->print("file_reply_end");
-	fsd->print("\r\n");
 }
 
 
