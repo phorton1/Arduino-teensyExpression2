@@ -1,0 +1,167 @@
+# JaimacaFarewell.song
+# The first song I recorded using the songMachine.
+
+
+# INTRO and CHORUS 0
+
+    start:
+        CLEAR_LOOPER
+        LOOP_VOLUME 63
+        SYNTH_VOLUME 0
+        GUITAR_VOLUME 70
+        SYNTH_PATCH Bass1
+        GUITAR_EFFECT_NONE
+        BUTTON_COLOR 4,yellow
+        BUTTON_COLOR 1,orange,FLASH
+        DISPLAY 1,"INTRO"
+        DISPLAY 2,"sing intro"
+
+    button1:                            # chorus 0
+        LOOPER_TRACK 1                  # start recording
+        BUTTON_COLOR 1,red
+        DISPLAY 1,"CHOR0"
+        DISPLAY 2,"recording base clip"
+
+# LEAD 0 - Acoustic guitar fill thru base clip
+
+    button1:
+        LOOPER_TRACK 1                  # end recording
+        delay 10                        # 10's of a second
+        GUITAR_EFFECT_ECHO on
+        BUTTON_COLOR 1,green,FLASH
+        DISPLAY 1,"A-LEAD"
+        DISPLAY 2,"play acc lead\nready bass"
+
+    # ready bass
+
+    button1:                            # press this BEFORE loop ends!
+        BUTTON_COLOR 1,red,FLASH
+        GUITAR_VOLUME 0,20              # bring guitar down over 2 seconds
+        SYNTH_VOLUME 85,20              # while bringing synth up
+        DUB_MODE                        # set dub mode
+        LOOPER_TRACK 1                  # start recording on next loop
+        DISPLAY 2,"ready record bass"
+
+# VERSE1 and CHORUS1 - while recording bass
+
+    loop:
+        BUTTON_COLOR 1,red
+        DISPLAY 1,"VERSE1"
+        DISPLAY 2,"recording bass1"
+    loop:
+        BUTTON_COLOR 1,orange
+        DISPLAY 1,"CHOR1"
+        DISPLAY 2,"recording bass2\ready organ"
+        LOOPER_TRACK 1                  # end recording on next loop
+
+# ORGAN lead without recording
+
+    loop:
+        SYNTH_VOLUME   0,10
+        delay 10
+        SYNTH_PATCH Organ1
+        SYNTH_VOLUME   75,10
+        DUB_MODE
+        BUTTON_COLOR 1,green
+        DISPLAY 1,"O-LEAD"
+        DISPLAY 2,"ready record organ"
+
+# VERSE2 and CHORUS - record organ over verse2
+
+    loop:
+        SYNTH_VOLUME   70,0
+        LOOPER_TRACK 1          # record organ through verse
+        LOOPER_CLIP  3,mute     # muted playing the guitar
+        BUTTON_COLOR 1,red
+        DISPLAY 1,"VERSE"
+        DISPLAY 2,"record organ"
+
+    loop:                       # playing but not recording organ
+        SYNTH_VOLUME   60,20
+        DISPLAY 1,"CHOR2"
+        DISPLAY 2,"sing chorus, play organ"
+        BUTTON_COLOR 1,green
+        GUITAR_EFFECT_DISTORT on
+        GUITAR_EFFECT_WAH on
+        LOOPER_TRACK 1          # finish organ next time through
+
+
+# GUITAR LEAD
+
+    loop:
+        SYNTH_VOLUME 0,10
+        GUITAR_VOLUME 48,10
+        BUTTON_COLOR 1,yellow
+        DISPLAY 1,"LEAD1"
+        DISPLAY 2,"play guitar lead"
+    loop:
+        DISPLAY 1,"LEAD2"
+        DISPLAY 2,"play guitar lead\nready strum"
+        BUTTON_COLOR 1,orange
+
+
+# VERSE3 - strums over bass, then add guitar
+
+    loop:
+        LOOPER_CLIP   1,mute        # stop playing the guitar
+        GUITAR_EFFECT_DISTORT off
+        GUITAR_EFFECT_WAH off
+        DISPLAY 1,"VERSE3"
+        DISPLAY 2,"strum guitar"
+        BUTTON_COLOR 1,green
+
+# CHORUS3 and END
+
+    loop:
+        LOOPER_CLIP   1,unmute      # stsrt playing guitar again
+        DISPLAY 1,"CHOR3"
+        DISPLAY 2,"final chorus\nbutton to repeat/end"
+        BUTTON_COLOR 1,orange,FLASH
+
+    # My original intent was to switch to the bass on the end note,
+    # but I didn't do the long version, and the SYNTH_PATCH message
+    # was in the second loop so it never got there. I recorded it
+    # with organ and it sounds ok.
+    #
+    # Could even have a "special" patch which is something like
+    # JUST the low G on the bass along with the usual Organ sound.
+    #
+        # SYNTH_PATCH Bass-G
+
+    # optional long version ...
+    # Can press the button at end of chorus to repeat and
+    # end at this point if you want ... or if you don't
+    # on the next time through we will bring back in the
+    # organ and you can do whatever you want ...
+
+    loop:
+        LOOPER_CLIP   3,unmute      # stsrt playing organ again
+        DISPLAY 1,"VAMP"
+        DISPLAY 2,"LONG VERSION\nbutton to repeat/end"
+        BUTTON_COLOR 1,green,FLASH
+
+        # do what ever you want
+
+# REPEAT button
+
+button1:
+    LOOPER_SET_START_MARK
+    DISPLAY 2,"mark set"
+    DISPLAY 1,"END"
+    BUTTON_COLOR 1,red,FLASH
+loop:
+    DISPLAY 2,"repeat2"
+loop:
+    DISPLAY 2,"repeat3"
+button1:
+    LOOPER_STOP_IMMEDIATE
+    SYNTH_VOLUME 70,0
+    DISPLAY 1,"DONE"
+    DISPLAY 2,"final riff"
+    BUTTON_COLOR 1,BLACK
+
+button4:
+    goto start
+
+
+# end of file: JamaicaFarewell.song
