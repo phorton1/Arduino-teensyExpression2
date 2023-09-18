@@ -73,8 +73,9 @@
 #define dbg_ts    1
 	// 0 = show timestamp operations
 	// -1 = show callback setting
-#define dbg_hdr	   0
+#define dbg_hdr	   -1
 	// show a header for any file system command
+	// -1 = show entries
 #define dbg_cmd	   -1
 	// 0 = show file commands
 	// -1 = show details
@@ -535,6 +536,8 @@ static void doList(Stream *fsd, const char *dir)
 
 static void makeDir(Stream *fsd, const char *dir, const char *name)
 {
+	// name has trailing slash removed
+
 	char path[255];
 	strcpy(path,dir);
 	strcat(path,"/");
@@ -580,6 +583,8 @@ static void makeDir(Stream *fsd, const char *dir, const char *name)
 
 static void renameObj(Stream *fsd, const char *dir, const char *name1, const char *name2)
 {
+	// names already have trailing /'s removed
+
 	char path1[255];
 	strcpy(path1,dir);
 	strcat(path1,"/");
@@ -621,38 +626,145 @@ static void renameObj(Stream *fsd, const char *dir, const char *name1, const cha
 }
 
 
+static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last)
+{
+	char path[255];
+	strcpy(path,dir);
+	if (strcmp(dir,"/"))
+		strcat(path,"/");
+	strcat(path,entry);
+
+    display_level(dbg_cmd,2,"fileSystem::deleteOne(%s)",path);
+
+	myFileType_t the_file = SD.open(path);
+
+	bool ok = 1;
+	if (the_file)
+	{
+		bool is_dir = the_file.isDirectory();
+
+		if (is_dir)
+		{
+			ok = the_file.rmRfStar();		// remove directory and contents
+		}
+		else
+		{
+			the_file.close();
+			ok = SD.remove(path);
+		}
+		if (!ok)
+		{
+			fileReplyError(fsd,"could not remove %s",path);
+		}
+	}
+	else
+	{
+		ok = 0;
+		fileReplyError(fsd,"could not open %s for delete",path);
+	}
+
+	if (last && ok)
+	{
+		doList(fsd, dir);
+	}
+
+	return ok;
+}
+
+
 
 //-------------------------------------------------------
 // handleFileCommand
 //-------------------------------------------------------
-
 
 #define MAX_DECODED_BUF   10240
     // the decoded base64 will always be less than the raw base64
     // and 10240 is agreed upon between console.pm and teensyExpression.
 unsigned char decode_buf[MAX_DECODED_BUF];
 
-
-void fileSystem::handleFileCommand(char *ptr)
+typedef struct
 {
-	char *command = ptr;
+	const char *size;
+	const char *ts;
+	const char *entry;
+	bool is_dir;
+}   textEntry_t;
 
-	char *param[3];
-	memset(param,0,3 * sizeof(char *));
 
-	char **pparam = param;
-	while (*ptr)
+static textEntry_t theEntry;
+static char *theEntryPtr;
+
+
+static textEntry_t *getNextEntry(Stream *fsd, bool *ok, char *param_ptr=0, bool *last = 0)
+	// parser for commands that have lists of entries
+	// pass in param_ptr to initialize the parse,
+	// remember there's an extra carriage
+	// return at the end for the short return.
+{
+	if (param_ptr)
+		theEntryPtr = param_ptr;
+	if (!*theEntryPtr || *theEntryPtr=='\r')
+		return NULL;
+	// display(dbg_hdr+1,"getNextEntry(%d) c=%d s=%s ",(uint32_t) theEntryPtr, *theEntryPtr, theEntryPtr);
+
+	// we copy the entry buffer but put terminating zeros in it
+
+	char *out_byte = (char *) decode_buf;
+	*out_byte = 0;
+
+	// we set all 3 fields or fail
+	// there is a tab after each entry
+
+	int num_params = 0;
+	theEntry.is_dir = 0;
+	theEntry.size = out_byte;
+
+	while (*theEntryPtr)
 	{
-		if (*ptr == '\t')
+		if (*theEntryPtr == '\t')	 // tab terminator
 		{
-			*ptr++ = 0;
-			*pparam++ = ptr;
+			theEntryPtr++;
+			*out_byte++ = 0;
+			num_params++;
+			if (num_params == 1)
+				theEntry.ts  = out_byte;
+			else if (num_params == 2)
+				theEntry.entry  = out_byte;
+			else if (num_params == 3)
+			{
+				if (*(out_byte-2) == '/')
+				{
+					theEntry.is_dir = 1;
+					*(out_byte-2) = 0;
+				}
+			}
 		}
-		ptr++;
+		else if (*theEntryPtr == '\r')
+		{
+			*out_byte++ = 0;
+			theEntryPtr++;
+			break;
+		}
+		else
+		{
+			*out_byte++ = *theEntryPtr++;
+		}
 	}
 
-    // DIRECTORY LIST
+	if (num_params != 3)
+	{
+		*ok = 0;
+		fileReplyError(fsd,"Incorrect number of fields(%d) in fileEntry",num_params);
+	}
 
+	if (last)
+		*last = !*theEntryPtr || *theEntryPtr=='\r';
+	return num_params == 3 ? &theEntry : NULL;
+}
+
+
+void fileSystem::handleFileCommand(char *param_ptr)
+{
 	Stream *fsd = ACTIVE_FILE_SYS_DEVICE;
 	if (!fsd)
 	{
@@ -660,24 +772,97 @@ void fileSystem::handleFileCommand(char *ptr)
 		return;
 	}
 
+	//------------------------------
+	// parse the command line
+	//------------------------------
+
+	char *command = param_ptr;
+
+	int num_params = 0;
+	const char *param[3];
+	while (*param_ptr && *param_ptr != '\r')
+	{
+		if (*param_ptr == '\t' && num_params<3)
+		{
+			*param_ptr++ = 0;
+			param[num_params++] = param_ptr;
+		}
+		param_ptr++;
+	}
+	if (*param_ptr == '\r')
+		*param_ptr++ = 0;
+
+	for (int i=num_params; i<3; i++)
+	{
+		param[i] = "";
+	}
+
     display_level(dbg_hdr,1,"handleFileCommand(%s) param0(%s) param1(%s) param2(%s)",
 		command,
-		param[0] ? param[0] : "",
-		param[1] ? param[1] : "",
-		param[2] ? param[2] : "");
+		param[0],
+		param[1],
+		param[2]);
 
-    if (!strcmp(command,"LIST"))
-    {
-		doList(fsd,param[0]);
-    }
-	else if (!strcmp(command,"MKDIR"))
+
+	//--------------------------
+	// parse entries if any
+	//--------------------------
+
+	bool ok = 1;
+	textEntry_t *entry = getNextEntry(fsd,&ok,param_ptr);
+	while (ok && entry)
 	{
-		makeDir(fsd,param[0],param[1]);
+		display_level(dbg_hdr+1,3,"entry(%s) is_dir(%d) size(%s) ts(%s)",
+			entry->entry, entry->is_dir, entry->size, entry->ts);
+		entry = getNextEntry(fsd,&ok);
 	}
-	else if (!strcmp(command,"RENAME"))
+
+
+	//--------------------------------------
+	// do the commands
+	//--------------------------------------
+
+	if (ok)
 	{
-		renameObj(fsd,param[0],param[1],param[2]);
+		if (!strcmp(command,"LIST"))
+		{
+			doList(fsd,param[0]);
+		}
+		else if (!strcmp(command,"MKDIR"))
+		{
+			makeDir(fsd,param[0],param[1]);
+		}
+		else if (!strcmp(command,"RENAME"))
+		{
+			renameObj(fsd,param[0],param[1],param[2]);
+		}
+		else if (!strcmp(command,"DELETE"))
+		{
+			if (num_params == 2)		// single_file item is in param[1]
+			{
+				deleteObj(fsd,param[0],param[1],1);
+			}
+			else	// process entry list
+			{
+				bool last;
+				textEntry_t *entry = getNextEntry(fsd,&ok,param_ptr,&last);
+				while (ok && entry)
+				{
+					ok = deleteObj(fsd,param[0],entry->entry,last);
+					if (ok)
+						entry = getNextEntry(fsd,&ok,NULL,&last);
+				}
+			}
+		}
+		else
+		{
+			fileReplyError(fsd,"Unknown Command %s",command);
+		}
 	}
+
+    fsd->print("file_reply_end");
+    fsd->print("\r\n");
+
 
 #if 0
 
@@ -1001,13 +1186,7 @@ void fileSystem::handleFileCommand(char *ptr)
 
 #endif
 
-	else
-	{
-		fileReplyError(fsd,"Unknown Command",command);
-	}
 
-    fsd->print("file_reply_end");
-    fsd->print("\r\n");
 
 }	// handleFileCommand
 
