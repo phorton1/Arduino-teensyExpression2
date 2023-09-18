@@ -24,8 +24,6 @@
 
 #include "defines.h"
 
-// PRH - should implement debug port following (off, DEBUG, USB, SERIAL)
-//	   for FILE_SYS_DEVICE and MIDI_MONITOR
 
 #define TEENSY_EXPRESSION2_PREF_VERSION   239
 	// EEPROM location 0 is magic

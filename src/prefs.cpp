@@ -353,8 +353,6 @@ bool read_prefs()
 void save_prefs()
 	// write to EEPROM and update last_pref members
 	// writes 255 for prefs that match the default
-	// PRH THERE ARE CERTAIN VALUES FOR WHICH THIS WILL NOT WORK!
-	// i.e. if the low order of a uint16_t happens to be 255
 {
     display(dbg_prefs,"save_prefs()",0);
 

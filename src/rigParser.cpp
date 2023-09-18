@@ -1119,7 +1119,6 @@ static bool handleButton()
 				started = 1;
 				uint32_t mask = 1 << button_num;
 				display(dbg_parse + 2,"added button_num(0x%02x) to mask(0x%02x)",button_num,mask);
-				// PRH still need to check that this button was not previously defined
 
 				if (button_mask & mask)
 				{

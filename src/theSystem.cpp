@@ -27,7 +27,7 @@
 	// may create timing problems
 #define dbg_win	  1
 	// 0 = debug the window stack
-#define dbg_file_command 1
+#define dbg_file_command 0
 	// 0 = show file command buffer before sending to handleFileCommand
 
 #define MIDI_ACTIVITY_TIMEOUT 			150
@@ -229,7 +229,6 @@ static void doFileCommand(bool is_serial, char *buffer, int len)
 	// not so sure of doing file commands from
 	// timer_handler ... may want to enqueue them
 {
-	display_level(dbg_file_command,0,"doFileCommand: %s",buffer);
 	if (!strncmp(buffer,"file_command:",13))
 	{
 		char *ptr = &buffer[13];
@@ -263,14 +262,14 @@ void theSystem::handleSerialData()
 	if (Serial.available())
 	{
 		int c = Serial.read();
-		if (c == 0x0A || usb_buf_ptr >= MAX_SERIAL_TEXT_LINE-1)				// LF comes last
+		if (c == 0x0A || usb_buf_ptr >= MAX_SERIAL_TEXT_LINE-1)				// LINEFEED comes last
 		{
 			usb_buffer[usb_buf_ptr++] = 0;
 			doFileCommand(0,usb_buffer,usb_buf_ptr);
 			usb_buf_ptr = 0;
 			usb_timeout = 0;
 		}
-		else if (c != 0x0D )// skip CR
+		else // if (c != 0x0D )// skip CR
 		{
 			usb_buffer[usb_buf_ptr++] = c;
 			usb_timeout = 0;
@@ -321,7 +320,7 @@ void theSystem::handleSerialData()
 			serial_buf_ptr = 0;
 			serial_timeout = 0;
 		}
-		else if (c != 0x0D )// skip CR
+		else // if (c != 0x0D )// skip CR
 		{
 			serial_buffer[serial_buf_ptr++] = c;
 			serial_timeout = 0;
