@@ -67,6 +67,7 @@
 #include "prefs.h"
 #include <myDebug.h>
 #include <Base64.h>
+#include <TeensyThreads.h>
 
 
 #define TEST_DELAY    0		// 2000
@@ -98,9 +99,9 @@
 
 typedef struct
 {
-	const char *size;
-	const char *ts;
-	const char *entry;
+	char size[10];
+	char ts[22];
+	char entry[255];
 	bool is_dir;
 }   textEntry_t;
 
@@ -120,9 +121,7 @@ char static_timestamp[32];
 	// buffers for use by getTimeStamp and dtCallback
 unsigned char decode_buf[MAX_DECODED_BUF];
 	// used to decode base64 and in getNextEntry
-static textEntry_t theEntry;
-static char *theEntryPtr;
-	// getNextEntry vars
+
 
 
 //---------------------------------------------
@@ -413,6 +412,7 @@ static const char *getTimeStamp(const char *path)
 }
 
 
+#if 0
 
 static void setTimeStamp(myFileType_t the_file, char *ts)
 {
@@ -481,20 +481,25 @@ static void dtCallback(uint16_t* date, uint16_t* time)
 
 }
 
+#endif
+
 
 //---------------------------------------
 // reply methods
 //---------------------------------------
 
-static void fileReplyEnd(Stream *fsd)
+static void fileReplyEnd(Stream *fsd, int req_num)
 {
-    fsd->print("file_reply_end");
-    fsd->print("\r\n");
+    fsd->print("file_reply_end(");
+ 	fsd->print(req_num);
+    fsd->print(")\r\n");
 }
 
-static void fileReply(Stream *fsd, bool is_dir, uint32_t size, const char *ts,  const char *entry)
+static void fileReply(Stream *fsd, int req_num, bool is_dir, uint32_t size, const char *ts,  const char *entry)
 {
-	fsd->print("file_reply:");
+	fsd->print("file_reply(");
+	fsd->print(req_num);
+	fsd->print("):");
 	if (!is_dir)
 		fsd->print(size);
 	fsd->print("\t");
@@ -506,7 +511,7 @@ static void fileReply(Stream *fsd, bool is_dir, uint32_t size, const char *ts,  
 	fsd->print("\r\n");
 }
 
-static void fileReplyError(Stream *fsd, const char *format, ...)
+static void fileReplyError(Stream *fsd, int req_num, const char *format, ...)
 {
 	char buffer[255];
 
@@ -516,36 +521,47 @@ static void fileReplyError(Stream *fsd, const char *format, ...)
 
 	my_error(buffer,0);
 
-	fsd->print("file_reply:");
+	fsd->print("file_reply(");
+	fsd->print(req_num);
+	fsd->print("):");
 	fsd->print("ERROR - ");
 	fsd->print(buffer);
 	fsd->print("\r\n");
 }
 
-void sendProgressADD(Stream *fsd,int num_dirs, int num_files)
+void sendProgressADD(Stream *fsd,int req_num, int num_dirs, int num_files)
 {
-	fsd->print("file_reply:PROGRESS\tADD\t");
+	fsd->print("file_reply(");
+	fsd->print(req_num);
+	fsd->print("):");
+	fsd->print("PROGRESS\tADD\t");
 	fsd->print(num_dirs);
 	fsd->print("\t");
 	fsd->print(num_files);
 	fsd->print("\r\n");
-	fileReplyEnd(fsd);
+	fileReplyEnd(fsd,req_num);
 }
 
-void sendProgressENTRY(Stream *fsd, const char *entry)
+void sendProgressENTRY(Stream *fsd, int req_num, const char *entry)
 {
-	fsd->print("file_reply:PROGRESS\tENTRY\t");
+	fsd->print("file_reply(");
+	fsd->print(req_num);
+	fsd->print("):");
+	fsd->print("PROGRESS\tENTRY\t");
 	fsd->print(entry);
 	fsd->print("\r\n");
-	fileReplyEnd(fsd);
+	fileReplyEnd(fsd,req_num);
 }
 
-void sendProgressDONE(Stream *fsd,bool is_dir)
+void sendProgressDONE(Stream *fsd, int req_num, bool is_dir)
 {
-	fsd->print("file_reply:PROGRESS\tDONE\t");
+	fsd->print("file_reply(");
+	fsd->print(req_num);
+	fsd->print("):");
+	fsd->print("PROGRESS\tDONE\t");
 	fsd->print(is_dir);
 	fsd->print("\r\n");
-	fileReplyEnd(fsd);
+	fileReplyEnd(fsd,req_num);
 }
 
 
@@ -553,19 +569,19 @@ void sendProgressDONE(Stream *fsd,bool is_dir)
 // atomic commands
 //---------------------------------------------
 
-static void doList(Stream *fsd, const char *dir)
+static void doList(Stream *fsd, int req_num, const char *dir)
 {
 	display_level(dbg_cmd,2,"fileSystem::doList(%s)",dir);
 
 	myFileType_t the_dir = SD.open(dir);
 	if (!the_dir)
 	{
-		fileReplyError(fsd,"Could not open directory %s",dir);
+		fileReplyError(fsd,req_num,"Could not open directory %s",dir);
 		return;
 	}
 
 	const char *ts = getTimeStamp(&the_dir);
-	fileReply(fsd,1,0,ts,dir);
+	fileReply(fsd,req_num,1,0,ts,dir);
 
 	myFileType_t entry = the_dir.openNextFile();
 	while (entry)
@@ -575,7 +591,7 @@ static void doList(Stream *fsd, const char *dir)
 		const char *ts = getTimeStamp(&entry);
 		uint32_t size = entry.size();
 
-		fileReply(fsd,entry.isDirectory(),size,ts,filename);
+		fileReply(fsd,req_num,entry.isDirectory(),size,ts,filename);
 		entry = the_dir.openNextFile();
 
 	}   // while (entry)
@@ -583,7 +599,7 @@ static void doList(Stream *fsd, const char *dir)
 }
 
 
-static void makeDir(Stream *fsd, const char *dir, const char *name)
+static void makeDir(Stream *fsd, int req_num, const char *dir, const char *name)
 {
 	// name has trailing slash removed
 
@@ -596,7 +612,7 @@ static void makeDir(Stream *fsd, const char *dir, const char *name)
 
 	if (SD.exists(path))
 	{
-		fileReplyError(fsd,"Dir/File %s already exists",name);
+		fileReplyError(fsd,req_num,"Dir/File %s already exists",name);
 		return;
 	}
 
@@ -615,17 +631,17 @@ static void makeDir(Stream *fsd, const char *dir, const char *name)
 
 	if (!rslt)
 	{
-		fileReplyError(fsd,"Could not make directory %s",name);
+		fileReplyError(fsd,req_num,"Could not make directory %s",name);
 		return;
 	}
 
 
 	const char *ts = getTimeStamp(path);
-	fileReply(fsd,1,0,ts,name);
+	fileReply(fsd,req_num,1,0,ts,name);
 }
 
 
-static void renameObj(Stream *fsd, const char *dir, const char *name1, const char *name2)
+static void renameObj(Stream *fsd, int req_num, const char *dir, const char *name1, const char *name2)
 {
 	// names already have trailing /'s removed
 
@@ -642,7 +658,7 @@ static void renameObj(Stream *fsd, const char *dir, const char *name1, const cha
 	myFileType_t file = SD.open(path1);
 	if (!file)
 	{
-		fileReplyError(fsd,"Could not open %s in order to rename",name1);
+		fileReplyError(fsd,req_num,"Could not open %s in order to rename",name1);
 		return;
 	}
 	bool is_dir = file.isDirectory();
@@ -654,14 +670,14 @@ static void renameObj(Stream *fsd, const char *dir, const char *name1, const cha
 
 	if (!SD.rename(path1,path2))
 	{
-		fileReplyError(fsd,"Could not rename %s to %s",name1,name2);
+		fileReplyError(fsd,req_num,"Could not rename %s to %s",name1,name2);
 		return;
 	}
-	fileReply(fsd,is_dir,size,ts,name2);
+	fileReply(fsd,req_num,is_dir,size,ts,name2);
 }
 
 
-static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last)
+static bool deleteObj(Stream *fsd, int req_num, const char *dir, const char *entry, bool last)
 {
 	char path[255];
 	strcpy(path,dir);
@@ -669,7 +685,7 @@ static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last
 		strcat(path,"/");
 	strcat(path,entry);
     display_level(dbg_cmd,2,"fileSystem::deleteOne(%s)",path);
-	sendProgressENTRY(fsd,path);
+	sendProgressENTRY(fsd,req_num,path);
 
 	#if TEST_DELAY
 		delay(TEST_DELAY);
@@ -696,18 +712,18 @@ static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last
 		#endif
 
 		if (ok)
-			sendProgressDONE(fsd,is_dir);
+			sendProgressDONE(fsd,req_num,is_dir);
 		else
-			fileReplyError(fsd,"could not remove %s",path);
+			fileReplyError(fsd,req_num,"could not remove %s",path);
 	}
 	else
 	{
 		ok = 0;
-		fileReplyError(fsd,"could not open %s for delete",path);
+		fileReplyError(fsd,req_num,"could not open %s for delete",path);
 	}
 
 	if (last && ok)
-		doList(fsd, dir);
+		doList(fsd,req_num,dir);
 
 	return ok;
 }
@@ -718,71 +734,65 @@ static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last
 // parse entries lists
 //-------------------------------------------------------
 
-static textEntry_t *getNextEntry(Stream *fsd, bool *ok, char *param_ptr=0, bool *last = 0)
+static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const char **ptr)
 	// parser for commands that have lists of entries
-	// pass in param_ptr to initialize the parse,
-	// remember there's an extra carriage
-	// return at the end for the short return.
+	// pass in ptr, starting at the list of entries
+	// returns 0 if no entry, -1 if error, or 1 if entry
 {
-	if (param_ptr)
-		theEntryPtr = param_ptr;
-	if (!*theEntryPtr || *theEntryPtr=='\r')
-		return NULL;
-	// display(dbg_hdr+1,"getNextEntry(%d) c=%d s=%s ",(uint32_t) theEntryPtr, *theEntryPtr, theEntryPtr);
+	the_entry->size[0] = 0;
+	the_entry->ts[0] = 0;
+	the_entry->entry[0] = 0;
+	the_entry->is_dir = 0;
 
-	// we copy the entry buffer but put terminating zeros in it
-
-	char *out_byte = (char *) decode_buf;
-	*out_byte = 0;
+	if (!**ptr || **ptr=='\r')
+		return 0;
 
 	// we set all 3 fields or fail
 	// there is a tab after each entry
 
 	int num_params = 0;
-	theEntry.is_dir = 0;
-	theEntry.size = out_byte;
+	char *out = the_entry->size;
 
-	while (*theEntryPtr)
+	while (**ptr)
 	{
-		if (*theEntryPtr == '\t')	 // tab terminator
+		if (**ptr == '\t')
 		{
-			theEntryPtr++;
-			*out_byte++ = 0;
+			*out = 0;
+			(*ptr)++;
 			num_params++;
 			if (num_params == 1)
-				theEntry.ts  = out_byte;
+				out  = the_entry->ts;
 			else if (num_params == 2)
-				theEntry.entry  = out_byte;
-			else if (num_params == 3)
+				out = the_entry->entry;
+			else if (num_params == 3 && *(out-2) == '/')
+				// get rid of terminating '/' on dir entries
 			{
-				if (*(out_byte-2) == '/')
-				{
-					theEntry.is_dir = 1;
-					*(out_byte-2) = 0;
-				}
+				the_entry->is_dir = 1;
+				*(out-2) = 0;
 			}
 		}
-		else if (*theEntryPtr == '\r')
+		else if (**ptr == '\r')
 		{
-			*out_byte++ = 0;
-			theEntryPtr++;
+			(*ptr)++;
 			break;
 		}
 		else
 		{
-			*out_byte++ = *theEntryPtr++;
+			*out++ = *(*ptr)++;
 		}
 	}
 
+	bool ok = 1;
 	if (num_params != 3)
 	{
-		*ok = 0;
-		fileReplyError(fsd,"Incorrect number of fields(%d) in fileEntry",num_params);
+		ok = 0;
+		fileReplyError(fsd,req_num,"Incorrect number of fields(%d) in fileEntry",num_params);
 	}
 
-	if (last)
-		*last = !*theEntryPtr || *theEntryPtr=='\r';
-	return num_params == 3 ? &theEntry : NULL;
+	// if (last)
+	// 	*last = !**ptr || **ptr=='\r';
+
+	return ok;
 }
 
 
@@ -792,41 +802,66 @@ static textEntry_t *getNextEntry(Stream *fsd, bool *ok, char *param_ptr=0, bool 
 //-------------------------------------------------------
 
 
-void fileSystem::handleFileCommand(char *param_ptr)
+void fileSystem::handleFileCommand(void *buf)
+	// the buf we are passed must be freed when done!!
 {
 	Stream *fsd = ACTIVE_FILE_SYS_DEVICE;
-	if (!fsd)
+
+	int len = strlen((char *)buf);
+    display_level(dbg_hdr,1,"handleFileCommand() command=%d bytes",len);
+
+	// buf is pointing to the req_num
+
+	int req_num = 0;
+	char *entries = (char *) buf;
+	const char *req_num_ptr = entries;
+	while (*entries && *entries != ')') entries++;
+
+	if (*entries != ')')
 	{
-		warning(0,"FILE_SYS_DEVICE is off in handleFileCommand()!!!",0);
+		my_error("Could not find closing paren in file_command",0);
+		free(buf);
 		return;
 	}
+
+	*entries++ = 0;		// null terminate the request_number
+	req_num = atoi(req_num_ptr);
+	display(0,"got request_number=%d",req_num);
+	if (*entries++ != ':')
+	{
+		my_error("expected colon after (request_number)",0);
+		free(buf);
+		return;
+	}
+
 
 	//------------------------------
 	// parse the command line
 	//------------------------------
 
-	char *command = param_ptr;
+	char *command = entries;
 
 	int num_params = 0;
 	const char *param[3];
-	while (*param_ptr && *param_ptr != '\r')
+	while (*entries && *entries != '\r')
 	{
-		if (*param_ptr == '\t' && num_params<3)
+		if (*entries == '\t' && num_params<3)
 		{
-			*param_ptr++ = 0;
-			param[num_params++] = param_ptr;
+			*entries++ = 0;
+			param[num_params++] = entries;
 		}
-		param_ptr++;
+		entries++;
 	}
-	if (*param_ptr == '\r')
-		*param_ptr++ = 0;
+	if (*entries == '\r')
+		*entries++ = 0;
 
 	for (int i=num_params; i<3; i++)
 	{
 		param[i] = "";
 	}
 
-    display_level(dbg_hdr,1,"handleFileCommand(%s) param0(%s) param1(%s) param2(%s)",
+    display_level(dbg_hdr,1,"handleFileCommand(%d,%s) param0(%s) param1(%s) param2(%s)",
+		req_num,
 		command,
 		param[0],
 		param[1],
@@ -837,393 +872,73 @@ void fileSystem::handleFileCommand(char *param_ptr)
 	// parse entries if any
 	//--------------------------
 
-	bool ok = 1;
+	textEntry_t the_entry;
+	const char *ptr = entries;
+
 	int num_dirs = 0;
 	int num_files = 0;
-	textEntry_t *entry = getNextEntry(fsd,&ok,param_ptr);
-	while (ok && entry)
+	int rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
+	while (rslt == 1)
 	{
-		if (entry->is_dir)
+		if (the_entry.is_dir)
 			num_dirs++;
 		else
 			num_files++;
 
 		display_level(dbg_hdr+1,3,"entry(%s) is_dir(%d) size(%s) ts(%s)",
-			entry->entry, entry->is_dir, entry->size, entry->ts);
-		entry = getNextEntry(fsd,&ok);
+			the_entry.entry, the_entry.is_dir, the_entry.size, the_entry.ts);
+		rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
 	}
-
+	if (rslt == -1)	// error already reported
+	{
+		free(buf);
+		return;
+	}
 
 	//--------------------------------------
 	// do the commands
 	//--------------------------------------
 
-	if (ok)
+	if (!strcmp(command,"LIST"))
 	{
-		if (!strcmp(command,"LIST"))
+		doList(fsd,req_num,param[0]);
+	}
+	else if (!strcmp(command,"MKDIR"))
+	{
+		makeDir(fsd,req_num,param[0],param[1]);
+	}
+	else if (!strcmp(command,"RENAME"))
+	{
+		renameObj(fsd,req_num,param[0],param[1],param[2]);
+	}
+	else if (!strcmp(command,"DELETE"))
+	{
+		if (num_params == 2)		// single_file item is in param[1]
 		{
-			doList(fsd,param[0]);
+			deleteObj(fsd,req_num,param[0],param[1],1);
 		}
-		else if (!strcmp(command,"MKDIR"))
+		else	// process entry list
 		{
-			makeDir(fsd,param[0],param[1]);
-		}
-		else if (!strcmp(command,"RENAME"))
-		{
-			renameObj(fsd,param[0],param[1],param[2]);
-		}
-		else if (!strcmp(command,"DELETE"))
-		{
-			if (num_params == 2)		// single_file item is in param[1]
+			sendProgressADD(fsd,req_num,num_dirs,num_files);
+			ptr = entries;
+			int rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
+			bool last = !*ptr || *ptr == '\r';
+			while (rslt == 1)
 			{
-				deleteObj(fsd,param[0],param[1],1);
+				rslt = deleteObj(fsd,req_num,param[0],the_entry.entry,last);
+				rslt = rslt && getNextEntry(fsd,req_num,&the_entry,&ptr);
+				last = !*ptr || *ptr == '\r';
 			}
-			else	// process entry list
-			{
-				sendProgressADD(fsd,num_dirs,num_files);
-
-				bool last;
-				textEntry_t *entry = getNextEntry(fsd,&ok,param_ptr,&last);
-				while (ok && entry)
-				{
-					ok = deleteObj(fsd,param[0],entry->entry,last);
-					if (ok)
-						entry = getNextEntry(fsd,&ok,NULL,&last);
-				}
-			}
-		}
-		else
-		{
-			fileReplyError(fsd,"Unknown Command %s",command);
 		}
 	}
+	else
+	{
+		fileReplyError(fsd,req_num,"Unknown Command %s",command);
+	}
 
-	fileReplyEnd(fsd);
-
-
-#if 0
-
-    // GET FILE
-
-    else if (!strcmp(command,"get"))
-    {
-        const char *filename = param[0];
-        display_level(dbg_cmd,2,"fileSystem::get(%s)",filename);
-        myFileType_t the_file = SD.open(filename);
-
-        // The result will be
-        // file_reply:FILE $ts,$size,$entry and a bunch of
-        // file_reply:BASE64_ENCODED_FILE lines
-        // file_reply:CHECKSUM %d
-        // file_reply_end
-
-        if (the_file)
-        {
-            char filename[255];
-            the_file.getName(filename, sizeof(filename));
-            const char *ts = getTimeStamp(&the_file,filename);
-            uint32_t size = the_file.size();
-
-            fsd->print("file_reply:FILE ");
-            fsd->print(ts);
-            fsd->print(",");
-            fsd->print(size);
-            fsd->print(",");
-            fsd->print(filename);
-            fsd->print("\r\n");
-
-            #define BUF_BYTES     12000
-            #define BASE64_BYTES  8000      // at least 4/3ds the size of buf bytes
-
-            unsigned char buf[BUF_BYTES];
-            char b64_buf[BASE64_BYTES];
-
-            uint32_t file_off = 0;
-            uint32_t check_sum = 0;
-            bool ok = 1;
-
-            while (size)
-            {
-                uint32_t bytes_to_read = size;
-                if (bytes_to_read > BUF_BYTES) bytes_to_read = BUF_BYTES;
-                display_level(dbg_cmd,3,"fsGet::read(%d,%d)",file_off,bytes_to_read);
-
-                uint32_t got_bytes = the_file.read(buf,bytes_to_read);
-
-                // got_bytes = 2;
-                // to test error handling
-
-                if (got_bytes != bytes_to_read)
-                {
-                    my_error("got %d bytes while attempting to read %d bytes at offset %d",got_bytes,bytes_to_read,file_off);
-                    fsd->print("file_reply:ERROR got ");
-                    fsd->print(got_bytes);
-                    fsd->print(" bytes while attempting to read ");
-                    fsd->print(bytes_to_read);
-                    fsd->print(" bytes at offset ");
-                    fsd->print(file_off);
-                    fsd->print("\r\n");
-                    ok = 0;
-                    break;
-                }
-
-                for (uint32_t i=0; i<got_bytes; i++)
-                {
-                    check_sum += buf[i];
-                }
-
-                int enc_len = base64_encode(b64_buf,(char *)buf,bytes_to_read);
-                b64_buf[enc_len] = 0;
-
-				delay(20);
-                fsd->print("file_reply:");
-                fsd->print(b64_buf);
-                fsd->print("\r\n");
-
-                size -= bytes_to_read;
-                file_off += bytes_to_read;
-            }
-
-            the_file.close();
-
-            if (ok)
-            {
-                fsd->print("file_reply:CHECKSUM ");
-                fsd->print(check_sum);
-                fsd->print("\r\n");
-            }
-        }
-        else
-        {
-            my_error("error could not open file: %s - returning empty result",filename);
-        }
-    }   // get command
-
-
-    //-----------------------------------------------
-    // put is handled in 3 parts
-    //-----------------------------------------------
-    // file_command:put
-    // file_command:base_64 and
-    // file_command:checksum
-
-    else if (!strcmp(command,"put"))
-    {
-        // parse out the ts, size, dir, and full filename
-
-        char *ts = (char *) param;
-        char *sz = ts;
-        while (*sz && *sz != ',') sz++;
-        if (*sz == ',')
-            *sz++ = 0;
-        char *dir = sz;
-        while (*dir && *dir != ',') dir++;
-        if (*dir == ',')
-            *dir++ = 0;
-        char *filename = dir;
-        while (*filename && *filename != ',') filename++;
-        if (*filename == ',')
-            *filename++ = 0;
-
-        display_level(dbg_cmd,2,"fileSystem::put ts=%s sz=%s dir=%s filename=%s",ts,sz,dir,filename);
-
-        write_size = atoi(sz);
-        write_offset = 0;
-        write_checksum = 0;
-        strcpy(write_timestamp,ts);
-
-        // make sure the directory exists
-
-        bool ok = 1;
-
-        if (*dir)
-        {
-            if (SD.exists(dir))
-            {
-                myFileType_t the_dir = SD.open(dir);
-                if (!the_dir.isDirectory())
-                {
-                    my_error("NOT A DIRECTORY (is a file): %s",dir);
-                    fsd->print("file_reply:ERROR NOT A DIRECTORY .. is a file - ");
-                    fsd->print(dir);
-                    fsd->print("\r\n");
-                    ok = 0;
-                }
-                else
-                {
-                    display_level(dbg_cmd+1,3,"fsPut::directory %s exists",dir);
-                }
-                the_dir.close();
-            }
-            else
-            {
-                // prepare for setting timestamp in below call
-                // cannot call setTimeStamp() on dirs
-
-                display_level(dbg_cmd+1,3,"fsPut::mkdir %s",dir);
-                strcpy(write_timestamp,ts);
-
-				#if USE_OLD_FAT
-					FatFile::dateTimeCallback(dtCallback);
-					int rslt = SD.mkdir(dir);
-					FatFile::dateTimeCallbackCancel();
-				#else
-					FsDateTime::setCallback(dtCallback);
-					int rslt = SD.mkdir(dir);
-					FsDateTime::clearCallback();
-				#endif
-
-				if (!rslt)
-                {
-                    my_error("COULD NOT CREATE DIRECTORY: %s",dir);
-                    fsd->print("file_reply:ERROR - COULD NOT CREATE DIRECTORY ");
-                    fsd->print(dir);
-                    fsd->print("\r\n");
-                    ok = 0;
-                }
-            }
-        }
-
-        // OPEN the new file
-
-        if (ok)
-        {
-            SD.remove(filename);
-
-            write_file = SD.open(filename, FILE_WRITE);
-            if (!write_file)
-            {
-                my_error("COULD NOT CREATE FILE %s",filename);
-                fsd->print("file_reply:ERROR - COULD NOT OPEN FILE ");
-                fsd->print(filename);
-                fsd->print("\r\n");
-                ok = 0;
-            }
-        }
-
-        // return the first OK
-
-        if (ok)
-        {
-            fsd->print("file_reply:OK PUT STARTED");
-            #if 0
-                fsd->print(ts);
-                fsd->print(",");
-                fsd->print(size);
-                fsd->print(",");
-                fsd->print(filename);
-            #endif
-
-            fsd->print("\r\n");
-        }
-    }   // part 1 of 3 of put command
-
-    else if (!strcmp(command,"BASE64"))
-    {
-        display_level(dbg_cmd,2,"fileSystem::base64 offset=%d",write_offset);
-
-        int decoded_size = base64_decode((char *)decode_buf,(char *)param,strlen(param));
-        int bytes_written = write_file.write(decode_buf,decoded_size);
-
-        if (bytes_written != decoded_size)
-        {
-            my_error("write fail got(%d) expected(%d) offset(%d)",bytes_written,decoded_size,write_offset);
-            fsd->print("file_reply:ERROR - write fail got=");
-            fsd->print(bytes_written);
-            fsd->print(" expected=");
-            fsd->print(decoded_size);
-            fsd->print(" at offset=");
-            fsd->print(write_offset);
-            fsd->print("\r\n");
-        }
-        else
-        {
-            for (int i=0; i<decoded_size; i++)
-                write_checksum += decode_buf[i];
-            write_offset += decoded_size;
-
-            fsd->print("file_reply:OK PUT CONTINUE offset=");
-            fsd->print(write_offset);
-            fsd->print("\r\n");
-        }
-    }   // BASE64 - part 2 of 3 of put command
-
-    else if (!strcmp(command,"CHECKSUM"))
-    {
-        uint32_t got = atoi(param);
-        display_level(dbg_cmd,2,"fileSystem::CHECKSUM got=%d calculated=%d",got,write_checksum);
-        if (got == write_checksum)
-        {
-            fsd->print("file_reply:OK CHECKSUM ");
-            fsd->print(got);
-            fsd->print("==");
-            fsd->print(write_checksum);
-            fsd->print("\r\n");
-        }
-        else
-        {
-            fsd->print("file_reply:ERROR CHECKSUM FAIL got(");
-            fsd->print(got);
-            fsd->print(") != calculated(");
-            fsd->print(write_checksum);
-            fsd->print(")\r\n");
-        }
-
-        setTimeStamp(write_file,write_timestamp);
-        write_file.close();
-
-    }   // CHECKSUM - part 3 of 3 of put command
-
-
-    // DELETE FILE OR DIRETORY
-
-    else if (!strcmp(command,"delete"))
-    {
-        display_level(dbg_cmd,2,"fileSystem::delete %s",param);
-        myFileType_t the_file = SD.open(param);
-        if (the_file)
-        {
-            bool rslt;
-            bool is_dir = the_file.isDirectory();
-
-            if (is_dir)
-            {
-                rslt = the_file.rmRfStar();
-            }
-            else
-            {
-                the_file.close();
-                rslt = SD.remove(param);
-            }
-
-            if (rslt)
-            {
-                fsd->print("file_reply:OK DELETE ");
-                fsd->print(is_dir);
-                fsd->print("\r\n");
-            }
-            else
-            {
-                fsd->print("file_reply:ERROR - ");
-                fsd->print(is_dir?"rmRfStar(":"remove(");
-                fsd->print(param);
-                fsd->print(") failed!");
-                fsd->print("\r\n");
-            }
-        }
-        else
-        {
-            fsd->print("file_reply:ERROR - could not open '");
-            fsd->print(param);
-            fsd->print("'for deletion");
-            fsd->print("\r\n");
-        }
-
-    }   // delete command
-
-#endif
-
-
+	fileReplyEnd(fsd,req_num);
+	display_level(dbg_hdr,1,"handleFileCommand(%d,%s) returning",req_num,command);
+	free(buf);
 
 }	// handleFileCommand
 

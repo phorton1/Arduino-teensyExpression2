@@ -17,7 +17,7 @@
 #include "rigExpression.h"		// for EXP_MIDI_PORT_SERIAL
 #include "midiHost.h"
 #include "winConfig.h"
-
+#include <TeensyThreads.h>
 
 
 #define dbg_sys   0
@@ -224,15 +224,29 @@ elapsedMillis serial_timeout = 0;
 static char usb_buffer[MAX_SERIAL_TEXT_LINE+1];
 static char serial_buffer[MAX_SERIAL_TEXT_LINE+1];
 
+// Yikes, even though I already have two huge buffers,
+// I must use the heap to create a per-thread buffer
+// to pass to handleFileCommand
+
 
 static void doFileCommand(bool is_serial, char *buffer, int len)
 	// not so sure of doing file commands from
 	// timer_handler ... may want to enqueue them
 {
-	if (!strncmp(buffer,"file_command:",13))
+	if (!ACTIVE_FILE_SYS_DEVICE)
+	{
+		warning(0,"FILE_SYS_DEVICE is off in doFileCommand()!!!",0);
+	}
+	else if (!strncmp(buffer,"file_command(",13))
 	{
 		char *ptr = &buffer[13];
-		fileSystem::handleFileCommand(ptr);
+		int len = strlen(ptr);
+		display(0,"doFileCommand() creating buffer[%d]",len+1);
+		char *buf = new char[len+1];
+		strcpy(buf,ptr);
+
+		threads.addThread(fileSystem::handleFileCommand,(uint32_t *)buf, 10240);
+			// 10240 stack size
 	}
 	else
 	{

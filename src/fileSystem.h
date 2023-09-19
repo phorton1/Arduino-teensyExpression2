@@ -21,7 +21,7 @@ public:
    static uint32_t getFreeMB();
    static uint32_t getTotalMB();
 
-   static void handleFileCommand(char *ptr);
+   static void handleFileCommand(void *ptr);
 
 };
 
