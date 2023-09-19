@@ -68,7 +68,12 @@
 #include <myDebug.h>
 #include <Base64.h>
 
-// This debugging *may* affect timing.
+
+#define TEST_DELAY    0		// 2000
+	// delay certain operations to test progress dialog etc
+	// set to 1000 or 2000 ms to slow things down
+
+// The following debugging *may* affect timing.
 
 #define dbg_ts    1
 	// 0 = show timestamp operations
@@ -87,19 +92,37 @@
 #endif
 
 
+#define MAX_DECODED_BUF   10240
+    // the decoded base64 will always be less than the raw base64
+    // and 10240 is agreed upon between console.pm and teensyExpression.
+
+typedef struct
+{
+	const char *size;
+	const char *ts;
+	const char *entry;
+	bool is_dir;
+}   textEntry_t;
+
+
 
 // state of current put
 
-myFileType_t write_file;
-uint32_t write_size;
-uint32_t write_offset;
-uint32_t write_checksum;
-char write_ts[30];  // overused for dtCallback
+// myFileType_t write_file;
+// uint32_t write_size;
+// uint32_t write_offset;
+// uint32_t write_checksum;
 
-// buffer for use by getTimeStamp
 
+
+char write_timestamp[32];
 char static_timestamp[32];
-
+	// buffers for use by getTimeStamp and dtCallback
+unsigned char decode_buf[MAX_DECODED_BUF];
+	// used to decode base64 and in getNextEntry
+static textEntry_t theEntry;
+static char *theEntryPtr;
+	// getNextEntry vars
 
 
 //---------------------------------------------
@@ -337,7 +360,7 @@ uint32_t fileSystem::getTotalMB()
 
 
 //---------------------------------------------
-// private methods
+// private utilities
 //---------------------------------------------
 
 static const char *getTimeStamp(myFileType_t *file)
@@ -428,10 +451,10 @@ static void setTimeStamp(myFileType_t the_file, char *ts)
 static void dtCallback(uint16_t* date, uint16_t* time)
     // this call back function must be used on diretories
     // instead of setTimeStamp() above. It overuses the
-    // global write_ts variable to hold the value for
+    // global write_timestamp variable to hold the value for
     // the callback.
 {
-    char *ts = write_ts;
+    char *ts = write_timestamp;
 
     char *year = &ts[0];
     ts[4] = 0;
@@ -459,6 +482,30 @@ static void dtCallback(uint16_t* date, uint16_t* time)
 }
 
 
+//---------------------------------------
+// reply methods
+//---------------------------------------
+
+static void fileReplyEnd(Stream *fsd)
+{
+    fsd->print("file_reply_end");
+    fsd->print("\r\n");
+}
+
+static void fileReply(Stream *fsd, bool is_dir, uint32_t size, const char *ts,  const char *entry)
+{
+	fsd->print("file_reply:");
+	if (!is_dir)
+		fsd->print(size);
+	fsd->print("\t");
+	fsd->print(ts);
+	fsd->print("\t");
+	fsd->print(entry);
+	if (is_dir && strcmp(entry,"/"))
+		fsd->print("/");
+	fsd->print("\r\n");
+}
+
 static void fileReplyError(Stream *fsd, const char *format, ...)
 {
 	char buffer[255];
@@ -475,7 +522,36 @@ static void fileReplyError(Stream *fsd, const char *format, ...)
 	fsd->print("\r\n");
 }
 
+void sendProgressADD(Stream *fsd,int num_dirs, int num_files)
+{
+	fsd->print("file_reply:PROGRESS\tADD\t");
+	fsd->print(num_dirs);
+	fsd->print("\t");
+	fsd->print(num_files);
+	fsd->print("\r\n");
+	fileReplyEnd(fsd);
+}
 
+void sendProgressENTRY(Stream *fsd, const char *entry)
+{
+	fsd->print("file_reply:PROGRESS\tENTRY\t");
+	fsd->print(entry);
+	fsd->print("\r\n");
+	fileReplyEnd(fsd);
+}
+
+void sendProgressDONE(Stream *fsd,bool is_dir)
+{
+	fsd->print("file_reply:PROGRESS\tDONE\t");
+	fsd->print(is_dir);
+	fsd->print("\r\n");
+	fileReplyEnd(fsd);
+}
+
+
+//---------------------------------------------
+// atomic commands
+//---------------------------------------------
 
 static void doList(Stream *fsd, const char *dir)
 {
@@ -489,14 +565,7 @@ static void doList(Stream *fsd, const char *dir)
 	}
 
 	const char *ts = getTimeStamp(&the_dir);
-
-	fsd->print("file_reply:\t");
-	fsd->print(ts);
-	fsd->print("\t");
-	fsd->print(dir);
-	if (strcmp(dir,"/"))
-		fsd->print("/");
-	fsd->print("\r\n");
+	fileReply(fsd,1,0,ts,dir);
 
 	myFileType_t entry = the_dir.openNextFile();
 	while (entry)
@@ -504,34 +573,14 @@ static void doList(Stream *fsd, const char *dir)
 		char filename[255];
 		entry.getName(filename, sizeof(filename));
 		const char *ts = getTimeStamp(&entry);
+		uint32_t size = entry.size();
 
-		if (entry.isDirectory())
-		{
-			fsd->print("file_reply:\t");
-			fsd->print(ts);
-			fsd->print("\t");
-			fsd->print(filename);
-			fsd->print("/\r\n");
-		}
-		else
-		{
-			uint32_t size = entry.size();
-
-			fsd->print("file_reply:");
-			fsd->print(size);
-			fsd->print("\t");
-			fsd->print(ts);
-			fsd->print("\t");
-			fsd->print(filename);
-			fsd->print("\r\n");
-		}
-
+		fileReply(fsd,entry.isDirectory(),size,ts,filename);
 		entry = the_dir.openNextFile();
 
 	}   // while (entry)
 
 }
-
 
 
 static void makeDir(Stream *fsd, const char *dir, const char *name)
@@ -552,7 +601,7 @@ static void makeDir(Stream *fsd, const char *dir, const char *name)
 	}
 
 	// excluded code to set timestamp on dir
-	// strcpy(write_ts,ts);
+	// strcpy(write_timestamp,ts);
 
 	#if USE_OLD_FAT
 		// FatFile::dateTimeCallback(dtCallback);
@@ -570,14 +619,9 @@ static void makeDir(Stream *fsd, const char *dir, const char *name)
 		return;
 	}
 
-	const char *ts = getTimeStamp(path);
 
-	fsd->print("file_reply:\t");
-	fsd->print(ts);
-	fsd->print("\t");
-	fsd->print(name);
-	fsd->print("/");
-	fsd->print("/\r\n");
+	const char *ts = getTimeStamp(path);
+	fileReply(fsd,1,0,ts,name);
 }
 
 
@@ -613,16 +657,7 @@ static void renameObj(Stream *fsd, const char *dir, const char *name1, const cha
 		fileReplyError(fsd,"Could not rename %s to %s",name1,name2);
 		return;
 	}
-
-	fsd->print("file_reply:");
-	if (!is_dir)
-		fsd->print(size);
-	fsd->print("\t");
-	fsd->print(ts);
-	fsd->print("\t");
-	fsd->print(name2);
-	fsd->print("/");
-	fsd->print("/\r\n");
+	fileReply(fsd,is_dir,size,ts,name2);
 }
 
 
@@ -633,8 +668,12 @@ static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last
 	if (strcmp(dir,"/"))
 		strcat(path,"/");
 	strcat(path,entry);
-
     display_level(dbg_cmd,2,"fileSystem::deleteOne(%s)",path);
+	sendProgressENTRY(fsd,path);
+
+	#if TEST_DELAY
+		delay(TEST_DELAY);
+	#endif
 
 	myFileType_t the_file = SD.open(path);
 
@@ -642,7 +681,6 @@ static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last
 	if (the_file)
 	{
 		bool is_dir = the_file.isDirectory();
-
 		if (is_dir)
 		{
 			ok = the_file.rmRfStar();		// remove directory and contents
@@ -652,10 +690,15 @@ static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last
 			the_file.close();
 			ok = SD.remove(path);
 		}
-		if (!ok)
-		{
+
+		#if TEST_DELAY
+			delay(TEST_DELAY);
+		#endif
+
+		if (ok)
+			sendProgressDONE(fsd,is_dir);
+		else
 			fileReplyError(fsd,"could not remove %s",path);
-		}
 	}
 	else
 	{
@@ -664,9 +707,7 @@ static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last
 	}
 
 	if (last && ok)
-	{
 		doList(fsd, dir);
-	}
 
 	return ok;
 }
@@ -674,26 +715,8 @@ static bool deleteObj(Stream *fsd, const char *dir, const char *entry, bool last
 
 
 //-------------------------------------------------------
-// handleFileCommand
+// parse entries lists
 //-------------------------------------------------------
-
-#define MAX_DECODED_BUF   10240
-    // the decoded base64 will always be less than the raw base64
-    // and 10240 is agreed upon between console.pm and teensyExpression.
-unsigned char decode_buf[MAX_DECODED_BUF];
-
-typedef struct
-{
-	const char *size;
-	const char *ts;
-	const char *entry;
-	bool is_dir;
-}   textEntry_t;
-
-
-static textEntry_t theEntry;
-static char *theEntryPtr;
-
 
 static textEntry_t *getNextEntry(Stream *fsd, bool *ok, char *param_ptr=0, bool *last = 0)
 	// parser for commands that have lists of entries
@@ -763,6 +786,12 @@ static textEntry_t *getNextEntry(Stream *fsd, bool *ok, char *param_ptr=0, bool 
 }
 
 
+
+//-------------------------------------------------------
+// handleFileCommand
+//-------------------------------------------------------
+
+
 void fileSystem::handleFileCommand(char *param_ptr)
 {
 	Stream *fsd = ACTIVE_FILE_SYS_DEVICE;
@@ -809,9 +838,16 @@ void fileSystem::handleFileCommand(char *param_ptr)
 	//--------------------------
 
 	bool ok = 1;
+	int num_dirs = 0;
+	int num_files = 0;
 	textEntry_t *entry = getNextEntry(fsd,&ok,param_ptr);
 	while (ok && entry)
 	{
+		if (entry->is_dir)
+			num_dirs++;
+		else
+			num_files++;
+
 		display_level(dbg_hdr+1,3,"entry(%s) is_dir(%d) size(%s) ts(%s)",
 			entry->entry, entry->is_dir, entry->size, entry->ts);
 		entry = getNextEntry(fsd,&ok);
@@ -844,6 +880,8 @@ void fileSystem::handleFileCommand(char *param_ptr)
 			}
 			else	// process entry list
 			{
+				sendProgressADD(fsd,num_dirs,num_files);
+
 				bool last;
 				textEntry_t *entry = getNextEntry(fsd,&ok,param_ptr,&last);
 				while (ok && entry)
@@ -860,8 +898,7 @@ void fileSystem::handleFileCommand(char *param_ptr)
 		}
 	}
 
-    fsd->print("file_reply_end");
-    fsd->print("\r\n");
+	fileReplyEnd(fsd);
 
 
 #if 0
@@ -993,7 +1030,7 @@ void fileSystem::handleFileCommand(char *param_ptr)
         write_size = atoi(sz);
         write_offset = 0;
         write_checksum = 0;
-        strcpy(write_ts,ts);
+        strcpy(write_timestamp,ts);
 
         // make sure the directory exists
 
@@ -1024,7 +1061,7 @@ void fileSystem::handleFileCommand(char *param_ptr)
                 // cannot call setTimeStamp() on dirs
 
                 display_level(dbg_cmd+1,3,"fsPut::mkdir %s",dir);
-                strcpy(write_ts,ts);
+                strcpy(write_timestamp,ts);
 
 				#if USE_OLD_FAT
 					FatFile::dateTimeCallback(dtCallback);
@@ -1132,7 +1169,7 @@ void fileSystem::handleFileCommand(char *param_ptr)
             fsd->print(")\r\n");
         }
 
-        setTimeStamp(write_file,write_ts);
+        setTimeStamp(write_file,write_timestamp);
         write_file.close();
 
     }   // CHECKSUM - part 3 of 3 of put command
