@@ -297,10 +297,10 @@ BUTTON(4):
 #   	on the SYNTH_PROGRAM_CHANNEL
 #   the short and long names are displayed
 
-# The wonky logical patch number value is given by
-# the following expression as explained in the table:
+# My vestigal, wonky, actual patch number value is given by
+# the following expression based on _BUTTON_ROW and COL:
 #
-#  2 -_BUTTON_ROW + _BUTTON_COL * 3
+#  Magic Formula:  2 -_BUTTON_ROW + _BUTTON_COL * 3
 #
 #  FUNCTION	 _BUTTON_COL  _BUTTON_ROW
 #    0 = 2       0            0
@@ -317,7 +317,10 @@ BUTTON(4):
 #    13 = 9      3            2
 
 BUTTON(0,1,2,3,  5,6,7,8,  10,11,12,13) :
-	setButtonColor(_BUTTON_NUM,VALUE[_patch_button] == _BUTTON_NUM ? VALUE[_patch_number] >= NUM_BANK_PATCHES ? LED_BLUE : LED_CYAN : LED_BLACK);
+	setButtonColor(
+		_BUTTON_NUM,VALUE[_patch_button] == _BUTTON_NUM ?
+			VALUE[_patch_number] >= NUM_BANK_PATCHES ?
+				LED_BLUE : LED_CYAN : LED_BLACK);
 	press:
 		setValue(_patch_button, _BUTTON_NUM);
 		setValue(_patch_number, VALUE[_bank] * NUM_BANK_PATCHES + 2 - _BUTTON_ROW + _BUTTON_COL * 3);
@@ -388,8 +391,8 @@ BUTTON(15,16,17,18):
 
 BUTTON(19):
 	setButtonColor(_BUTTON_NUM,
-		VALUE[stop_cmd] == 2 ? LED_RED :	 #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP_IMMEDIATE ? LED_RED :
-		VALUE[stop_cmd] == 3 ? LED_PURPLE :  #  STOP_BUTTON_COMMAND == LOOP_COMMAND_STOP ? LED_PURPLE :
+		VALUE[stop_cmd] == 2 ? LED_RED :	 # LOOP_COMMAND_STOP_IMMEDIATE
+		VALUE[stop_cmd] == 3 ? LED_PURPLE :  # LOOP_COMMAND_STOP
 		LED_BLACK);
 	click:
 		sendCC(SERIAL, 1, LOOP_COMMAND_CC, VALUE[stop_cmd]);

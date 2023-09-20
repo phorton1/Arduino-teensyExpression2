@@ -27,7 +27,7 @@
 	// may create timing problems
 #define dbg_win	  1
 	// 0 = debug the window stack
-#define dbg_file_command 0
+#define dbg_file_command 1
 	// 0 = show file command buffer before sending to handleFileCommand
 
 #define MIDI_ACTIVITY_TIMEOUT 			150
@@ -241,7 +241,7 @@ static void doFileCommand(bool is_serial, char *buffer, int len)
 	{
 		char *ptr = &buffer[13];
 		int len = strlen(ptr);
-		display(0,"doFileCommand() creating buffer[%d]",len+1);
+		display(dbg_file_command,"doFileCommand() creating buffer[%d]",len+1);
 		char *buf = new char[len+1];
 		strcpy(buf,ptr);
 

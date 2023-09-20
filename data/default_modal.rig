@@ -4,7 +4,7 @@
 # This modal rig implements a 'clipVolume' mode on top of the rPi Looper
 # default base rig.  The base rig reserves variables 0..69
 #
-# Modal rigs may be stacked upto 10 deep, depending their size in memory.
+# Modal rigs may be stacked upto 10 deep, depending on their size in memory.
 # A modal rig may *inherit* buttons from the previous rig whose behavior
 # 		does not change, and which are interpreted in the context of that rig.
 # A modal rig may change the PEDAL and ROTARY setups.
@@ -129,7 +129,7 @@ onUpdate:
 	displayNumber(number_base + 1, 	VALUE[1 + VALUE[_update_mute ]] ? DARKGREY : YELLOW, VALUE[1 + VALUE[_update_vol ]]);
 	displayNumber(number_base + 2, 	VALUE[2 + VALUE[_update_mute ]] ? DARKGREY : YELLOW, VALUE[2 + VALUE[_update_vol ]]);
 	displayNumber(number_base + 3, 	VALUE[3 + VALUE[_update_mute ]] ? DARKGREY : YELLOW, VALUE[3 + VALUE[_update_vol ]]);
-		# numbers and meters are smart enough to only re-display when changed
+		# the title, displayNumbers and setMeters are smart enough to only re-display when changed
 
 
 #-----------------------------------------------
@@ -157,12 +157,12 @@ BUTTON(14) :
 #			 and can be erased. This also has the effect of 'cancelling'
 #            a pending command to an otherwise empty track.
 #     Track IS the current running track
-#         ORANGE it both RECORDING and PLAYING so the ABORT_RECORDING
+#         ORANGE if both RECORDING and PLAYING so the ABORT_RECORDING
 #             command can safely be used to abort the recording without
 #             stopping the looper.
 #         RED it is (RECORDING && !PLAYING) or just PLAYING
 #             i.e. recording the primary clip, or is just playing
-#             so ERASE or ABORT would both stop the lopoer
+#             so ERASE or ABORT will both stop the loooer!
 
 BUTTON(0,1,2,3):	# erase track buttons
 	setValue(_track_state, VALUE[track_state_base + _BUTTON_NUM]);

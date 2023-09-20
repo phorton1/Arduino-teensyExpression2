@@ -79,10 +79,10 @@
 #define dbg_ts    1
 	// 0 = show timestamp operations
 	// -1 = show callback setting
-#define dbg_hdr	   -1
+#define dbg_hdr	   1
 	// show a header for any file system command
 	// -1 = show entries
-#define dbg_cmd	   -1
+#define dbg_cmd	   1
 	// 0 = show file commands
 	// -1 = show details
 
@@ -826,7 +826,7 @@ void fileSystem::handleFileCommand(void *buf)
 
 	*entries++ = 0;		// null terminate the request_number
 	req_num = atoi(req_num_ptr);
-	display(0,"got request_number=%d",req_num);
+	display(dbg_cmd+1,"got request_number=%d",req_num);
 	if (*entries++ != ':')
 	{
 		my_error("expected colon after (request_number)",0);
