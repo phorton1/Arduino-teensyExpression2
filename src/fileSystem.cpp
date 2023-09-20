@@ -79,7 +79,7 @@
 #define dbg_ts    1
 	// 0 = show timestamp operations
 	// -1 = show callback setting
-#define dbg_hdr	   -1
+#define dbg_hdr	   0
 	// 0 = show a header for any file system command
 	// -1 = show entries
 #define dbg_cmd	   0
