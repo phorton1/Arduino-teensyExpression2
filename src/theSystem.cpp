@@ -28,7 +28,9 @@
 #define dbg_win	  1
 	// 0 = debug the window stack
 #define dbg_file_command 1
-	// 0 = show file command buffer before sending to handleFileCommand
+	// 0 = show thread starting
+	// -1 = show parse steps
+	// -2 = show each character
 
 #define MIDI_ACTIVITY_TIMEOUT 			150
 #define BATTERY_CHECK_TIME  			30000
@@ -199,60 +201,161 @@ void theSystem::critical_timer_handler()
 // Serial Port Handler
 //--------------------------------------------------------
 // Polls Serial and SERIAL_DEVICE for data.
-// Handles incoming serial midi that starts with 0x0B and/or
-// fileSystem command lines that start with "file_command:.*"
-// Note that this implementation does not care about setting
-// of PREF_FILE_SYSTEM_PORT ... it will accept file commands
-// from either port.
 //
-// When a serial byte is received, this routine assumes a full
+// At this time TE2 only allows Serial Midi over the SERIAL
+// device or file_commands over either USB or SERIAL.
+//
+// Midi Packets start with 0x0B which should never be in plain text.
+//
+// File_commands start with file_command \t length \t reqnum \t data
+// When a file_command is received, this routine assumes a full
 // packet is following (4 bytes for midi, or <cr-lf> for text)
-// and reads the whole packet with blocking and a timeout
+// and reads the whole packet with  a timeout
 
 
 #define SERIAL_TIMEOUT  200
 
-#define MAX_BASE64_BUF  10240
-	// agreed upon in console.pm
-#define MAX_SERIAL_TEXT_LINE (MAX_BASE64_BUF+32)
-	// allow for "file_command:BASE64 " (13 + 6 + 1)
+#define FILE_COMMAND_SIG		"file_command"
+#define FILE_COMMAND_SIG_LEN	12
+#define FILE_COMMAND_MIN_LEN	7		// req_num \t LIST \t root
+#define MAX_NUM_LENGTH			10
 
-static int usb_buf_ptr;
-static int serial_buf_ptr;
-elapsedMillis usb_timeout = 0;
-elapsedMillis serial_timeout = 0;
-static char usb_buffer[MAX_SERIAL_TEXT_LINE+1];
-static char serial_buffer[MAX_SERIAL_TEXT_LINE+1];
+static int command_state[2];
+	// 0 = looking for FILE_COMMAND_SIG
+	// 1 = got SIG, parsing length
+	// 2 = created buf, adding bytes
+static int  command_ptr[2];
+	// an integer, within each state, of the numbere
+	// of bytes read in that state
+static char command_num_buf[2][MAX_NUM_LENGTH+1];
+	// in state 2, the length number being parsed
+static int  command_buf_len[2];
+	// in state 3, the size of the new'd buffers
+static char *command_buf[2];
+	// in state 3, the new'd buffers
+static uint32_t command_timeout[2];
 
-// Yikes, even though I already have two huge buffers,
-// I must use the heap to create a per-thread buffer
-// to pass to handleFileCommand
 
-
-static void doFileCommand(bool is_serial, char *buffer, int len)
-	// not so sure of doing file commands from
-	// timer_handler ... may want to enqueue them
+static void initFileCommand(bool is_serial)
 {
-	if (!ACTIVE_FILE_SYS_DEVICE)
+	if (command_buf[is_serial])
 	{
-		warning(0,"FILE_SYS_DEVICE is off in doFileCommand()!!!",0);
+		free(command_buf[is_serial]);
+		command_buf[is_serial] = 0;
 	}
-	else if (!strncmp(buffer,"file_command(",13))
-	{
-		char *ptr = &buffer[13];
-		int len = strlen(ptr);
-		display(dbg_file_command,"doFileCommand() creating buffer[%d]",len+1);
-		char *buf = new char[len+1];
-		strcpy(buf,ptr);
+	command_ptr[is_serial] = 0;			// start looking for a new signature
+	command_state[is_serial] = 0;
+	command_timeout[is_serial] = 0;
+}
 
-		threads.addThread(fileSystem::handleFileCommand,(uint32_t *)buf, 10240);
-			// 10240 stack size
+
+static void handleChar(bool is_serial, char c)
+{
+	int len = command_ptr[is_serial];
+	int state = command_state[is_serial];
+
+	display(dbg_file_command+2,"state(%d) len=%d char=%c 0x%02x",state,command_ptr[is_serial],c,c);
+
+	bool ok = 1;
+	bool done = 0;
+
+	if (state == 0)
+	{
+		if (c == '\t' && len == FILE_COMMAND_SIG_LEN)		// got the signature
+		{
+			command_ptr[is_serial] = -1;		// reset len for next state pre-increment
+			command_state[is_serial] = 1;		// advance to next state
+			display(dbg_file_command+1,"got file_command(%d)",is_serial);
+		}
+		else if (c != FILE_COMMAND_SIG[len])	// not a file_command
+		{
+			my_error("non-file_command_char(%c) 0x%02x",c,c);
+			ok = 0;
+		}
 	}
+	else if (state == 1)						// parsing the length number
+	{
+		if (len >= MAX_NUM_LENGTH)				// too big
+		{
+			my_error("file_command(%d) length overflow",is_serial);
+			ok = 0;
+		}
+		else if (c == '\t')						// got length terminator
+		{
+			command_num_buf[is_serial][len] = 0;
+			int command_len = atoi(command_num_buf[is_serial]);
+			display(dbg_file_command+1,"got file_command length(%d)=%d",
+				is_serial,
+				command_len);
+
+			if (command_len < FILE_COMMAND_MIN_LEN)
+			{
+				my_error("file_command_len(%d)=%d is less than FILE_COMMAND_MIN_LEN=%d",
+					is_serial,
+					command_len,
+					FILE_COMMAND_MIN_LEN);
+				ok = 0;
+			}
+			else	// new up the buffer and goto state 2
+			{
+				command_buf_len[is_serial] = command_len;
+				command_buf[is_serial] = new char[command_len + 1];
+				command_state[is_serial] = 2;
+				command_ptr[is_serial] = -1;		// reset len for next state pre-increment
+			}
+		}
+		else	// add character to num_buf
+		{
+			command_num_buf[is_serial][len] = c;
+		}
+	}
+	else if (state == 2)	// adding characters to the file buffer
+	{
+		if (len > command_buf_len[is_serial])
+		{
+			my_error("file_command buffer overflow expected(%d)",
+				command_buf_len[is_serial]);
+			ok = 0;
+		}
+		else if (c == '\n')
+		{
+			if (len == command_buf_len[is_serial])
+			{
+				done = 1;
+				command_buf[is_serial][len] = 0;		// terminate the command
+			}
+			else
+			{
+				my_error("file_command length mismatch len(%d) != expected(%d)",
+					len,
+					command_buf_len[is_serial]);
+				ok = 0;
+			}
+		}
+		else		// add character to file_command cuffer
+		{
+			command_buf[is_serial][len] = c;
+		}
+	}
+
+	if (done)	// start the handleFileCommand thread
+	{
+		command_timeout[is_serial] = 0;
+		display(dbg_file_command,"starting handleFileCommand thread len=%d",
+			command_buf_len[is_serial]);
+		threads.addThread(
+			fileSystem::handleFileCommand,
+			(uint32_t *)command_buf[is_serial],
+			10240);		// 10240 stack size
+		command_buf[is_serial] = 0;
+		initFileCommand(is_serial);
+	}
+	else if (!ok)
+		initFileCommand(is_serial);
 	else
 	{
-		my_error("unexpected is_serial(%d) data(%d)",is_serial,len);
-		if (len > 255) len = 255;		// don't display too much
-		display_bytes(0,"BUF",(uint8_t*)buffer,len);
+		command_ptr[is_serial]++;		// next character
+		command_timeout[is_serial] = millis();
 	}
 }
 
@@ -262,32 +365,19 @@ void theSystem::handleSerialData()
 	// The main USB Serial is only expected to contain lines of text
 	// SERIAL_DEVICE may contain either text or serial midi data
 
-	if (usb_buf_ptr && usb_timeout > SERIAL_TIMEOUT)
+	for (int i=0; i<2; i++)
 	{
-		my_error("usb serial timeout at char(%d)",usb_buf_ptr);
-		usb_buf_ptr = 0;
-	}
-	if (serial_buf_ptr && serial_timeout > SERIAL_TIMEOUT)
-	{
-		my_error("serial timeout at char(%d)",serial_buf_ptr);
-		serial_buf_ptr = 0;
+		if (command_timeout[i] && millis() - command_timeout[i] > SERIAL_TIMEOUT)
+		{
+			my_error("%s command timeout",i ? "SERIAL" : "USB");
+			initFileCommand(i);
+		}
 	}
 
 	if (Serial.available())
 	{
 		int c = Serial.read();
-		if (c == 0x0A || usb_buf_ptr >= MAX_SERIAL_TEXT_LINE-1)				// LINEFEED comes last
-		{
-			usb_buffer[usb_buf_ptr++] = 0;
-			doFileCommand(0,usb_buffer,usb_buf_ptr);
-			usb_buf_ptr = 0;
-			usb_timeout = 0;
-		}
-		else // if (c != 0x0D )// skip CR
-		{
-			usb_buffer[usb_buf_ptr++] = c;
-			usb_timeout = 0;
-		}
+		handleChar(0,c);
 	}
 
 	// only serialMidi sends 0x0B!!
@@ -302,13 +392,13 @@ void theSystem::handleSerialData()
 			midi_buf[0] = c;
 
 			int i = 1;
-			serial_timeout = 0;
-			while (i < 4 && serial_timeout < SERIAL_TIMEOUT)
+			uint32_t midi_timeout = millis();
+			while (i<4 && millis() - midi_timeout < SERIAL_TIMEOUT)
 			{
 				if (SERIAL_DEVICE.available())
 				{
 					midi_buf[i++] = SERIAL_DEVICE.read();
-					serial_timeout = 0;
+					midi_timeout = millis();
 				}
 			}
 
@@ -324,23 +414,14 @@ void theSystem::handleSerialData()
 						midi_buf[0]);
 				enqueueMidi(false, MIDI_PORT_SERIAL,midi_buf);
 			}
-			serial_timeout = 0;		// JIC
 		}
-
-		else if (c == 0x0A || serial_buf_ptr >= MAX_SERIAL_TEXT_LINE-1)				// LF comes last
+		else
 		{
-			serial_buffer[serial_buf_ptr++] = 0;
-			doFileCommand(1,serial_buffer,serial_buf_ptr);
-			serial_buf_ptr = 0;
-			serial_timeout = 0;
-		}
-		else // if (c != 0x0D )// skip CR
-		{
-			serial_buffer[serial_buf_ptr++] = c;
-			serial_timeout = 0;
+			handleChar(1,c);
 		}
 	}	// SERIAL_DEVICE.available();
 }	// handleSerialData()
+
 
 
 //-----------------------------------------

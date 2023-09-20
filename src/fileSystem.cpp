@@ -79,10 +79,10 @@
 #define dbg_ts    1
 	// 0 = show timestamp operations
 	// -1 = show callback setting
-#define dbg_hdr	   1
-	// show a header for any file system command
+#define dbg_hdr	   -1
+	// 0 = show a header for any file system command
 	// -1 = show entries
-#define dbg_cmd	   1
+#define dbg_cmd	   0
 	// 0 = show file commands
 	// -1 = show details
 
@@ -595,7 +595,6 @@ static void doList(Stream *fsd, int req_num, const char *dir)
 		entry = the_dir.openNextFile();
 
 	}   // while (entry)
-
 }
 
 
@@ -635,9 +634,7 @@ static void makeDir(Stream *fsd, int req_num, const char *dir, const char *name)
 		return;
 	}
 
-
-	const char *ts = getTimeStamp(path);
-	fileReply(fsd,req_num,1,0,ts,name);
+	doList(fsd,req_num,dir);
 }
 
 
@@ -803,6 +800,7 @@ static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const 
 
 
 void fileSystem::handleFileCommand(void *buf)
+	// buf is pointing at req_num \t
 	// the buf we are passed must be freed when done!!
 {
 	Stream *fsd = ACTIVE_FILE_SYS_DEVICE;
@@ -815,11 +813,14 @@ void fileSystem::handleFileCommand(void *buf)
 	int req_num = 0;
 	char *entries = (char *) buf;
 	const char *req_num_ptr = entries;
-	while (*entries && *entries != ')') entries++;
-
-	if (*entries != ')')
+	while (*entries && *entries != '\t')
 	{
-		my_error("Could not find closing paren in file_command",0);
+		entries++;
+	}
+
+	if (*entries != '\t')
+	{
+		my_error("Could not find req_num in file_command",0);
 		free(buf);
 		return;
 	}
@@ -827,13 +828,6 @@ void fileSystem::handleFileCommand(void *buf)
 	*entries++ = 0;		// null terminate the request_number
 	req_num = atoi(req_num_ptr);
 	display(dbg_cmd+1,"got request_number=%d",req_num);
-	if (*entries++ != ':')
-	{
-		my_error("expected colon after (request_number)",0);
-		free(buf);
-		return;
-	}
-
 
 	//------------------------------
 	// parse the command line
@@ -899,6 +893,11 @@ void fileSystem::handleFileCommand(void *buf)
 	// do the commands
 	//--------------------------------------
 
+
+	#if TEST_DELAY
+		delay(TEST_DELAY);
+	#endif
+
 	if (!strcmp(command,"LIST"))
 	{
 		doList(fsd,req_num,param[0]);
@@ -935,6 +934,10 @@ void fileSystem::handleFileCommand(void *buf)
 	{
 		fileReplyError(fsd,req_num,"Unknown Command %s",command);
 	}
+
+	#if TEST_DELAY
+		delay(TEST_DELAY);
+	#endif
 
 	fileReplyEnd(fsd,req_num);
 	display_level(dbg_hdr,1,"handleFileCommand(%d,%s) returning",req_num,command);
