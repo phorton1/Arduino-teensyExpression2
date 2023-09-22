@@ -398,6 +398,9 @@ static const char *getTimeStamp(myFileType_t *file)
 }
 
 
+
+#if 0
+
 static const char *getTimeStamp(const char *path)
 {
 	myFileType_t file = SD.open(path);
@@ -411,8 +414,6 @@ static const char *getTimeStamp(const char *path)
 	return rslt;
 }
 
-
-#if 0
 
 static void setTimeStamp(myFileType_t the_file, char *ts)
 {
@@ -487,6 +488,72 @@ static void dtCallback(uint16_t* date, uint16_t* time)
 //---------------------------------------
 // reply methods
 //---------------------------------------
+
+#define MAX_ABORTS  10
+	// maximum number of simultaneous aborts being processed
+int num_aborts;
+int pending_aborts[MAX_ABORTS];
+
+
+static void fileReplyAborted(Stream *fsd, int req_num)
+{
+	fsd->print("file_reply(");
+	fsd->print(req_num);
+	fsd->print("):ABORTED\r\n");
+}
+
+static bool abortPending(Stream *fsd, int req_num, bool quiet=0)
+{
+	for (int i=0; i<num_aborts; i++)
+	{
+		if (pending_aborts[i] == req_num)
+		{
+			if (!quiet)
+			{
+				warning(dbg_cmd,"ABORTING req_num(%d)!!",req_num);
+				fileReplyAborted(fsd,req_num);
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+static void addPendingAbort(int req_num)
+{
+	if (num_aborts >= MAX_ABORTS)
+	{
+		my_error("PENDING ABORT OVERFLOW",0);
+		return;
+	}
+	if (abortPending(NULL,req_num,1))
+	{
+		warning(dbg_cmd,"ABORT(%d) is already pending!!",req_num);
+		return;
+	}
+	pending_aborts[num_aborts++] = req_num;
+}
+
+static void clearPendingAbort(int req_num)
+{
+	bool found = 0;
+	for (int i=0; i<num_aborts; i++)
+	{
+		if (found)
+		{
+			pending_aborts[i] = pending_aborts[i+1];
+		}
+		else if (pending_aborts[i] == req_num)
+		{
+			found = 1;
+			warning(dbg_cmd,"clearing pendingAbort(%d) i=%d",req_num,i);
+			pending_aborts[i] = pending_aborts[i+1];
+			num_aborts--;
+		}
+	}
+}
+
+
 
 static void fileReplyEnd(Stream *fsd, int req_num)
 {
@@ -861,6 +928,11 @@ void fileSystem::handleFileCommand(void *buf)
 		param[1],
 		param[2]);
 
+	if (!strcmp(command,"ABORT"))
+	{
+		addPendingAbort(req_num);
+		return;
+	}
 
 	//--------------------------
 	// parse entries if any
@@ -893,11 +965,6 @@ void fileSystem::handleFileCommand(void *buf)
 	// do the commands
 	//--------------------------------------
 
-
-	#if TEST_DELAY
-		delay(TEST_DELAY);
-	#endif
-
 	if (!strcmp(command,"LIST"))
 	{
 		doList(fsd,req_num,param[0]);
@@ -916,14 +983,21 @@ void fileSystem::handleFileCommand(void *buf)
 		{
 			deleteObj(fsd,req_num,param[0],param[1],1);
 		}
-		else	// process entry list
+
+		// only cases where the fileClientPane puts up a progress dialog
+		// need check for pending aborts
+
+		else if (!abortPending(fsd, req_num))
 		{
+			// process entry list
 			sendProgressADD(fsd,req_num,num_dirs,num_files);
 			ptr = entries;
 			int rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
 			bool last = !*ptr || *ptr == '\r';
 			while (rslt == 1)
 			{
+				if (abortPending(fsd, req_num))
+					break;
 				rslt = deleteObj(fsd,req_num,param[0],the_entry.entry,last);
 				rslt = rslt && getNextEntry(fsd,req_num,&the_entry,&ptr);
 				last = !*ptr || *ptr == '\r';
@@ -935,10 +1009,7 @@ void fileSystem::handleFileCommand(void *buf)
 		fileReplyError(fsd,req_num,"Unknown Command %s",command);
 	}
 
-	#if TEST_DELAY
-		delay(TEST_DELAY);
-	#endif
-
+	clearPendingAbort(req_num);
 	fileReplyEnd(fsd,req_num);
 	display_level(dbg_hdr,1,"handleFileCommand(%d,%s) returning",req_num,command);
 	free(buf);
