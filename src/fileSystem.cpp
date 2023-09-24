@@ -79,7 +79,7 @@
 #define dbg_ts    1
 	// 0 = show timestamp operations
 	// -1 = show callback setting
-#define dbg_hdr	   0
+#define dbg_hdr	  -1
 	// 0 = show a header for any file system command
 	// -1 = show entries
 #define dbg_cmd	   0
@@ -808,7 +808,7 @@ static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const 
 	the_entry->entry[0] = 0;
 	the_entry->is_dir = 0;
 
-	if (!**ptr || **ptr=='\r')
+	if (!**ptr)
 		return 0;
 
 	// we set all 3 fields or fail
@@ -819,10 +819,10 @@ static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const 
 
 	while (**ptr)
 	{
-		if (**ptr == '\t')
+		if (**ptr == '\t' ||
+			**ptr == '\r')
 		{
 			*out = 0;
-			(*ptr)++;
 			num_params++;
 			if (num_params == 1)
 				out  = the_entry->ts;
@@ -834,11 +834,11 @@ static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const 
 				the_entry->is_dir = 1;
 				*(out-1) = 0;
 			}
-		}
-		else if (**ptr == '\r')
-		{
+
+			bool is_cr = (**ptr == '\r');
 			(*ptr)++;
-			break;
+			if (is_cr)
+				break;
 		}
 		else
 		{
@@ -846,17 +846,13 @@ static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const 
 		}
 	}
 
-	bool ok = 1;
 	if (num_params != 3)
 	{
-		ok = 0;
 		fileReplyError(fsd,req_num,"Incorrect number of fields(%d) in fileEntry",num_params);
+		return -1;
 	}
 
-	// if (last)
-	// 	*last = !**ptr || **ptr=='\r';
-
-	return ok;
+	return 1;
 }
 
 
