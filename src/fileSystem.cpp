@@ -828,11 +828,11 @@ static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const 
 				out  = the_entry->ts;
 			else if (num_params == 2)
 				out = the_entry->entry;
-			else if (num_params == 3 && *(out-2) == '/')
+			else if (num_params == 3 && *(out-1) == '/')
 				// get rid of terminating '/' on dir entries
 			{
 				the_entry->is_dir = 1;
-				*(out-2) = 0;
+				*(out-1) = 0;
 			}
 		}
 		else if (**ptr == '\r')
@@ -873,7 +873,7 @@ void fileSystem::handleFileCommand(void *buf)
 	Stream *fsd = ACTIVE_FILE_SYS_DEVICE;
 
 	int len = strlen((char *)buf);
-    display_level(dbg_hdr,1,"handleFileCommand() command=%d bytes",len);
+    display_level(dbg_hdr+1,1,"handleFileCommand() command=%d bytes",len);
 
 	// buf is pointing to the req_num
 
@@ -991,6 +991,8 @@ void fileSystem::handleFileCommand(void *buf)
 		{
 			// process entry list
 			sendProgressADD(fsd,req_num,num_dirs,num_files);
+
+
 			ptr = entries;
 			int rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
 			bool last = !*ptr || *ptr == '\r';
