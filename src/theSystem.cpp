@@ -27,7 +27,7 @@
 	// may create timing problems
 #define dbg_win	  1
 	// 0 = debug the window stack
-#define dbg_file_command 1
+#define dbg_file_command 0
 	// 0 = show thread starting
 	// -1 = show parse steps
 	// -2 = show each character
@@ -198,6 +198,297 @@ void theSystem::critical_timer_handler()
 
 
 //--------------------------------------------------------
+// Command Parse
+//--------------------------------------------------------
+// File text start with file_command or file_message,
+// followed by the req_num, size, and data
+//
+// file_command|file_message	\t req_num \t size \t data
+
+
+#define SERIAL_TIMEOUT  200
+
+#define FILE_COMMAND_SIG		"file_command"
+#define FILE_MESSAGE_SIG		"file_message"
+
+#define FILE_COMMAND_SIG_LEN	12
+#define MAX_NUM_LENGTH			10
+
+#define MIN_COMMAND_BUF_LEN		5   	// ABORT
+#define MAX_COMMAND_BUF_LEN		15000   // BASE64 size offset ENCODED_CONTENT
+	// probably have to tune this last one
+
+
+typedef struct
+{
+	int state;
+		// 0 = looking for SIG
+		// 1 = got SIG, parsing req_num
+		// 2 = got req_num parsing size
+		// 3 = got size, created buf, adding bytes
+	int off;
+		// offset within the item being parsed, depending on state
+
+	uint32_t timeout;
+
+	// parsed contents
+
+	int type;
+		// 0 == file_command
+		// 1 == file_message
+
+	char req_num[MAX_NUM_LENGTH+1];
+	char size[MAX_NUM_LENGTH+1];
+
+	int  len;   // length of allocated buffer which is size + 1
+	char *buf;
+
+} parse_command_t;
+
+
+static parse_command_t parse_command[2];
+
+
+static void initCommandParse(parse_command_t *cmd)
+{
+	if (cmd->buf)
+		free(cmd->buf);
+	memset(cmd,0,sizeof(parse_command_t));
+}
+
+
+static void handleChar(bool is_serial, char c)
+{
+	if (!ACTIVE_FILE_SYS_DEVICE)
+	{
+		my_error("No ACTIVE_FILE_SYS_DEVICE in handleChar()",0);
+		return;
+	}
+
+	parse_command_t *cmd = &parse_command[is_serial];
+
+	display_level(dbg_file_command+2,1,"state(%d) off(%d) char=%c 0x%02x",
+		cmd->state,
+		cmd->off,
+		c>=' '?c:'.',c);
+
+	bool ok = 1;
+	bool done = 0;
+
+	if (cmd->state == 0)									// parsing signature
+	{
+		char expected = cmd->type ?
+			FILE_MESSAGE_SIG[cmd->off]:
+			FILE_COMMAND_SIG[cmd->off];
+
+		if (c == '\t' && cmd->off == FILE_COMMAND_SIG_LEN)	// got the signature
+		{
+			cmd->off = 0;		// reset for next state
+			cmd->state++;       // advance to next state
+			display_level(dbg_file_command+1,2,"handleChar() got %s",
+				cmd->type ? "file_message" : "file_command");
+		}
+		else if (c == expected)
+		{
+			cmd->off++;
+		}
+		else if (!cmd->type && cmd->off == 5 && c == 'm')
+		{
+			cmd->type = 1;
+			cmd->off++;
+		}
+		else
+		{
+			ok = 0;
+			if (cmd->off)
+				my_error("handleChar() type(%d) off(%d) illegal char in SIG '%c'=0x%02x",
+					cmd->type,
+					cmd->off,
+					c>=' '?c:'.',c);
+		}
+	}
+	else if (cmd->state == 1)						// parsing req_num
+	{
+		if (c == '\t')								// got length terminator
+		{
+			cmd->req_num[cmd->off] = 0;
+			display_level(dbg_file_command+1,2,"handleChar(%s) got req_num(%s)",
+				cmd->type?"file_message":"file_command",
+				cmd->req_num);
+
+			cmd->off = 0;		// reset for next state
+			cmd->state++;		// next state
+		}
+		else if (cmd->off >= MAX_NUM_LENGTH)		// too big
+		{
+			ok = 0;
+			my_error("handleChar(%s) off(%d) req_num overflow",
+				cmd->type?"file_message":"file_command",
+				cmd->off);
+		}
+		else if (c >= '0' && c <= '9')
+		{
+			cmd->req_num[cmd->off++] = c;
+		}
+		else
+		{
+			ok = 0;
+			my_error("handleChar(%s) off(%d) illegal char in req_num '%c'=0x%02x",
+				cmd->type?"file_message":"file_command",
+				cmd->off,
+				c>=' '?c:'.',c);
+		}
+	}
+	else if (cmd->state == 2)						// parsing size
+	{
+		if (c == '\t')								// got length terminator
+		{
+			cmd->size[cmd->off] = 0;
+			display_level(dbg_file_command+1,2,"handleChar(%s,%s) got size(%s)",
+				cmd->type?"file_message":"file_command",
+				cmd->req_num,
+				cmd->size);
+
+			cmd->len = atoi(cmd->size);
+			if (cmd->len < MIN_COMMAND_BUF_LEN ||
+				cmd->len > MAX_COMMAND_BUF_LEN)
+			{
+				ok = 0;
+				my_error("handleChar(%s,%s) len(%d) must be between %d and %d",
+					cmd->type?"file_message":"file_command",
+					cmd->req_num,
+					cmd->len,
+					MIN_COMMAND_BUF_LEN,
+					MAX_COMMAND_BUF_LEN);
+			}
+			else
+			{
+				cmd->buf = new char[cmd->len + 1];		// allocate buffer
+				if (!cmd->buf)
+				{
+					ok = 0;
+					my_error("handleChar(%s,%s) unable to allocate buffer of len(%d)",
+						cmd->type?"file_message":"file_command",
+						cmd->req_num,
+						cmd->len);
+				}
+				else
+				{
+					cmd->off = 0;		// reset for next state
+					cmd->state++;		// next state
+				}
+			}
+		}
+		else if (cmd->off >= MAX_NUM_LENGTH)		// too big
+		{
+			ok = 0;
+			my_error("handleChar(%s,%s) off(%d) size overflow",
+				cmd->type?"file_message":"file_command",
+				cmd->req_num,
+				cmd->off);
+		}
+		else if (c >= '0' && c <= '9')
+		{
+			cmd->size[cmd->off++] = c;
+		}
+		else
+		{
+			ok = 0;
+			my_error("handleChar(%s,%s) off(%d) illegal char in size '%c'=0x%02x",
+				cmd->type?"file_message":"file_command",
+				cmd->req_num,
+				cmd->off,
+				c>=' '?c:'.',c);
+		}
+	}
+	else if (cmd->state == 3)			// adding characters to the file buffer
+	{
+		if (cmd->off > cmd->len)
+		{
+			ok = 0;
+			my_error("handleChar(%s,%s) buffer overflow at off(%d)",
+				cmd->type?"file_message":"file_command",
+				cmd->req_num,
+				cmd->off);
+		}
+		else if (c == '\n')
+		{
+			if (cmd->off == cmd->len)
+			{
+				done = 1;
+				cmd->buf[cmd->off] = 0;		// terminate the buffer
+			}
+			else
+			{
+				ok = 0;
+				my_error("handleChar(%s,%s) length mismatch off(%d) != len(%d)",
+					cmd->type?"file_message":"file_command",
+					cmd->req_num,
+					cmd->off,
+					cmd->len);
+			}
+		}
+		else		// add character to file_command cuffer
+		{
+			cmd->buf[cmd->off++] = c;
+		}
+	}
+
+	if (done)	// start the command or send the message
+	{
+		cmd->timeout = 0;
+		display_level(dbg_file_command,0,"handleChar() %s %s(%s) len=%d",
+				cmd->type?"queing":"starting",
+				cmd->type?"file_message":"file_command",
+				cmd->req_num,
+				cmd->len);
+		int req_num = atoi(cmd->req_num);
+		if (cmd->type)
+		{
+			if (!getCommand(req_num))
+			{
+				warning(dbg_file_command,"handleChar() find queue for file_message(%d) dropping buffer of len(%d)",
+					req_num,
+					cmd->len);
+			}
+			else
+			{
+				if (!addCommandQueue(req_num,cmd->buf))
+				{
+					warning(dbg_file_command,"handleChar() could not queue file_message(%d) dropping buffer of len(%d)",
+						req_num,
+						cmd->len);
+				}
+				else
+				{
+					cmd->buf = 0;
+				}
+			}
+		}
+		else if (!startCommand(req_num,cmd->buf))
+		{
+			warning(dbg_file_command,"handleChar() could not start file_command(%d) dropping buffer of len(%d)",
+				req_num,
+				cmd->len);
+		}
+		else
+		{
+			cmd->buf = 0;
+		}
+	}
+
+	// !ok or done - init for new parse
+
+	if (done || !ok)
+		initCommandParse(cmd);
+	else if (ok)
+		cmd->timeout = millis();
+
+}	// handleChar
+
+
+
+//--------------------------------------------------------
 // Serial Port Handler
 //--------------------------------------------------------
 // Polls Serial and SERIAL_DEVICE for data.
@@ -213,153 +504,6 @@ void theSystem::critical_timer_handler()
 // and reads the whole packet with  a timeout
 
 
-#define SERIAL_TIMEOUT  200
-
-#define FILE_COMMAND_SIG		"file_command"
-#define FILE_COMMAND_SIG_LEN	12
-#define FILE_COMMAND_MIN_LEN	7		// req_num \t LIST \t root
-#define MAX_NUM_LENGTH			10
-
-static int command_state[2];
-	// 0 = looking for FILE_COMMAND_SIG
-	// 1 = got SIG, parsing length
-	// 2 = created buf, adding bytes
-static int  command_ptr[2];
-	// an integer, within each state, of the numbere
-	// of bytes read in that state
-static char command_num_buf[2][MAX_NUM_LENGTH+1];
-	// in state 2, the length number being parsed
-static int  command_buf_len[2];
-	// in state 3, the size of the new'd buffers
-static char *command_buf[2];
-	// in state 3, the new'd buffers
-static uint32_t command_timeout[2];
-
-
-static void initFileCommand(bool is_serial)
-{
-	if (command_buf[is_serial])
-	{
-		free(command_buf[is_serial]);
-		command_buf[is_serial] = 0;
-	}
-	command_ptr[is_serial] = 0;			// start looking for a new signature
-	command_state[is_serial] = 0;
-	command_timeout[is_serial] = 0;
-}
-
-
-static void handleChar(bool is_serial, char c)
-{
-	int len = command_ptr[is_serial];
-	int state = command_state[is_serial];
-
-	display(dbg_file_command+2,"state(%d) len=%d char=%c 0x%02x",state,command_ptr[is_serial],c,c);
-
-	bool ok = 1;
-	bool done = 0;
-
-	if (state == 0)
-	{
-		if (c == '\t' && len == FILE_COMMAND_SIG_LEN)		// got the signature
-		{
-			command_ptr[is_serial] = -1;		// reset len for next state pre-increment
-			command_state[is_serial] = 1;		// advance to next state
-			display(dbg_file_command+1,"got file_command(%d)",is_serial);
-		}
-		else if (c != FILE_COMMAND_SIG[len])	// not a file_command
-		{
-			my_error("non-file_command_char(%c) 0x%02x",c,c);
-			ok = 0;
-		}
-	}
-	else if (state == 1)						// parsing the length number
-	{
-		if (len >= MAX_NUM_LENGTH)				// too big
-		{
-			my_error("file_command(%d) length overflow",is_serial);
-			ok = 0;
-		}
-		else if (c == '\t')						// got length terminator
-		{
-			command_num_buf[is_serial][len] = 0;
-			int command_len = atoi(command_num_buf[is_serial]);
-			display(dbg_file_command+1,"got file_command length(%d)=%d",
-				is_serial,
-				command_len);
-
-			if (command_len < FILE_COMMAND_MIN_LEN)
-			{
-				my_error("file_command_len(%d)=%d is less than FILE_COMMAND_MIN_LEN=%d",
-					is_serial,
-					command_len,
-					FILE_COMMAND_MIN_LEN);
-				ok = 0;
-			}
-			else	// new up the buffer and goto state 2
-			{
-				command_buf_len[is_serial] = command_len;
-				command_buf[is_serial] = new char[command_len + 1];
-				command_state[is_serial] = 2;
-				command_ptr[is_serial] = -1;		// reset len for next state pre-increment
-			}
-		}
-		else	// add character to num_buf
-		{
-			command_num_buf[is_serial][len] = c;
-		}
-	}
-	else if (state == 2)	// adding characters to the file buffer
-	{
-		if (len > command_buf_len[is_serial])
-		{
-			my_error("file_command buffer overflow expected(%d)",
-				command_buf_len[is_serial]);
-			ok = 0;
-		}
-		else if (c == '\n')
-		{
-			if (len == command_buf_len[is_serial])
-			{
-				done = 1;
-				command_buf[is_serial][len] = 0;		// terminate the command
-			}
-			else
-			{
-				my_error("file_command length mismatch len(%d) != expected(%d)",
-					len,
-					command_buf_len[is_serial]);
-				ok = 0;
-			}
-		}
-		else		// add character to file_command cuffer
-		{
-			command_buf[is_serial][len] = c;
-		}
-	}
-
-	if (done)	// start the handleFileCommand thread
-	{
-		command_timeout[is_serial] = 0;
-		display(dbg_file_command,"starting handleFileCommand thread len=%d",
-			command_buf_len[is_serial]);
-		threads.addThread(
-			fileSystem::handleFileCommand,
-			(uint32_t *)command_buf[is_serial],
-			10240);		// 10240 stack size
-		command_buf[is_serial] = 0;
-		initFileCommand(is_serial);
-	}
-	else if (!ok)
-		initFileCommand(is_serial);
-	else
-	{
-		command_ptr[is_serial]++;		// next character
-		command_timeout[is_serial] = millis();
-	}
-}
-
-
 void theSystem::handleSerialData()
 {
 	// The main USB Serial is only expected to contain lines of text
@@ -367,10 +511,11 @@ void theSystem::handleSerialData()
 
 	for (int i=0; i<2; i++)
 	{
-		if (command_timeout[i] && millis() - command_timeout[i] > SERIAL_TIMEOUT)
+		parse_command_t *cmd = &parse_command[i];
+		if (cmd->timeout && millis() - cmd->timeout > SERIAL_TIMEOUT)
 		{
 			my_error("%s command timeout",i ? "SERIAL" : "USB");
-			initFileCommand(i);
+			initCommandParse(cmd);
 		}
 	}
 
@@ -625,8 +770,6 @@ void theSystem::loop()
 				pedal->clearDisplayValueChanged();
 				int v = pedal->getDisplayValue();
 
-				#if 1	// #ifdef'd out while working on myLcd stuff
-
 				mylcd.setFont(Arial_40_Bold);   // Arial_40);
 				mylcd.setTextColor(TFT_WHITE);
 
@@ -641,8 +784,6 @@ void theSystem::loop()
 					true,
 					"%d",
 					v);
-
-				#endif
 			}
 		}
 	}

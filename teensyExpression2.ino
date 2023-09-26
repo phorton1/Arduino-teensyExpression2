@@ -155,7 +155,7 @@ void setup()
     // start the file system
     //--------------------------------
 
-	if (!fileSystem::init())
+	if (!initFileSystem())
 	{
         const char *msg = "    COULD NOT START FILE SYSTEM!!";
         warning(0,"%s",msg);

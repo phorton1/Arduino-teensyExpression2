@@ -66,25 +66,10 @@
 #include "fileSystem.h"
 #include "prefs.h"
 #include <myDebug.h>
-#include <Base64.h>
-#include <TeensyThreads.h>
-
-
-#define TEST_DELAY    0		// 2000
-	// delay certain operations to test progress dialog etc
-	// set to 1000 or 2000 ms to slow things down
-
-// The following debugging *may* affect timing.
 
 #define dbg_ts    1
 	// 0 = show timestamp operations
 	// -1 = show callback setting
-#define dbg_hdr	  -1
-	// 0 = show a header for any file system command
-	// -1 = show entries
-#define dbg_cmd	   0
-	// 0 = show file commands
-	// -1 = show details
 
 #if USE_OLD_FAT
 	SdFatSdio SD;
@@ -93,35 +78,9 @@
 #endif
 
 
-#define MAX_DECODED_BUF   10240
-    // the decoded base64 will always be less than the raw base64
-    // and 10240 is agreed upon between console.pm and teensyExpression.
-
-typedef struct
-{
-	char size[10];
-	char ts[22];
-	char entry[255];
-	bool is_dir;
-}   textEntry_t;
-
-
-
-// state of current put
-
-// myFileType_t write_file;
-// uint32_t write_size;
-// uint32_t write_offset;
-// uint32_t write_checksum;
-
-
-
 char write_timestamp[32];
 char static_timestamp[32];
 	// buffers for use by getTimeStamp and dtCallback
-unsigned char decode_buf[MAX_DECODED_BUF];
-	// used to decode base64 and in getNextEntry
-
 
 
 //---------------------------------------------
@@ -214,8 +173,7 @@ unsigned char decode_buf[MAX_DECODED_BUF];
 // INIT
 //---------------------------------------------
 
-// static
-bool fileSystem::init()
+bool initFileSystem()
 {
 	uint8_t dd = prefs.DEBUG_DEVICE;
 	uint8_t fsd = prefs.FILE_SYS_DEVICE;
@@ -309,8 +267,7 @@ bool fileSystem::init()
 // API
 //------------------------------------------------------------
 
-// static
-uint32_t fileSystem::getFreeMB()
+uint32_t getFreeMB()
 {
 	#if USE_OLD_FAT
 		uint32_t cluster_count = SD.freeClusterCount();
@@ -330,8 +287,8 @@ uint32_t fileSystem::getFreeMB()
 }
 
 
-// static
-uint32_t fileSystem::getTotalMB()
+
+uint32_t getTotalMB()
 	// NOWHERE is there an example of how to use these to determine the size of the file system.
 	// bytesPerClusterShift() is really unclear.
 	// On my 32GB card, cluserCount() returns 953948 and bytesPerCluster returns 32768.
@@ -359,10 +316,10 @@ uint32_t fileSystem::getTotalMB()
 
 
 //---------------------------------------------
-// private utilities
+// utilities
 //---------------------------------------------
 
-static const char *getTimeStamp(myFileType_t *file)
+const char *getTimeStamp(myFileType_t *file)
 {
     myDir_t dir_entry;
     static_timestamp[0] = 0;
@@ -398,10 +355,7 @@ static const char *getTimeStamp(myFileType_t *file)
 }
 
 
-
-#if 0
-
-static const char *getTimeStamp(const char *path)
+const char *getTimeStamp(const char *path)
 {
 	myFileType_t file = SD.open(path);
 	if (!file)
@@ -415,36 +369,34 @@ static const char *getTimeStamp(const char *path)
 }
 
 
-static void setTimeStamp(myFileType_t the_file, char *ts)
+static int bufToNum(const char *ts, int offset, int length)
 {
-    char *year = &ts[0];
-    ts[4] = 0;
+	char buf[6];
+	memcpy(buf,&ts[offset],length);
+	buf[length] = 0;
+	return atoi(buf);
+}
 
-    char *month = &ts[5];
-    ts[7] = 0;
 
-    char *day = &ts[8];
-    ts[10] = 0;
+void setTimeStamp(myFileType_t the_file, const char *ts)
+{
+    display_level(dbg_ts,4,"setTimeStamp(%04d,%02d,%02d,%02d,%02d,%02d)",
+        bufToNum(ts,0,4),	// year
+        bufToNum(ts,5,2),	// month
+        bufToNum(ts,8,2),	// day
+        bufToNum(ts,11,2),	// hour
+        bufToNum(ts,14,2),	// minute
+        bufToNum(ts,17,2));	// second)
 
-    char *hour = &ts[11];
-    ts[13] = 0;
-
-    char *minute = &ts[14];
-    ts[16] = 0;
-
-    char *second = &ts[17];
-    ts[19] = 0;
-
-    display_level(dbg_ts,4,"setTimeStamp(%s,%s,%s,%s,%s,%s)",year,month,day,hour,minute,second);
 
     the_file.timestamp(
         T_ACCESS | T_CREATE | T_WRITE,
-        atoi(year),
-        atoi(month),
-        atoi(day),
-        atoi(hour),
-        atoi(minute),
-        atoi(second));
+        bufToNum(ts,0,4),	// year
+        bufToNum(ts,5,2),	// month
+        bufToNum(ts,8,2),	// day
+        bufToNum(ts,11,2),	// hour
+        bufToNum(ts,14,2),	// minute
+        bufToNum(ts,17,2));	// second)
 }
 
 
@@ -482,537 +434,18 @@ static void dtCallback(uint16_t* date, uint16_t* time)
 
 }
 
-#endif
 
-
-//---------------------------------------
-// reply methods
-//---------------------------------------
-
-#define MAX_ABORTS  10
-	// maximum number of simultaneous aborts being processed
-int num_aborts;
-int pending_aborts[MAX_ABORTS];
-
-
-static void fileReplyAborted(Stream *fsd, int req_num)
+bool mkDirTS(const char *path, const char *ts)
 {
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):ABORTED\r\n");
-}
-
-static bool abortPending(Stream *fsd, int req_num, bool quiet=0)
-{
-	for (int i=0; i<num_aborts; i++)
-	{
-		if (pending_aborts[i] == req_num)
-		{
-			if (!quiet)
-			{
-				warning(dbg_cmd,"ABORTING req_num(%d)!!",req_num);
-				fileReplyAborted(fsd,req_num);
-			}
-			return true;
-		}
-	}
-	return false;
-}
-
-static void addPendingAbort(int req_num)
-{
-	if (num_aborts >= MAX_ABORTS)
-	{
-		my_error("PENDING ABORT OVERFLOW",0);
-		return;
-	}
-	if (abortPending(NULL,req_num,1))
-	{
-		warning(dbg_cmd,"ABORT(%d) is already pending!!",req_num);
-		return;
-	}
-	pending_aborts[num_aborts++] = req_num;
-}
-
-static void clearPendingAbort(int req_num)
-{
-	bool found = 0;
-	for (int i=0; i<num_aborts; i++)
-	{
-		if (found)
-		{
-			pending_aborts[i] = pending_aborts[i+1];
-		}
-		else if (pending_aborts[i] == req_num)
-		{
-			found = 1;
-			warning(dbg_cmd,"clearing pendingAbort(%d) i=%d",req_num,i);
-			pending_aborts[i] = pending_aborts[i+1];
-			num_aborts--;
-		}
-	}
+	strcpy(write_timestamp,ts);
+	FatFile::dateTimeCallback(dtCallback);
+	int rslt = SD.mkdir(path);
+	FatFile::dateTimeCallbackCancel();
+	return rslt;
 }
 
 
 
-static void fileReplyEnd(Stream *fsd, int req_num)
-{
-    fsd->print("file_reply_end(");
- 	fsd->print(req_num);
-    fsd->print(")\r\n");
-}
-
-static void fileReply(Stream *fsd, int req_num, bool is_dir, uint32_t size, const char *ts,  const char *entry)
-{
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	if (!is_dir)
-		fsd->print(size);
-	fsd->print("\t");
-	fsd->print(ts);
-	fsd->print("\t");
-	fsd->print(entry);
-	if (is_dir && strcmp(entry,"/"))
-		fsd->print("/");
-	fsd->print("\r\n");
-}
-
-static void fileReplyError(Stream *fsd, int req_num, const char *format, ...)
-{
-	char buffer[255];
-
-	va_list var;
-	va_start(var, format);
-	vsprintf(buffer,format,var);
-
-	my_error(buffer,0);
-
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	fsd->print("ERROR - ");
-	fsd->print(buffer);
-	fsd->print("\r\n");
-}
-
-void sendProgressADD(Stream *fsd,int req_num, int num_dirs, int num_files)
-{
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	fsd->print("PROGRESS\tADD\t");
-	fsd->print(num_dirs);
-	fsd->print("\t");
-	fsd->print(num_files);
-	fsd->print("\r\n");
-	fileReplyEnd(fsd,req_num);
-}
-
-void sendProgressENTRY(Stream *fsd, int req_num, const char *entry)
-{
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	fsd->print("PROGRESS\tENTRY\t");
-	fsd->print(entry);
-	fsd->print("\r\n");
-	fileReplyEnd(fsd,req_num);
-}
-
-void sendProgressDONE(Stream *fsd, int req_num, bool is_dir)
-{
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	fsd->print("PROGRESS\tDONE\t");
-	fsd->print(is_dir);
-	fsd->print("\r\n");
-	fileReplyEnd(fsd,req_num);
-}
-
-
-//---------------------------------------------
-// atomic commands
-//---------------------------------------------
-
-static void doList(Stream *fsd, int req_num, const char *dir)
-{
-	display_level(dbg_cmd,2,"fileSystem::doList(%s)",dir);
-
-	myFileType_t the_dir = SD.open(dir);
-	if (!the_dir)
-	{
-		fileReplyError(fsd,req_num,"Could not open directory %s",dir);
-		return;
-	}
-
-	const char *ts = getTimeStamp(&the_dir);
-	fileReply(fsd,req_num,1,0,ts,dir);
-
-	myFileType_t entry = the_dir.openNextFile();
-	while (entry)
-	{
-		char filename[255];
-		entry.getName(filename, sizeof(filename));
-		const char *ts = getTimeStamp(&entry);
-		uint32_t size = entry.size();
-
-		fileReply(fsd,req_num,entry.isDirectory(),size,ts,filename);
-		entry = the_dir.openNextFile();
-
-	}   // while (entry)
-}
-
-
-static void makeDir(Stream *fsd, int req_num, const char *dir, const char *name)
-{
-	// name has trailing slash removed
-
-	char path[255];
-	strcpy(path,dir);
-	strcat(path,"/");
-	strcat(path,name);
-
-	display_level(dbg_cmd,2,"fileSystem::makeDir(%s,%s) path=%s",dir,name,path);
-
-	if (SD.exists(path))
-	{
-		fileReplyError(fsd,req_num,"Dir/File %s already exists",name);
-		return;
-	}
-
-	// excluded code to set timestamp on dir
-	// strcpy(write_timestamp,ts);
-
-	#if USE_OLD_FAT
-		// FatFile::dateTimeCallback(dtCallback);
-		int rslt = SD.mkdir(path);
-		// FatFile::dateTimeCallbackCancel();
-	#else
-		// FsDateTime::setCallback(dtCallback);
-		int rslt = SD.mkdir(path);
-		// FsDateTime::clearCallback();
-	#endif
-
-	if (!rslt)
-	{
-		fileReplyError(fsd,req_num,"Could not make directory %s",name);
-		return;
-	}
-
-	doList(fsd,req_num,dir);
-}
-
-
-static void renameObj(Stream *fsd, int req_num, const char *dir, const char *name1, const char *name2)
-{
-	// names already have trailing /'s removed
-
-	char path1[255];
-	strcpy(path1,dir);
-	strcat(path1,"/");
-	strcat(path1,name1);
-
-	char path2[255];
-	strcpy(path2,dir);
-	strcat(path2,"/");
-	strcat(path2,name2);
-
-	myFileType_t file = SD.open(path1);
-	if (!file)
-	{
-		fileReplyError(fsd,req_num,"Could not open %s in order to rename",name1);
-		return;
-	}
-	bool is_dir = file.isDirectory();
-	const char *ts = getTimeStamp(&file);
-	uint32_t size = file.size();
-	file.close();
-
-	display_level(dbg_cmd,2,"fileSystem::renameObj(%s,%s,%s) path1=%s path2=%s",dir,name1,name2,path1,path2);
-
-	if (!SD.rename(path1,path2))
-	{
-		fileReplyError(fsd,req_num,"Could not rename %s to %s",name1,name2);
-		return;
-	}
-	fileReply(fsd,req_num,is_dir,size,ts,name2);
-}
-
-
-static bool deleteObj(Stream *fsd, int req_num, const char *dir, const char *entry, bool last)
-{
-	char path[255];
-	strcpy(path,dir);
-	if (strcmp(dir,"/"))
-		strcat(path,"/");
-	strcat(path,entry);
-    display_level(dbg_cmd,2,"fileSystem::deleteOne(%s)",path);
-	sendProgressENTRY(fsd,req_num,path);
-
-	#if TEST_DELAY
-		delay(TEST_DELAY);
-	#endif
-
-	myFileType_t the_file = SD.open(path);
-
-	bool ok = 1;
-	if (the_file)
-	{
-		bool is_dir = the_file.isDirectory();
-		if (is_dir)
-		{
-			ok = the_file.rmRfStar();		// remove directory and contents
-		}
-		else
-		{
-			the_file.close();
-			ok = SD.remove(path);
-		}
-
-		#if TEST_DELAY
-			delay(TEST_DELAY);
-		#endif
-
-		if (ok)
-			sendProgressDONE(fsd,req_num,is_dir);
-		else
-			fileReplyError(fsd,req_num,"could not remove %s",path);
-	}
-	else
-	{
-		ok = 0;
-		fileReplyError(fsd,req_num,"could not open %s for delete",path);
-	}
-
-	if (last && ok)
-		doList(fsd,req_num,dir);
-
-	return ok;
-}
-
-
-
-//-------------------------------------------------------
-// parse entries lists
-//-------------------------------------------------------
-
-static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const char **ptr)
-	// parser for commands that have lists of entries
-	// pass in ptr, starting at the list of entries
-	// returns 0 if no entry, -1 if error, or 1 if entry
-{
-	the_entry->size[0] = 0;
-	the_entry->ts[0] = 0;
-	the_entry->entry[0] = 0;
-	the_entry->is_dir = 0;
-
-	if (!**ptr)
-		return 0;
-
-	// we set all 3 fields or fail
-	// there is a tab after each entry
-
-	int num_params = 0;
-	char *out = the_entry->size;
-
-	while (**ptr)
-	{
-		if (**ptr == '\t' ||
-			**ptr == '\r')
-		{
-			*out = 0;
-			num_params++;
-			if (num_params == 1)
-				out  = the_entry->ts;
-			else if (num_params == 2)
-				out = the_entry->entry;
-			else if (num_params == 3 && *(out-1) == '/')
-				// get rid of terminating '/' on dir entries
-			{
-				the_entry->is_dir = 1;
-				*(out-1) = 0;
-			}
-
-			bool is_cr = (**ptr == '\r');
-			(*ptr)++;
-			if (is_cr)
-				break;
-		}
-		else
-		{
-			*out++ = *(*ptr)++;
-		}
-	}
-
-	if (num_params != 3)
-	{
-		fileReplyError(fsd,req_num,"Incorrect number of fields(%d) in fileEntry",num_params);
-		return -1;
-	}
-
-	return 1;
-}
-
-
-
-//-------------------------------------------------------
-// handleFileCommand
-//-------------------------------------------------------
-
-
-void fileSystem::handleFileCommand(void *buf)
-	// buf is pointing at req_num \t
-	// the buf we are passed must be freed when done!!
-{
-	Stream *fsd = ACTIVE_FILE_SYS_DEVICE;
-
-	int len = strlen((char *)buf);
-    display_level(dbg_hdr+1,1,"handleFileCommand() command=%d bytes",len);
-
-	// buf is pointing to the req_num
-
-	int req_num = 0;
-	char *entries = (char *) buf;
-	const char *req_num_ptr = entries;
-	while (*entries && *entries != '\t')
-	{
-		entries++;
-	}
-
-	if (*entries != '\t')
-	{
-		my_error("Could not find req_num in file_command",0);
-		free(buf);
-		return;
-	}
-
-	*entries++ = 0;		// null terminate the request_number
-	req_num = atoi(req_num_ptr);
-	display(dbg_cmd+1,"got request_number=%d",req_num);
-
-	//------------------------------
-	// parse the command line
-	//------------------------------
-
-	char *command = entries;
-
-	int num_params = 0;
-	const char *param[3];
-	while (*entries && *entries != '\r')
-	{
-		if (*entries == '\t' && num_params<3)
-		{
-			*entries++ = 0;
-			param[num_params++] = entries;
-		}
-		entries++;
-	}
-	if (*entries == '\r')
-		*entries++ = 0;
-
-	for (int i=num_params; i<3; i++)
-	{
-		param[i] = "";
-	}
-
-    display_level(dbg_hdr,1,"handleFileCommand(%d,%s) param0(%s) param1(%s) param2(%s)",
-		req_num,
-		command,
-		param[0],
-		param[1],
-		param[2]);
-
-	if (!strcmp(command,"ABORT"))
-	{
-		addPendingAbort(req_num);
-		return;
-	}
-
-	//--------------------------
-	// parse entries if any
-	//--------------------------
-
-	textEntry_t the_entry;
-	const char *ptr = entries;
-
-	int num_dirs = 0;
-	int num_files = 0;
-	int rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
-	while (rslt == 1)
-	{
-		if (the_entry.is_dir)
-			num_dirs++;
-		else
-			num_files++;
-
-		display_level(dbg_hdr+1,3,"entry(%s) is_dir(%d) size(%s) ts(%s)",
-			the_entry.entry, the_entry.is_dir, the_entry.size, the_entry.ts);
-		rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
-	}
-	if (rslt == -1)	// error already reported
-	{
-		free(buf);
-		return;
-	}
-
-	//--------------------------------------
-	// do the commands
-	//--------------------------------------
-
-	if (!strcmp(command,"LIST"))
-	{
-		doList(fsd,req_num,param[0]);
-	}
-	else if (!strcmp(command,"MKDIR"))
-	{
-		makeDir(fsd,req_num,param[0],param[1]);
-	}
-	else if (!strcmp(command,"RENAME"))
-	{
-		renameObj(fsd,req_num,param[0],param[1],param[2]);
-	}
-	else if (!strcmp(command,"DELETE"))
-	{
-		if (num_params == 2)		// single_file item is in param[1]
-		{
-			deleteObj(fsd,req_num,param[0],param[1],1);
-		}
-
-		// only cases where the fileClientPane puts up a progress dialog
-		// need check for pending aborts
-
-		else if (!abortPending(fsd, req_num))
-		{
-			// process entry list
-			sendProgressADD(fsd,req_num,num_dirs,num_files);
-
-
-			ptr = entries;
-			int rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
-			bool last = !*ptr || *ptr == '\r';
-			while (rslt == 1)
-			{
-				if (abortPending(fsd, req_num))
-					break;
-				rslt = deleteObj(fsd,req_num,param[0],the_entry.entry,last);
-				rslt = rslt && getNextEntry(fsd,req_num,&the_entry,&ptr);
-				last = !*ptr || *ptr == '\r';
-			}
-		}
-	}
-	else
-	{
-		fileReplyError(fsd,req_num,"Unknown Command %s",command);
-	}
-
-	clearPendingAbort(req_num);
-	fileReplyEnd(fsd,req_num);
-	display_level(dbg_hdr,1,"handleFileCommand(%d,%s) returning",req_num,command);
-	free(buf);
-
-}	// handleFileCommand
 
 
 // end of fileSystem.cpp
