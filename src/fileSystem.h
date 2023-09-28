@@ -43,15 +43,17 @@ extern bool mkDirTS(const char *path, const char *ts);
 typedef struct
 {
 	int req_num;
+
 	int head;
 	int tail;
-	char *buffer[MAX_QUEUED_BUFFERS];
-} command_queue_t;
+	char *queue[MAX_QUEUED_BUFFERS];
+
+} fileCommand_t;
 
 
 // these routines report errors but do not send file_replies on problems.
 
-extern command_queue_t *getCommand(int req_num, int sem_level = 0);
+extern fileCommand_t *getCommand(int req_num, int sem_level = 0);
 	// for file_messages, theSystem will blow it off if the
 	// this returns NULL, indicating the command is not active
 	// anymore, otherwise, it will add the buffer to the given

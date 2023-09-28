@@ -243,17 +243,17 @@ typedef struct
 	int  len;   // length of allocated buffer which is size + 1
 	char *buf;
 
-} parse_command_t;
+} parseCommand_t;
 
 
-static parse_command_t parse_command[2];
+static parseCommand_t parse_command[2];
 
 
-static void initCommandParse(parse_command_t *cmd)
+static void initParseCommand(parseCommand_t *pcmd)
 {
-	if (cmd->buf)
-		free(cmd->buf);
-	memset(cmd,0,sizeof(parse_command_t));
+	if (pcmd->buf)
+		free(pcmd->buf);
+	memset(pcmd,0,sizeof(parseCommand_t));
 }
 
 
@@ -265,224 +265,224 @@ static void handleChar(bool is_serial, char c)
 		return;
 	}
 
-	parse_command_t *cmd = &parse_command[is_serial];
+	parseCommand_t *pcmd = &parse_command[is_serial];
 
 	display_level(dbg_file_command+2,1,"state(%d) off(%d) char=%c 0x%02x",
-		cmd->state,
-		cmd->off,
+		pcmd->state,
+		pcmd->off,
 		c>=' '?c:'.',c);
 
 	bool ok = 1;
 	bool done = 0;
 
-	if (cmd->state == 0)									// parsing signature
+	if (pcmd->state == 0)									// parsing signature
 	{
-		char expected = cmd->type ?
-			FILE_MESSAGE_SIG[cmd->off]:
-			FILE_COMMAND_SIG[cmd->off];
+		char expected = pcmd->type ?
+			FILE_MESSAGE_SIG[pcmd->off]:
+			FILE_COMMAND_SIG[pcmd->off];
 
-		if (c == '\t' && cmd->off == FILE_COMMAND_SIG_LEN)	// got the signature
+		if (c == '\t' && pcmd->off == FILE_COMMAND_SIG_LEN)	// got the signature
 		{
-			cmd->off = 0;		// reset for next state
-			cmd->state++;       // advance to next state
+			pcmd->off = 0;		// reset for next state
+			pcmd->state++;       // advance to next state
 			display_level(dbg_file_command+1,2,"handleChar() got %s",
-				cmd->type ? "file_message" : "file_command");
+				pcmd->type ? "file_message" : "file_command");
 		}
 		else if (c == expected)
 		{
-			cmd->off++;
+			pcmd->off++;
 		}
-		else if (!cmd->type && cmd->off == 5 && c == 'm')
+		else if (!pcmd->type && pcmd->off == 5 && c == 'm')
 		{
-			cmd->type = 1;
-			cmd->off++;
+			pcmd->type = 1;
+			pcmd->off++;
 		}
 		else
 		{
 			ok = 0;
-			if (cmd->off)
+			if (pcmd->off)
 				my_error("handleChar() type(%d) off(%d) illegal char in SIG '%c'=0x%02x",
-					cmd->type,
-					cmd->off,
+					pcmd->type,
+					pcmd->off,
 					c>=' '?c:'.',c);
 		}
 	}
-	else if (cmd->state == 1)						// parsing req_num
+	else if (pcmd->state == 1)						// parsing req_num
 	{
 		if (c == '\t')								// got length terminator
 		{
-			cmd->req_num[cmd->off] = 0;
+			pcmd->req_num[pcmd->off] = 0;
 			display_level(dbg_file_command+1,2,"handleChar(%s) got req_num(%s)",
-				cmd->type?"file_message":"file_command",
-				cmd->req_num);
+				pcmd->type?"file_message":"file_command",
+				pcmd->req_num);
 
-			cmd->off = 0;		// reset for next state
-			cmd->state++;		// next state
+			pcmd->off = 0;		// reset for next state
+			pcmd->state++;		// next state
 		}
-		else if (cmd->off >= MAX_NUM_LENGTH)		// too big
+		else if (pcmd->off >= MAX_NUM_LENGTH)		// too big
 		{
 			ok = 0;
 			my_error("handleChar(%s) off(%d) req_num overflow",
-				cmd->type?"file_message":"file_command",
-				cmd->off);
+				pcmd->type?"file_message":"file_command",
+				pcmd->off);
 		}
 		else if (c >= '0' && c <= '9')
 		{
-			cmd->req_num[cmd->off++] = c;
+			pcmd->req_num[pcmd->off++] = c;
 		}
 		else
 		{
 			ok = 0;
 			my_error("handleChar(%s) off(%d) illegal char in req_num '%c'=0x%02x",
-				cmd->type?"file_message":"file_command",
-				cmd->off,
+				pcmd->type?"file_message":"file_command",
+				pcmd->off,
 				c>=' '?c:'.',c);
 		}
 	}
-	else if (cmd->state == 2)						// parsing size
+	else if (pcmd->state == 2)						// parsing size
 	{
 		if (c == '\t')								// got length terminator
 		{
-			cmd->size[cmd->off] = 0;
+			pcmd->size[pcmd->off] = 0;
 			display_level(dbg_file_command+1,2,"handleChar(%s,%s) got size(%s)",
-				cmd->type?"file_message":"file_command",
-				cmd->req_num,
-				cmd->size);
+				pcmd->type?"file_message":"file_command",
+				pcmd->req_num,
+				pcmd->size);
 
-			cmd->len = atoi(cmd->size);
-			if (cmd->len < MIN_COMMAND_BUF_LEN ||
-				cmd->len > MAX_COMMAND_BUF_LEN)
+			pcmd->len = atoi(pcmd->size);
+			if (pcmd->len < MIN_COMMAND_BUF_LEN ||
+				pcmd->len > MAX_COMMAND_BUF_LEN)
 			{
 				ok = 0;
 				my_error("handleChar(%s,%s) len(%d) must be between %d and %d",
-					cmd->type?"file_message":"file_command",
-					cmd->req_num,
-					cmd->len,
+					pcmd->type?"file_message":"file_command",
+					pcmd->req_num,
+					pcmd->len,
 					MIN_COMMAND_BUF_LEN,
 					MAX_COMMAND_BUF_LEN);
 			}
 			else
 			{
-				cmd->buf = new char[cmd->len + 1];		// allocate buffer
-				if (!cmd->buf)
+				pcmd->buf = new char[pcmd->len + 1];		// allocate buffer
+				if (!pcmd->buf)
 				{
 					ok = 0;
 					my_error("handleChar(%s,%s) unable to allocate buffer of len(%d)",
-						cmd->type?"file_message":"file_command",
-						cmd->req_num,
-						cmd->len);
+						pcmd->type?"file_message":"file_command",
+						pcmd->req_num,
+						pcmd->len);
 				}
 				else
 				{
-					cmd->off = 0;		// reset for next state
-					cmd->state++;		// next state
+					pcmd->off = 0;		// reset for next state
+					pcmd->state++;		// next state
 				}
 			}
 		}
-		else if (cmd->off >= MAX_NUM_LENGTH)		// too big
+		else if (pcmd->off >= MAX_NUM_LENGTH)		// too big
 		{
 			ok = 0;
 			my_error("handleChar(%s,%s) off(%d) size overflow",
-				cmd->type?"file_message":"file_command",
-				cmd->req_num,
-				cmd->off);
+				pcmd->type?"file_message":"file_command",
+				pcmd->req_num,
+				pcmd->off);
 		}
 		else if (c >= '0' && c <= '9')
 		{
-			cmd->size[cmd->off++] = c;
+			pcmd->size[pcmd->off++] = c;
 		}
 		else
 		{
 			ok = 0;
 			my_error("handleChar(%s,%s) off(%d) illegal char in size '%c'=0x%02x",
-				cmd->type?"file_message":"file_command",
-				cmd->req_num,
-				cmd->off,
+				pcmd->type?"file_message":"file_command",
+				pcmd->req_num,
+				pcmd->off,
 				c>=' '?c:'.',c);
 		}
 	}
-	else if (cmd->state == 3)			// adding characters to the file buffer
+	else if (pcmd->state == 3)			// adding characters to the file buffer
 	{
-		if (cmd->off > cmd->len)
+		if (pcmd->off > pcmd->len)
 		{
 			ok = 0;
 			my_error("handleChar(%s,%s) buffer overflow at off(%d)",
-				cmd->type?"file_message":"file_command",
-				cmd->req_num,
-				cmd->off);
+				pcmd->type?"file_message":"file_command",
+				pcmd->req_num,
+				pcmd->off);
 		}
 		else if (c == '\n')
 		{
-			if (cmd->off == cmd->len)
+			if (pcmd->off == pcmd->len)
 			{
 				done = 1;
-				cmd->buf[cmd->off] = 0;		// terminate the buffer
+				pcmd->buf[pcmd->off] = 0;		// terminate the buffer
 			}
 			else
 			{
 				ok = 0;
 				my_error("handleChar(%s,%s) length mismatch off(%d) != len(%d)",
-					cmd->type?"file_message":"file_command",
-					cmd->req_num,
-					cmd->off,
-					cmd->len);
+					pcmd->type?"file_message":"file_command",
+					pcmd->req_num,
+					pcmd->off,
+					pcmd->len);
 			}
 		}
 		else		// add character to file_command cuffer
 		{
-			cmd->buf[cmd->off++] = c;
+			pcmd->buf[pcmd->off++] = c;
 		}
 	}
 
 	if (done)	// start the command or send the message
 	{
-		cmd->timeout = 0;
+		pcmd->timeout = 0;
 		display_level(dbg_file_command,0,"handleChar() %s %s(%s) len=%d",
-				cmd->type?"queing":"starting",
-				cmd->type?"file_message":"file_command",
-				cmd->req_num,
-				cmd->len);
-		int req_num = atoi(cmd->req_num);
-		if (cmd->type)
+				pcmd->type?"queing":"starting",
+				pcmd->type?"file_message":"file_command",
+				pcmd->req_num,
+				pcmd->len);
+		int req_num = atoi(pcmd->req_num);
+		if (pcmd->type)
 		{
 			if (!getCommand(req_num))
 			{
 				warning(dbg_file_command,"handleChar() find queue for file_message(%d) dropping buffer of len(%d)",
 					req_num,
-					cmd->len);
+					pcmd->len);
 			}
 			else
 			{
-				if (!addCommandQueue(req_num,cmd->buf))
+				if (!addCommandQueue(req_num,pcmd->buf))
 				{
 					warning(dbg_file_command,"handleChar() could not queue file_message(%d) dropping buffer of len(%d)",
 						req_num,
-						cmd->len);
+						pcmd->len);
 				}
 				else
 				{
-					cmd->buf = 0;
+					pcmd->buf = 0;
 				}
 			}
 		}
-		else if (!startCommand(req_num,cmd->buf))
+		else if (!startCommand(req_num,pcmd->buf))
 		{
 			warning(dbg_file_command,"handleChar() could not start file_command(%d) dropping buffer of len(%d)",
 				req_num,
-				cmd->len);
+				pcmd->len);
 		}
 		else
 		{
-			cmd->buf = 0;
+			pcmd->buf = 0;
 		}
 	}
 
 	// !ok or done - init for new parse
 
 	if (done || !ok)
-		initCommandParse(cmd);
+		initParseCommand(pcmd);
 	else if (ok)
-		cmd->timeout = millis();
+		pcmd->timeout = millis();
 
 }	// handleChar
 
@@ -511,11 +511,11 @@ void theSystem::handleSerialData()
 
 	for (int i=0; i<2; i++)
 	{
-		parse_command_t *cmd = &parse_command[i];
-		if (cmd->timeout && millis() - cmd->timeout > SERIAL_TIMEOUT)
+		parseCommand_t *pcmd = &parse_command[i];
+		if (pcmd->timeout && millis() - pcmd->timeout > SERIAL_TIMEOUT)
 		{
 			my_error("%s command timeout",i ? "SERIAL" : "USB");
-			initCommandParse(cmd);
+			initParseCommand(pcmd);
 		}
 	}
 
