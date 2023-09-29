@@ -11,6 +11,7 @@
 #include "src/midiHost.h"
 
 
+
 // Uses slightly modified _usbDev.c that allows me to defer
 // usb_init() call until I am ready, and _usbNames.c that
 // works to allow overrides of teensy USB descriptors.
@@ -19,6 +20,58 @@ extern "C" {
     extern void my_usb_init();          // in usb_dev.c
     extern void setFTPDescriptors();    // _usbNames.c
 }
+
+
+//--------------------------------------------------
+// teensyThreads teensy 3.x specific malloc fix
+//--------------------------------------------------
+// sbrk() and STACK_MARGIN define copied from
+// 		C:\Program Files (x86)\Arduino\hardware\teensy\avr\cores\teensy3\mk20dx128.c
+// need to include <errno.h> and declare extern char* __brkval;
+
+extern "C" {
+
+	#include <errno.h>
+
+	#ifndef STACK_MARGIN
+		#if defined(__MKL26Z64__)
+			#define STACK_MARGIN  512
+		#elif defined(__MK20DX128__)
+			#define STACK_MARGIN  1024
+		#elif defined(__MK20DX256__)
+			#define STACK_MARGIN  4096
+		#elif defined(__MK64FX512__) || defined(__MK66FX1M0__)
+			#define STACK_MARGIN  8192
+		#else
+			#define STACK_MARGIN  1024
+		#endif
+	#endif
+
+	extern char* __brkval;      // current end (top) of heap
+
+	void * _sbrk(int incr)
+		// copied from
+	{
+		char *prev, *stack;
+		prev = __brkval;
+		if (incr != 0) {
+
+			// this is the only change, really:
+			// instead of following asm which gets sp register
+			// 	__asm__ volatile("mov %0, sp" : "=r" (stack) ::);
+			// we get the msp ('main' thread) stack register like this:
+			__asm__ volatile("mrs %0, msp" : "=r" (stack) ::);
+			if (prev + incr >= stack - STACK_MARGIN) {
+				errno = ENOMEM;
+				return (void *)-1;
+			}
+			__brkval = prev + incr;
+		}
+		return prev;
+	}
+
+}	// extern "C"
+
 
 
 void setup()
@@ -80,7 +133,7 @@ void setup()
     // while (serial_started<1000 && !Serial) {}
 
     display(0,"teensyExpression.ino " TEENSY_EXPRESSION_VERSION " setup() started",0);
-    // mem_check("after serial port started");
+	// mem_check("at start of setup()");
 
     //-----------------------------------------------
     // start the TFT display
@@ -137,7 +190,6 @@ void setup()
         do_delay = 5000;
     #endif
 
-
     //----------------------------------
     // start the LEDs
     //----------------------------------
@@ -163,7 +215,6 @@ void setup()
         do_delay = 5000;
 	}
 
-
     //-----------------------------------
     // start the system
     //-----------------------------------
@@ -186,8 +237,7 @@ void setup()
     clearLEDs();
     showLEDs();
     mylcd.fillScreen(TFT_BLACK);
-
-    // mem_check("at end of setup()");
+	//	mem_check("at end of setup()");
 
 }   // setup()
 
