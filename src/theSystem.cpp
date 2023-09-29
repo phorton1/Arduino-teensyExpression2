@@ -363,7 +363,7 @@ static void handleChar(bool is_serial, char c)
 			}
 			else
 			{
-				pcmd->buf = new char[pcmd->len + 1];		// allocate buffer
+				pcmd->buf = (char *) malloc(pcmd->len + 1);		// allocate buffer
 				if (!pcmd->buf)
 				{
 					ok = 0;
@@ -450,6 +450,7 @@ static void handleChar(bool is_serial, char c)
 				warning(dbg_file_command,"handleChar() find queue for file_message(%d) dropping buffer of len(%d)",
 					req_num,
 					pcmd->len);
+				free(pcmd->buf);
 			}
 			else
 			{
@@ -458,10 +459,7 @@ static void handleChar(bool is_serial, char c)
 					warning(dbg_file_command,"handleChar() could not queue file_message(%d) dropping buffer of len(%d)",
 						req_num,
 						pcmd->len);
-				}
-				else
-				{
-					pcmd->buf = 0;
+					free(pcmd->buf);
 				}
 			}
 		}
@@ -470,11 +468,10 @@ static void handleChar(bool is_serial, char c)
 			warning(dbg_file_command,"handleChar() could not start file_command(%d) dropping buffer of len(%d)",
 				req_num,
 				pcmd->len);
+			free(pcmd->buf);
 		}
-		else
-		{
-			pcmd->buf = 0;
-		}
+
+		pcmd->buf = 0;
 	}
 
 	// !ok or done - init for new parse

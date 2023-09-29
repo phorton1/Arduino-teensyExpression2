@@ -25,6 +25,7 @@
 	// -1 = show msg at top of doCommand
 #define dbg_cmd	  0
 	//  0 = show file commands
+	// -1 = show command details
 
 
 #define TEST_DELAY    0		// 2000
@@ -37,10 +38,18 @@
 #define QUEUE_TIMEOUT    5		// ms
 	// timeout for semaphore to get access to queue
 
-#define MAX_DECODED_BUF   10240
-    // the decoded base64 will always be less than the raw base64
-    // and 10240 is agreed upon between console.pm and teensyExpression.
-
+#define THREAD_STACK_SIZE   4096
+	// stack for doCommand()
+#define MAX_DIRECTORY_BUF   4096
+	// maximum size of a directory listing returned by _list
+#define MAX_DECODED_BUF    10005
+	// 10000 is agreed upon limit in Perl
+	// allows 10000 + 4 byte checksum + null terminator
+	// invariantly allocated in PUT
+	// decoded buffer is allocated to size in BASE64
+#define MAX_ENCODED_BUF	   14000
+	// must be big enough to encode MAX_DECODED_BUF
+	// invariantly allocated in PUT
 
 
 // structure for getNextEntry
@@ -139,7 +148,10 @@ bool startCommand(int req_num, char *initial_buffer)
 			}
 			else
 			{
-				fileCommand_t *cmd = new fileCommand_t;
+				// mem_check("before new fileCommand_t");
+				fileCommand_t *cmd = (fileCommand_t *) malloc(sizeof(fileCommand_t));
+				// mem_check("after new fileCommand_t");
+
 				if (!cmd)
 				{
 					my_error("unable to allocate new fileCommand_t(%d)",req_num);
@@ -176,10 +188,11 @@ static void endCommand(int req_num)
 	{
 		for (int i=0; i<MAX_ACTIVE_COMMANDS; i++)
 		{
-			if (commands[i] && commands[i]->req_num == req_num)
+			fileCommand_t *cmd = commands[i];
+			if (cmd && cmd->req_num == req_num)
 			{
-				int head = commands[i]->head;
-				int tail = commands[i]->head;
+				int head = cmd->head;
+				int tail = cmd->head;
 				char **queue = commands[i]->queue;
 				while (head != tail)
 				{
@@ -187,7 +200,7 @@ static void endCommand(int req_num)
 					if (head >= MAX_QUEUED_BUFFERS)
 						head = 0;
 				}
-				free(commands[i]);
+				free(cmd);
 				commands[i] = 0;
 				command_sem--;
 				return;
@@ -271,91 +284,34 @@ static char *getCommandQueue(int req_num)
 // reply methods
 //---------------------------------------
 
-static void fileReplyEnd(Stream *fsd, int req_num)
-{
-    fsd->print("file_reply_end(");
- 	fsd->print(req_num);
-    fsd->print(")\r\n");
-}
-
-static void fileReply(Stream *fsd, int req_num, bool is_dir, uint32_t size, const char *ts,  const char *entry)
-{
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	if (!is_dir)
-		fsd->print(size);
-	fsd->print("\t");
-	fsd->print(ts);
-	fsd->print("\t");
-	fsd->print(entry);
-	if (is_dir && strcmp(entry,"/"))
-		fsd->print("/");
-	fsd->print("\r\n");
-}
-
 static void fileReplyError(Stream *fsd, int req_num, const char *format, ...)
 {
 	char buffer[255];
+	char format_buffer[255];
+	sprintf(format_buffer,"file_reply(%d):ERROR - %s\r\n",req_num,format);
 
 	va_list var;
 	va_start(var, format);
-	vsprintf(buffer,format,var);
-
+	vsprintf(buffer,format_buffer,var);
 	my_error(buffer,0);
-
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	fsd->print("ERROR - ");
 	fsd->print(buffer);
-	fsd->print("\r\n");
 }
 
-void sendProgressADD(Stream *fsd,int req_num, int num_dirs, int num_files)
+
+void fileReply(Stream *fsd, int req_num, const char *format, ...)
 {
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	fsd->print("PROGRESS\tADD\t");
-	fsd->print(num_dirs);
-	fsd->print("\t");
-	fsd->print(num_files);
-	fsd->print("\r\n");
-	fileReplyEnd(fsd,req_num);
-}
+	char buffer[255];
+	char format_buffer[255];
+	sprintf(format_buffer,"file_reply(%d):%s\r\n",req_num,format);
 
-void sendProgressENTRY(Stream *fsd, int req_num, const char *entry)
-{
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	fsd->print("PROGRESS\tENTRY\t");
-	fsd->print(entry);
-	fsd->print("\r\n");
-	fileReplyEnd(fsd,req_num);
+	va_list var;
+	va_start(var, format);
+	vsprintf(buffer,format_buffer,var);
+	fsd->print(buffer);
 }
-
-void sendProgressDONE(Stream *fsd, int req_num, bool is_dir)
-{
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):");
-	fsd->print("PROGRESS\tDONE\t");
-	fsd->print(is_dir);
-	fsd->print("\r\n");
-	fileReplyEnd(fsd,req_num);
-}
-
-static void fileReplyAborted(Stream *fsd, int req_num)
-{
-	fsd->print("file_reply(");
-	fsd->print(req_num);
-	fsd->print("):ABORTED\r\n");
-}
-
 
 static bool abortPending(Stream *fsd, int req_num, const char *command)
+
 {
 	char *pending = getCommandQueue(req_num);
 	if (pending)
@@ -363,7 +319,7 @@ static bool abortPending(Stream *fsd, int req_num, const char *command)
 		if (!strncmp(pending,"ABORT",5))
 		{
 			display_level(dbg_cmd,3,"ABORTING fileCommand(%d,%s)!!",req_num,command);
-			fileReplyAborted(fsd,req_num);
+			fileReply(fsd,req_num,"ABORTED");
 		}
 		free(pending);
 		return true;
@@ -422,7 +378,6 @@ static char *parseCommand(		// returns buffer which must be freed by caller
 		params[i] = "";
 	}
 	return buf;
-
 }
 
 
@@ -490,30 +445,72 @@ static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const 
 
 static void _list(Stream *fsd, int req_num, const char *dir)
 {
-	display_level(dbg_cmd,2,"fileCommand::_list(%s)",dir);
+	display_level(dbg_cmd,2,"fileCommand::_list(%d,%s)",req_num,dir);
+	// mem_check("_list");
+
+	char *buffer = (char *) malloc(MAX_DIRECTORY_BUF);
+	if (!buffer)
+	{
+		my_error("could not allocate memory",0);
+		delay(1000);
+		fileReplyError(fsd,req_num,"fileCommand::_list(%d,%s) could not allocate buffer",req_num,dir);
+		return;
+	}
 
 	myFileType_t the_dir = SD.open(dir);
 	if (!the_dir)
 	{
-		fileReplyError(fsd,req_num,"Could not open directory %s",dir);
+		my_error("could not opendir(%s)",dir);
+		delay(1000);
+		fileReplyError(fsd,req_num,"fileCommand::_list(%d,%s) could not open directory",req_num,dir);
+		free(buffer);
 		return;
 	}
 
 	const char *ts = getTimeStamp(&the_dir);
-	fileReply(fsd,req_num,1,0,ts,dir);
+
+	sprintf(buffer,"file_reply(%d):0\t%s\t%s%s\r",
+		req_num,
+		ts,
+		dir,
+		strcmp(dir,"/")?"/":"");
+
+	size_t at = strlen(buffer);
+	char *out = &buffer[at];
 
 	myFileType_t entry = the_dir.openNextFile();
 	while (entry)
 	{
-		char filename[255];
-		entry.getName(filename, sizeof(filename));
-		const char *ts = getTimeStamp(&entry);
-		uint32_t size = entry.size();
+		char name[255];
+		entry.getName(name, sizeof(name));
+		display(0,"got name(%s)",name);
 
-		fileReply(fsd,req_num,entry.isDirectory(),size,ts,filename);
+		const char *ts = getTimeStamp(&entry);
+		size_t size = entry.size();
+		bool is_dir = entry.isDirectory();
+
+		#define MAX_FILE_SIZE_CHARS   10	// 9GB
+
+		display_level(dbg_cmd+1,3,"_list at(%d) is_dir(%d) size(%ul) ts(%d) name(%s)",at,is_dir,size,ts,name);
+
+		if (at > MAX_DIRECTORY_BUF - MAX_FILE_SIZE_CHARS - 1 - strlen(ts) - 1 - strlen(name) - 2)
+		{
+			// report this as an error here, but not to client
+			my_error("fileCommand::_list(%d,%s) not reporting directory buffer overflow at %d!",req_num,dir,at);
+			break;
+		}
+
+		sprintf(out,"%u\t%s\t%s%s\r",size,ts,name,is_dir?"/":"");
+		at += strlen(out);
+		out = &buffer[at];
 		entry = the_dir.openNextFile();
 
 	}   // while (entry)
+
+	the_dir.close();
+	sprintf(out,"\n");
+	fsd->printf(buffer);
+	free(buffer);
 }
 
 
@@ -533,7 +530,6 @@ static void _mkdir(Stream *fsd, int req_num, const char *dir, const char *name)
 		fileReplyError(fsd,req_num,"Dir/File %s already exists",name);
 		return;
 	}
-
 	// excluded code to set timestamp on dir
 	// strcpy(write_timestamp,ts);
 
@@ -547,13 +543,10 @@ static void _mkdir(Stream *fsd, int req_num, const char *dir, const char *name)
 		// FsDateTime::clearCallback();
 	#endif
 
-	if (!rslt)
-	{
+	if (rslt)
+		_list(fsd,req_num,dir);
+	else
 		fileReplyError(fsd,req_num,"Could not make directory %s",name);
-		return;
-	}
-
-	_list(fsd,req_num,dir);
 }
 
 
@@ -584,16 +577,14 @@ static void _rename(Stream *fsd, int req_num, const char *dir, const char *name1
 
 	display_level(dbg_cmd,2,"fileCommand::_rename(%s,%s,%s) path1=%s path2=%s",dir,name1,name2,path1,path2);
 
-	if (!SD.rename(path1,path2))
-	{
+	if (SD.rename(path1,path2))
+		fileReply(fsd,req_num,"%d\t%s\t%s%s",size,ts,name2,is_dir?"/":"");
+	else
 		fileReplyError(fsd,req_num,"Could not rename %s to %s",name1,name2);
-		return;
-	}
-	fileReply(fsd,req_num,is_dir,size,ts,name2);
 }
 
 
-static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry, bool last)
+static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry)
 {
 	char path[255];
 	strcpy(path,dir);
@@ -601,7 +592,7 @@ static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry
 		strcat(path,"/");
 	strcat(path,entry);
     display_level(dbg_cmd,2,"fileCommand::_delete(%s)",path);
-	sendProgressENTRY(fsd,req_num,path);
+	fileReply(fsd,req_num,"PROGRESS\tENTRY\t%s",entry);
 
 	#if TEST_DELAY
 		delay(TEST_DELAY);
@@ -628,7 +619,7 @@ static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry
 		#endif
 
 		if (ok)
-			sendProgressDONE(fsd,req_num,is_dir);
+			fileReply(fsd,req_num,"PROGRESS\tDONE\t%d",is_dir);
 		else
 			fileReplyError(fsd,req_num,"could not remove %s",path);
 	}
@@ -637,9 +628,6 @@ static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry
 		ok = 0;
 		fileReplyError(fsd,req_num,"could not open %s for delete",path);
 	}
-
-	if (last && ok)
-		_list(fsd,req_num,dir);
 
 	return ok;
 }
@@ -729,35 +717,37 @@ static void fileCommand(int req_num)
 	}
 	else if (!strcmp(command,"DELETE"))
 	{
+		bool ok = 0;
 		if (num_params == 2)		// single_file item is in param[1]
 		{
-			_delete(fsd,req_num,param[0],param[1],1);
+			ok = _delete(fsd,req_num,param[0],param[1]);
 		}
 		else if (!abortPending(fsd, req_num, command))
 		{
 			// process entry list
-			sendProgressADD(fsd,req_num,num_dirs,num_files);
+			fileReply(fsd,req_num,"PROGRESS\tADD\t%d\t%d",num_dirs,num_files);
 
 			ptr = entries;
-			int rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
-			bool last = !*ptr || *ptr == '\r';
-			while (rslt == 1)
+			int cont = getNextEntry(fsd,req_num,&the_entry,&ptr);
+			while (ok && cont == 1)
 			{
 				if (abortPending(fsd, req_num, command))
 					break;
-				rslt = _delete(fsd,req_num,param[0],the_entry.entry,last);
-				rslt = rslt && getNextEntry(fsd,req_num,&the_entry,&ptr);
-				last = !*ptr || *ptr == '\r';
+				ok = _delete(fsd,req_num,param[0],the_entry.entry);
+				if (ok)
+					cont = getNextEntry(fsd,req_num,&the_entry,&ptr);
 			}
+			ok = cont == -1 ? 0 : ok;
 		}
+		if (ok)
+			_list(fsd,req_num,param[0]);
+
 	}
 	else
 	{
 		fileReplyError(fsd,req_num,"Unknown Command %s",command);
 	}
 
-
-	fileReplyEnd(fsd,req_num);
 	display_level(dbg_hdr,1,"fileCommand(%d,%s) done",req_num,command);
 	free(command);
 	endCommand(req_num);

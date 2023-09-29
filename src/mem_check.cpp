@@ -35,26 +35,29 @@ void print_one(bool hex, const char *name, uint32_t loc)
 void mem_check(const char *where)
     // externed in defines.h
 {
-    char tos;
-    /*
+    char *tos;
+
+    __asm__ volatile(
+        "mrs %0, msp	\r\n" :
+        "=r" (tos) :: );
+
+    if (where)
+        Serial.println(where);
     print_one(1,"ram_start",0x1fff0000);
     print_one(1,"bss_start",(uint32_t) &_sbss);
     print_one(1,"heap_start",(uint32_t) &__bss_end);
     print_one(1,"heap_end",(uint32_t) __brkval);
-    print_one(1,"stack_start",(uint32_t) &tos);
+    print_one(1,"stack_start",(uint32_t) tos);
     print_one(1,"stack_end",(uint32_t) &_estack);
-    Serial.println();
-    */
-    Serial.println();
-    if (where)
-        Serial.println(where);
 
 #ifndef __IMXRT1062__       // if !teensy 4
     print_one(0,"mem used",((uint32_t) &__bss_end) - 0x1fff0000);
     print_one(0,"heap_used",((uint32_t) __brkval) - ((uint32_t) &__bss_end) );
 #endif
-    print_one(0,"free",((uint32_t) &tos) - ((uint32_t) __brkval) );
+    print_one(0,"free",((uint32_t) tos) - ((uint32_t) __brkval) );
     print_one(0,"stack_used",((uint32_t) &_estack) - ((uint32_t) &tos) );
+
+    Serial.println();
 }
 
 // bare bones program

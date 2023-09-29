@@ -38,12 +38,14 @@ extern bool mkDirTS(const char *path, const char *ts);
 
 
 #define MAX_ACTIVE_COMMANDS 10
+	// maximum number of simultaneously active commands
 #define MAX_QUEUED_BUFFERS  10
+	// maximum number of subcommands that can pending for a command
+
 
 typedef struct
 {
 	int req_num;
-
 	int head;
 	int tail;
 	char *queue[MAX_QUEUED_BUFFERS];
