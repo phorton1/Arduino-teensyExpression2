@@ -11,15 +11,17 @@
 #include <SdFat.h>
 
 #if USE_OLD_FAT
-	#define myFileType_t File
+	#define myFile_t File
 	#define myDir_t		 dir_t
 	extern SdFatSdio SD;
 #else
-	#define myFileType_t File32
+	#define myFile_t File32
 	#define myDir_t		 DirFat_t
 	extern SdFat32 SD;
 #endif
 
+
+#define BYTES_PER_MB    (1024*1024)
 
 
 // following in fileSystem.cpp
@@ -27,20 +29,21 @@
 extern bool initFileSystem();
 extern uint32_t getFreeMB();
 extern uint32_t getTotalMB();
+extern uint64_t getFreeBytes();
 
-extern const char *getTimeStamp(myFileType_t *file);
+extern const char *getTimeStamp(myFile_t *file);
 extern const char *getTimeStamp(const char *path);
-extern void setTimeStamp(myFileType_t the_file, const char *ts);
+extern void setTimeStamp(myFile_t the_file, const char *ts);
 extern bool mkDirTS(const char *path, const char *ts);
 
 
 // following in fileCommand.cpp
 
-
 #define MAX_ACTIVE_COMMANDS 10
 	// maximum number of simultaneously active commands
 #define MAX_QUEUED_BUFFERS  10
 	// maximum number of subcommands that can pending for a command
+
 
 
 typedef struct
@@ -49,7 +52,6 @@ typedef struct
 	int head;
 	int tail;
 	char *queue[MAX_QUEUED_BUFFERS];
-
 } fileCommand_t;
 
 

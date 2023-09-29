@@ -93,11 +93,11 @@ char static_timestamp[32];
 
 	#define dbg_print_dir  1
 
-    void printDirectory(myFileType_t dir, int numTabs = 0)
+    void printDirectory(myFile_t dir, int numTabs = 0)
     {
         while(true)
         {
-            myFileType_t entry = dir.openNextFile();
+            myFile_t entry = dir.openNextFile();
             if (!entry)
                 break;
 
@@ -252,7 +252,7 @@ bool initFileSystem()
     #endif
 
     #if LIST_DIRECTORY_AT_STARTUP
-        myFileType_t root = SD.open("/");
+        myFile_t root = SD.open("/");
         printDirectory(root);
         root.close();
     #endif
@@ -267,12 +267,18 @@ bool initFileSystem()
 // API
 //------------------------------------------------------------
 
-uint32_t getFreeMB()
+#if USE_OLD_FAT
+	#define BYTES_PER_BLOCK  512
+	#define BLOCKS_PER_MB   2048
+#endif
+
+
+uint64_t getFreeBytes()
 {
 	#if USE_OLD_FAT
-		uint32_t cluster_count = SD.freeClusterCount();
-		uint8_t blocks_per_cluster = SD.blocksPerCluster();
-		return (cluster_count * blocks_per_cluster) / (1024*2);
+		uint64_t cluster_count = SD.freeClusterCount();
+		uint64_t blocks_per_cluster = SD.blocksPerCluster();
+		return cluster_count * blocks_per_cluster * BYTES_PER_BLOCK;
 	#else
 		uint32_t cluster_count32 = SD.freeClusterCount();
 		uint32_t bytes_per_cluster32 = SD.bytesPerCluster();
@@ -281,8 +287,26 @@ uint32_t getFreeMB()
 		uint64_t cluster_count = cluster_count32;
 		uint64_t bytes_per_cluster = bytes_per_cluster32;
 		uint64_t total_bytes = cluster_count * bytes_per_cluster;
-		total_bytes /= 1024 * 1024;
 		return total_bytes;
+	#endif
+}
+
+
+uint32_t getFreeMB()
+{
+	#if USE_OLD_FAT
+		uint32_t cluster_count = SD.freeClusterCount();
+		uint32_t blocks_per_cluster = SD.blocksPerCluster();
+		return (cluster_count * blocks_per_cluster) / BLOCKS_PER_MB;
+	#else
+		uint32_t cluster_count32 = SD.freeClusterCount();
+		uint32_t bytes_per_cluster32 = SD.bytesPerCluster();
+		delay(100);
+		display(0,"free  count=%d  per=%d  shift=%d",cluster_count32,bytes_per_cluster32,SD.bytesPerClusterShift());
+		uint64_t cluster_count = cluster_count32;
+		uint64_t bytes_per_cluster = bytes_per_cluster32;
+		uint64_t total_bytes = cluster_count * bytes_per_cluster;
+		return total_bytes / BYTES_PER_MB;
 	#endif
 }
 
@@ -294,13 +318,12 @@ uint32_t getTotalMB()
 	// On my 32GB card, cluserCount() returns 953948 and bytesPerCluster returns 32768.
 	// Interestingly, multiplying these gives 31,258,968,064, which agrees with the
 	// total bytes for the volume given by the Properties in Windows, without using
-	// bytesPerClusterShift(), wtf ever that is.  Then dividing by 1024^2 gives
-	// 'real' MB's.
+	// bytesPerClusterShift(), wtf ever that is.
 {
 	#if USE_OLD_FAT
 		uint32_t cluster_count = SD.clusterCount();
-		uint8_t blocks_per_cluster = SD.blocksPerCluster();
-		return (cluster_count * blocks_per_cluster) / (1024*2);
+		uint32_t blocks_per_cluster = SD.blocksPerCluster();
+		return (cluster_count * blocks_per_cluster) / BLOCKS_PER_MB;
 	#else
 		uint32_t cluster_count32 = SD.clusterCount();
 		uint32_t bytes_per_cluster32 = SD.bytesPerCluster();
@@ -309,8 +332,7 @@ uint32_t getTotalMB()
 		uint64_t cluster_count = cluster_count32;
 		uint64_t bytes_per_cluster = bytes_per_cluster32;
 		uint64_t total_bytes = cluster_count * bytes_per_cluster;
-		total_bytes /= 1024 * 1024;
-		return total_bytes;
+		return total_bytes / BYTES_PER_MB;
 	#endif
 }
 
@@ -319,7 +341,7 @@ uint32_t getTotalMB()
 // utilities
 //---------------------------------------------
 
-const char *getTimeStamp(myFileType_t *file)
+const char *getTimeStamp(myFile_t *file)
 {
     myDir_t dir_entry;
     static_timestamp[0] = 0;
@@ -357,7 +379,7 @@ const char *getTimeStamp(myFileType_t *file)
 
 const char *getTimeStamp(const char *path)
 {
-	myFileType_t file = SD.open(path);
+	myFile_t file = SD.open(path);
 	if (!file)
 	{
 		my_error("Could not open %s to getTimeStamp",path);
@@ -378,7 +400,7 @@ static int bufToNum(const char *ts, int offset, int length)
 }
 
 
-void setTimeStamp(myFileType_t the_file, const char *ts)
+void setTimeStamp(myFile_t the_file, const char *ts)
 {
     display_level(dbg_ts,4,"setTimeStamp(%04d,%02d,%02d,%02d,%02d,%02d)",
         bufToNum(ts,0,4),	// year

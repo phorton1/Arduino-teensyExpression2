@@ -27,7 +27,7 @@
 	// may create timing problems
 #define dbg_win	  1
 	// 0 = debug the window stack
-#define dbg_file_command 0
+#define dbg_file_command -1
 	// 0 = show thread starting
 	// -1 = show parse steps
 	// -2 = show each character
@@ -165,6 +165,7 @@ void theSystem::begin()
 // static
 void theSystem::timer_handler()
 {
+	the_system.handleSerialData();
 	the_pedals.task();
 	pollRotary();
 	dequeueMidi();
@@ -193,7 +194,6 @@ void theSystem::critical_timer_handler()
 
 		enqueueMidi(false, msg32 & MIDI_PORT_NUM_MASK, msg32);
 	}
-	the_system.handleSerialData();
 }
 
 
@@ -516,7 +516,7 @@ void theSystem::handleSerialData()
 		}
 	}
 
-	if (Serial.available())
+	while (Serial.available())
 	{
 		int c = Serial.read();
 		handleChar(0,c);
@@ -525,7 +525,7 @@ void theSystem::handleSerialData()
 	// only serialMidi sends 0x0B!!
 	// and they can be sent in the middle of regular lines of text
 
-	if (SERIAL_DEVICE.available())
+	while (SERIAL_DEVICE.available())
 	{
 		int c = SERIAL_DEVICE.read();
 		if (c == 0x0B)

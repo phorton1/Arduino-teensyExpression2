@@ -6,8 +6,8 @@
 #include "fileSystem.h"
 #include "prefs.h"
 #include <myDebug.h>
-#include <Base64.h>
 #include <TeensyThreads.h>
+#include <Base64.h>
 
 
 // The following debugging *may* affect timing.
@@ -16,14 +16,14 @@
 
 #define dbg_queue  0
 	//  0 = show queue actions
-#define dbg_parse  0
+#define dbg_parse  -1
 	//  0 = show command parse header
 	// -1 = show parameters found and entries
 	// -2 = show every character in parseCommand
 #define dbg_hdr	  0
 	//  0 = show a msg after parsing and at end of command
 	// -1 = show msg at top of doCommand
-#define dbg_cmd	  0
+#define dbg_cmd	  -1
 	//  0 = show file commands
 	// -1 = show command details
 
@@ -37,19 +37,30 @@
 
 #define QUEUE_TIMEOUT    5		// ms
 	// timeout for semaphore to get access to queue
+#define FILE_TIMEOUT	15000	// ms
+	// amount of time to wait for the next BASE64 packet
 
 #define THREAD_STACK_SIZE   4096
 	// stack for doCommand()
 #define MAX_DIRECTORY_BUF   4096
 	// maximum size of a directory listing returned by _list
-#define MAX_DECODED_BUF    10005
+
+#define MAX_FILENAME    255
+	// maximum length of fully qualified filename supported by fileCommands
+#define MAX_FILE_BUF	10000
 	// 10000 is agreed upon limit in Perl
+#define MAX_DECODED_BUF    (MAX_FILE_BUF + 5)
 	// allows 10000 + 4 byte checksum + null terminator
 	// invariantly allocated in PUT
 	// decoded buffer is allocated to size in BASE64
 #define MAX_ENCODED_BUF	   14000
 	// must be big enough to encode MAX_DECODED_BUF
 	// invariantly allocated in PUT
+#define SIZE_TIMESTAMP	   20
+	// YYYY-MM-DD HH:MM:SS plus nul terminator
+#define DISK_FULL_MARGIN	(1024 * 1024)
+	// leave at least 1MB free during FILE command
+
 
 
 // structure for getNextEntry
@@ -251,6 +262,7 @@ bool addCommandQueue(int req_num, char *buf)
 
 static char *getCommandQueue(int req_num)
 	// returns buffer which must be freed by caller
+	// and pointer to the command for passing to _methods
 {
 	char *retval = NULL;
 	if (waitCommandSem(0))
@@ -310,59 +322,30 @@ void fileReply(Stream *fsd, int req_num, const char *format, ...)
 	fsd->print(buffer);
 }
 
-static bool abortPending(Stream *fsd, int req_num, const char *command)
-
-{
-	char *pending = getCommandQueue(req_num);
-	if (pending)
-	{
-		if (!strncmp(pending,"ABORT",5))
-		{
-			display_level(dbg_cmd,3,"ABORTING fileCommand(%d,%s)!!",req_num,command);
-			fileReply(fsd,req_num,"ABORTED");
-		}
-		free(pending);
-		return true;
-	}
-	return false;
-}
-
 
 
 //-------------------------------------------------------
 // Command and Entry Parsers
 //-------------------------------------------------------
 
-static char *parseCommand(		// returns buffer which must be freed by caller
-	int req_num,				// takes a req_num
-	bool expected,				// whether to report failure to get buffer
-	int *num_params,			// filled in number of parameters
+static int parseCommand(		// returns num_params
+	char *buf,					// buffer to parse == the command
 	const char **params,		// null terminates command, fills in param pointers (will null terminate BASE64 CONTENT)
-	const char **entries)		// returns pointer to entries which may be NULL_ptr
+	const char **entries = 0)	// optional returns pointer to entries which may be NULL_ptr
 {
-    display_level(dbg_parse,2,"parseCommand(%d,%d)",req_num,expected);
-	char *buf = getCommandQueue(req_num);
-	if (!buf)
-	{
-		if (expected)
-			my_error("no file_command(%d) queue",req_num);
-		return NULL;
-	}
-
 	char *in = buf;
-	*num_params = 0;
+	int num_params = 0;
 	while (*in && *in != '\r')
 	{
-		display_level(dbg_parse+2,4,"parseCommand(%d) in='%c' 0x%02x",req_num,*in>=' '?*in:'.',*in);
+		display_level(dbg_parse+2,4,"parseCommand() in='%c' 0x%02x",*in>=' '?*in:'.',*in);
 		if (*in == '\t')
 		{
 			*in++ = 0;
-			if (*num_params < MAX_PARAMS)
+			if (num_params < MAX_PARAMS)
 			{
-				params[(*num_params)++] = in;
-				display_level(dbg_parse+1,3,"parseCommand(%d) num_params=%d",req_num,*num_params);
+				params[num_params++] = in;
+				display_level(dbg_parse+1,3,"parseCommand() num_params=%d",num_params);
 			}
-
 		}
 		else
 		{
@@ -371,13 +354,13 @@ static char *parseCommand(		// returns buffer which must be freed by caller
 	}
 	if (*in == '\r')
 		*in++ = 0;
-	*entries = in;
-
-	for (int i=*num_params; i<MAX_PARAMS; i++)
+	if (entries)
+		*entries = in;
+	for (int i=num_params; i<MAX_PARAMS; i++)
 	{
 		params[i] = "";
 	}
-	return buf;
+	return num_params;
 }
 
 
@@ -445,7 +428,7 @@ static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const 
 
 static void _list(Stream *fsd, int req_num, const char *dir)
 {
-	display_level(dbg_cmd,2,"fileCommand::_list(%d,%s)",req_num,dir);
+	display_level(dbg_cmd,2,"LIST(%d,%s)",req_num,dir);
 	// mem_check("_list");
 
 	char *buffer = (char *) malloc(MAX_DIRECTORY_BUF);
@@ -453,16 +436,16 @@ static void _list(Stream *fsd, int req_num, const char *dir)
 	{
 		my_error("could not allocate memory",0);
 		delay(1000);
-		fileReplyError(fsd,req_num,"fileCommand::_list(%d,%s) could not allocate buffer",req_num,dir);
+		fileReplyError(fsd,req_num,"LIST(%d,%s) could not allocate buffer",req_num,dir);
 		return;
 	}
 
-	myFileType_t the_dir = SD.open(dir);
+	myFile_t the_dir = SD.open(dir);
 	if (!the_dir)
 	{
 		my_error("could not opendir(%s)",dir);
 		delay(1000);
-		fileReplyError(fsd,req_num,"fileCommand::_list(%d,%s) could not open directory",req_num,dir);
+		fileReplyError(fsd,req_num,"LIST(%d,%s) could not open directory",req_num,dir);
 		free(buffer);
 		return;
 	}
@@ -475,10 +458,10 @@ static void _list(Stream *fsd, int req_num, const char *dir)
 		dir,
 		strcmp(dir,"/")?"/":"");
 
-	size_t at = strlen(buffer);
+	unsigned int at = strlen(buffer);
 	char *out = &buffer[at];
 
-	myFileType_t entry = the_dir.openNextFile();
+	myFile_t entry = the_dir.openNextFile();
 	while (entry)
 	{
 		char name[255];
@@ -486,21 +469,21 @@ static void _list(Stream *fsd, int req_num, const char *dir)
 		display(0,"got name(%s)",name);
 
 		const char *ts = getTimeStamp(&entry);
-		size_t size = entry.size();
+		uint32_t size = entry.size();
 		bool is_dir = entry.isDirectory();
 
 		#define MAX_FILE_SIZE_CHARS   10	// 9GB
 
-		display_level(dbg_cmd+1,3,"_list at(%d) is_dir(%d) size(%ul) ts(%d) name(%s)",at,is_dir,size,ts,name);
+		display_level(dbg_cmd+1,3,"_list at(%d) is_dir(%d) size(%lu) ts(%d) name(%s)",at,is_dir,size,ts,name);
 
 		if (at > MAX_DIRECTORY_BUF - MAX_FILE_SIZE_CHARS - 1 - strlen(ts) - 1 - strlen(name) - 2)
 		{
 			// report this as an error here, but not to client
-			my_error("fileCommand::_list(%d,%s) not reporting directory buffer overflow at %d!",req_num,dir,at);
+			my_error("LIST(%d,%s) not reporting directory buffer overflow at %d!",req_num,dir,at);
 			break;
 		}
 
-		sprintf(out,"%u\t%s\t%s%s\r",size,ts,name,is_dir?"/":"");
+		sprintf(out,"%lu\t%s\t%s%s\r",size,ts,name,is_dir?"/":"");
 		at += strlen(out);
 		out = &buffer[at];
 		entry = the_dir.openNextFile();
@@ -523,11 +506,11 @@ static void _mkdir(Stream *fsd, int req_num, const char *dir, const char *name)
 	strcat(path,"/");
 	strcat(path,name);
 
-	display_level(dbg_cmd,2,"fileCommand::_mkdir(%s,%s) path=%s",dir,name,path);
+	display_level(dbg_cmd,2,"MKDIR(%s,%s) path=%s",dir,name,path);
 
 	if (SD.exists(path))
 	{
-		fileReplyError(fsd,req_num,"Dir/File %s already exists",name);
+		fileReplyError(fsd,req_num,"MKDIR %s already exists",name);
 		return;
 	}
 	// excluded code to set timestamp on dir
@@ -546,7 +529,7 @@ static void _mkdir(Stream *fsd, int req_num, const char *dir, const char *name)
 	if (rslt)
 		_list(fsd,req_num,dir);
 	else
-		fileReplyError(fsd,req_num,"Could not make directory %s",name);
+		fileReplyError(fsd,req_num,"MKDIR could not make directory %s",name);
 }
 
 
@@ -564,10 +547,10 @@ static void _rename(Stream *fsd, int req_num, const char *dir, const char *name1
 	strcat(path2,"/");
 	strcat(path2,name2);
 
-	myFileType_t file = SD.open(path1);
+	myFile_t file = SD.open(path1);
 	if (!file)
 	{
-		fileReplyError(fsd,req_num,"Could not open %s in order to rename",name1);
+		fileReplyError(fsd,req_num,"RENAME Could not open %s",name1);
 		return;
 	}
 	bool is_dir = file.isDirectory();
@@ -575,12 +558,34 @@ static void _rename(Stream *fsd, int req_num, const char *dir, const char *name1
 	uint32_t size = file.size();
 	file.close();
 
-	display_level(dbg_cmd,2,"fileCommand::_rename(%s,%s,%s) path1=%s path2=%s",dir,name1,name2,path1,path2);
+	display_level(dbg_cmd,2,"RENAME(%s,%s,%s) path1=%s path2=%s",dir,name1,name2,path1,path2);
 
 	if (SD.rename(path1,path2))
 		fileReply(fsd,req_num,"%d\t%s\t%s%s",size,ts,name2,is_dir?"/":"");
 	else
-		fileReplyError(fsd,req_num,"Could not rename %s to %s",name1,name2);
+		fileReplyError(fsd,req_num,"Could not RENAME %s to %s",name1,name2);
+}
+
+
+
+//---------------------------------------------
+// session-like _delete command
+//---------------------------------------------
+
+static bool abortPending(Stream *fsd, int req_num, const char *command)
+{
+	char *pending = getCommandQueue(req_num);
+	if (pending)
+	{
+		if (!strncmp(pending,"ABORT",5))
+		{
+			display_level(dbg_cmd,3,"ABORTING fileCommand(%d,%s)!!",req_num,command);
+			fileReply(fsd,req_num,"ABORTED");
+		}
+		free(pending);
+		return true;
+	}
+	return false;
 }
 
 
@@ -591,14 +596,14 @@ static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry
 	if (strcmp(dir,"/"))
 		strcat(path,"/");
 	strcat(path,entry);
-    display_level(dbg_cmd,2,"fileCommand::_delete(%s)",path);
+    display_level(dbg_cmd,2,"DELETE(%s)",path);
 	fileReply(fsd,req_num,"PROGRESS\tENTRY\t%s",entry);
 
 	#if TEST_DELAY
 		delay(TEST_DELAY);
 	#endif
 
-	myFileType_t the_file = SD.open(path);
+	myFile_t the_file = SD.open(path);
 
 	bool ok = 1;
 	if (the_file)
@@ -621,15 +626,328 @@ static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry
 		if (ok)
 			fileReply(fsd,req_num,"PROGRESS\tDONE\t%d",is_dir);
 		else
-			fileReplyError(fsd,req_num,"could not remove %s",path);
+			fileReplyError(fsd,req_num,"could not DELETE %s",path);
 	}
 	else
 	{
 		ok = 0;
-		fileReplyError(fsd,req_num,"could not open %s for delete",path);
+		fileReplyError(fsd,req_num,"DELETE could not open %s",path);
 	}
 
 	return ok;
+}
+
+
+
+
+//-------------------------------------------------------
+// session-like _file() command
+//-------------------------------------------------------
+
+const char *leafName(const char *filename)
+{
+	return filename;
+
+	const char *retval = filename;
+	while (*filename)
+	{
+		if (*filename == '/')
+			retval = &filename[1];
+		filename++;
+	}
+	return retval;
+}
+
+
+uint32_t calcChecksum(const uint8_t *buf)
+{
+	uint32_t cs = 0;
+	while (*buf) { cs += *buf++; }
+	return cs;
+}
+
+
+bool makeSubdirs(Stream *fsd, int req_num, const char *in)
+	// expects a fully qualified path name starting with /
+	// with a leaf terminal filename
+	// makes any needed subdirectories for the file
+{
+	if (!in || !*in || *in != '/')
+	{
+		fileReplyError(fsd,req_num,"filename(%s) must be fully qualified",in);
+		return 0;
+	}
+
+
+	char path[MAX_FILENAME];
+	char *out = path;
+	*out++ = *in++;
+
+	while (*in)
+	{
+		if (*in == '/')
+		{
+			*out = 0;
+			File check_file = SD.open(path);
+			if (check_file)
+			{
+				if (!check_file.isDirectory())
+				{
+					fileReplyError(fsd,req_num,"attempt to overwrite file(%s) with a subdirectory",path);
+					return 0;
+				}
+			}
+			else
+			{
+				display_level(dbg_cmd+1,3,"FILE making subdir(%s)",path);
+				if (!SD.mkdir(path))
+				{
+					fileReplyError(fsd,req_num,"could not create subdirectory(%s)",path);
+					return 0;
+				}
+			}
+		}
+		*out++ = *in++;
+	}
+
+	return 1;
+
+}
+
+
+
+static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts, const char *file_name)
+{
+	uint32_t size = atol(sz_size);
+	display_level(dbg_cmd,2,"FILE(%s,%u,%s)",leafName(file_name),size,ts);
+
+	//--------------------------------
+	// validate _file request
+	//--------------------------------
+
+	int name_len = strlen(file_name);
+	if ( name_len >= MAX_FILENAME)
+	{
+		fileReplyError(fsd,req_num,"FILE file(%s) name(%d) too long",leafName(file_name),name_len);
+		return;
+	}
+
+	#if 0
+		# getFreeBytes() is the slow culprit().
+		# Instead, we let write() file if there is not room
+		uint64_t avail = getFreeBytes();
+		uint64_t size_64 = size;
+		if (avail <= size_64 + DISK_FULL_MARGIN)
+		{
+			uint64_t mb = size_64 / BYTES_PER_MB;
+			uint32_t mb_32 = mb;
+			fileReplyError(fsd,req_num,"FILE(%s) size(%lu) too large to fit in remaining MB(%lu)",leafName(file_name),size,mb_32);
+			return;
+		}
+	#endif
+
+	const char *use_name = file_name;
+	char temp_name[MAX_FILENAME + 6];	// temp_name gets the thread id as an extension
+	temp_name[0] = 0;
+
+	if (SD.exists(file_name))
+	{
+		File check_file = SD.open(file_name);
+		if (check_file.isDirectory())
+		{
+			fileReplyError(fsd,req_num,"FILE(%s) is a directory",leafName(file_name));
+			check_file.close();
+			return;
+		}
+		check_file.close();
+		strcpy(temp_name,file_name);
+		sprintf(&temp_name[name_len],".%d",threads.id());
+		use_name = temp_name;
+	}
+
+	//------------------------------------------
+	// allocate buffer and open file
+	//------------------------------------------
+
+	char *decoded_buf = (char *) malloc(MAX_DECODED_BUF);
+	if (!decoded_buf)
+	{
+		fileReplyError(fsd,req_num,"FILE could not allocated DECODED_BUF");
+		return;
+	}
+
+	if (!makeSubdirs(fsd,req_num,use_name))
+		return;
+
+	myFile_t the_file = SD.open(use_name,FILE_WRITE);
+	if (!the_file)
+	{
+		fileReplyError(fsd,req_num,"could not open FILE(%s) for output",leafName(file_name));
+		free(decoded_buf);
+		return;
+	}
+
+	//------------------------------------------
+	// loop sending CONTINE and getting BASE64
+	//------------------------------------------
+
+	bool ok = 1;
+	uint32_t offset = 0;
+	while (ok && offset < size)
+	{
+		// send CONTINUE and wait for the BASE64
+		// anything else consitutes an error and stops the transfer
+
+		fileReply(fsd,req_num,"CONTINUE");
+		uint32_t wait_base64 = millis();
+		char *buf = getCommandQueue(req_num);
+		while (!buf && millis() - wait_base64 < FILE_TIMEOUT)
+		{
+			threads.delay(100);		// yield thread for 100 ms
+			buf = getCommandQueue(req_num);
+		}
+		if (!buf)
+		{
+			my_error("fileCommand::FILE(%s) offset(%d) timeout waiting for buf",leafName(file_name),offset);
+			ok = 0;
+		}
+		else
+		{
+			if (strncmp(buf,"BASE64",6))
+			{
+				my_error("FILE(%s) offset(%d) got: %s",leafName(file_name),offset,buf);
+				ok = 0;
+			}
+			else
+			{
+				//------------------------------------
+				// got a BASE64 packet
+				//------------------------------------
+
+				const char *param[MAX_PARAMS];
+				int num_params = parseCommand(buf, &param[0]);
+
+				uint32_t got_offset = atol(param[0]);
+				int32_t got_size   = atol(param[1]);	// limited to 10000
+				int32_t encoded_size = strlen(param[2]);
+				display_level(dbg_cmd+1,3,"BASE64(%lu,%l) encoded=%l bytes",got_offset,got_size,encoded_size);
+
+				int32_t expected_size = size - offset;
+				if (expected_size > MAX_FILE_BUF)
+					expected_size = MAX_FILE_BUF;
+
+				if (num_params != 3)
+				{
+					fileReplyError(fsd,req_num,"BASE64 expects 3 params got(%d)",num_params);
+					ok = 0;
+				}
+				else if (got_size != expected_size)
+				{
+					fileReplyError(fsd,req_num,"BASE64 got_size(%l) but expected(%l)",got_size,expected_size);
+					ok = 0;
+				}
+				else if (got_offset != offset)
+				{
+					fileReplyError(fsd,req_num,"BASE64 got_offset(%lu) but expected(%lu)",got_offset,offset);
+					ok = 0;
+				}
+
+				//--------------------------
+				// decode && write
+				//--------------------------
+
+				else
+				{
+					int32_t decoded_size = base64_decode(decoded_buf,(char *) param[2],encoded_size);
+					if (decoded_size != got_size+4)
+					{
+						fileReplyError(fsd,req_num,"BASE64 decoded_size(%l) but expected(%l)",decoded_size,got_size+4);
+						ok = 0;
+					}
+					else
+					{
+						uint32_t got_cs = 0;
+						uint8_t *cs_ptr = (uint8_t *) &decoded_buf[got_size];
+						for (int i=0; i<4; i++)
+						{
+							got_cs <<= 8;
+							got_cs += *cs_ptr++;
+						}
+						decoded_buf[got_size] = 0;
+						uint32_t calc_cs = calcChecksum((uint8_t *) decoded_buf);
+						display_level(dbg_cmd+1,4,"got_cs(0x%08x) calc_cs(0x%08x)",got_cs,calc_cs);
+
+						if (got_cs != calc_cs)
+						{
+							fileReplyError(fsd,req_num,"BASE64 checksum error got_cs(0x%08x) calc_cs(0x%08x)",got_cs,calc_cs);
+							ok = 0;
+						}
+						else
+						{
+							int32_t bytes_written = the_file.write(decoded_buf,got_size);
+							if (bytes_written != got_size)
+							{
+								fileReplyError(fsd,req_num,"BASE64(%s) file write error at(%lu) wrote(%l) expected(%l)",
+									leafName(use_name),
+									got_offset,
+									bytes_written,
+									got_size);
+								ok = 0;
+
+							}	// error writing to file
+						}	// write to file
+
+						offset += got_size;
+
+					}	// correct decoded size
+				}	// decode & write
+			}	// got a BASE64 packet
+
+			free(buf);
+
+		}	// got a buff
+	}	// while ok && offset < size
+
+	//-----------------------------------------------------
+	// finished
+	//-----------------------------------------------------
+	// rename temp_name to file_name if needed
+	// 		and set the timeStamp()
+	// or remove the file on any errors
+
+	free(decoded_buf);
+
+	if (ok)
+	{
+		setTimeStamp(the_file,ts);
+		the_file.close();
+		if (temp_name[0])
+		{
+			if (!SD.remove(file_name))
+			{
+				fileReplyError(fsd,req_num,"FILE could not remove old(%s)",
+					leafName(file_name));
+				ok = 0;
+			}
+			else if (!SD.rename(temp_name,file_name))
+			{
+				fileReplyError(fsd,req_num,"FILE could not rename(%s) to(%s)",
+					leafName(temp_name),
+					leafName(file_name));
+				ok = 0;
+			}
+		}
+	}
+	else
+	{
+		the_file.close();
+		SD.remove(use_name);
+	}
+
+	// done ...
+
+	if (ok)
+		fileReply(fsd,req_num,"OK");
 }
 
 
@@ -648,12 +966,20 @@ static void fileCommand(int req_num)
 	// get and parse the command buffer
 	// command must be freed after this
 
-	int num_params;
+
 	const char *entries;
 	const char *param[MAX_PARAMS];
-	char *command = parseCommand(req_num, true, &num_params, &param[0], &entries);
+	char *command = getCommandQueue(req_num);
 	if (!command)
 	{
+		my_error("no file_command(%d) queue",req_num);
+		return;
+	}
+
+	int num_params = parseCommand(command, &param[0], &entries);
+	if (!num_params)
+	{
+		fileReplyError(fsd,req_num,"fileCommand(%d) with no params!",command);
 		endCommand(req_num);
 		return;
 	}
@@ -717,7 +1043,7 @@ static void fileCommand(int req_num)
 	}
 	else if (!strcmp(command,"DELETE"))
 	{
-		bool ok = 0;
+		bool ok = 1;
 		if (num_params == 2)		// single_file item is in param[1]
 		{
 			ok = _delete(fsd,req_num,param[0],param[1]);
@@ -741,7 +1067,13 @@ static void fileCommand(int req_num)
 		}
 		if (ok)
 			_list(fsd,req_num,param[0]);
+	}
 
+	// FILE and PUT
+
+	else if (!strcmp(command,"FILE"))
+	{
+		_file(fsd,req_num,param[0],param[1],param[2]);
 	}
 	else
 	{
