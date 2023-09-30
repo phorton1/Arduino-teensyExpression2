@@ -24,7 +24,9 @@
 #define BYTES_PER_MB    (1024*1024)
 
 
+//----------------------------------------------
 // following in fileSystem.cpp
+//----------------------------------------------
 
 extern bool initFileSystem();
 extern uint32_t getFreeMB();
@@ -37,13 +39,13 @@ extern void setTimeStamp(myFile_t the_file, const char *ts);
 extern bool mkDirTS(const char *path, const char *ts);
 
 
-// following in fileCommand.cpp
+//----------------------------------------------
+// following in fileUtils.cpp
+//----------------------------------------------
+// public API to theSystem.cpp
 
-#define MAX_ACTIVE_COMMANDS 10
-	// maximum number of simultaneously active commands
 #define MAX_QUEUED_BUFFERS  10
 	// maximum number of subcommands that can pending for a command
-
 
 
 typedef struct
@@ -54,8 +56,6 @@ typedef struct
 	char *queue[MAX_QUEUED_BUFFERS];
 } fileCommand_t;
 
-
-// these routines report errors but do not send file_replies on problems.
 
 extern fileCommand_t *getCommand(int req_num, int sem_level = 0);
 	// for file_messages, theSystem will blow it off if the
@@ -71,6 +71,41 @@ extern bool addCommandQueue(int req_num, char *buf);
 	// for file_messages, after checking if the command exists,
 	// it will call this method with the bufer. This method
 	// reports an error if the command is not active.
+
+
+
+//----------------------------------------------
+// API from fileUtils.cpp to fileCommand.cpp
+//----------------------------------------------
+
+#define MAX_FILE_PARAMS	  3
+	// maximum number of paremeters per command
+
+
+typedef struct
+{
+	char size[10];
+	char ts[22];
+	char entry[255];
+	bool is_dir;
+}   textEntry_t;
+
+
+extern void  endCommand(int req_num);
+extern char *getCommandQueue(int req_num);
+extern void  fileReplyError(Stream *fsd, int req_num, const char *format, ...);
+extern void  fileReply(Stream *fsd, int req_num, const char *format, ...);
+extern int   parseCommand(char *buf, const char **params, const char **entries = 0);
+extern int   getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const char **ptr);
+
+
+
+//----------------------------------------------
+// doCommand() method
+//----------------------------------------------
+// available to fileUtils::startCommand()
+
+extern void fileCommand(int req_num);
 
 
 // end of fileSystem.h

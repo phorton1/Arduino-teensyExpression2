@@ -10,43 +10,29 @@
 #include <Base64.h>
 
 
-// The following debugging *may* affect timing.
-
-#define dbg_queue 0
-
-#define dbg_queue  0
-	//  0 = show queue actions
-#define dbg_parse  -1
-	//  0 = show command parse header
-	// -1 = show parameters found and entries
-	// -2 = show every character in parseCommand
 #define dbg_hdr	  0
 	//  0 = show a msg after parsing and at end of command
 	// -1 = show msg at top of doCommand
 #define dbg_cmd	  -1
 	//  0 = show file commands
 	// -1 = show command details
+#define dbg_entries  0
+	//  0 = show command entries as parsed
 
 
 #define TEST_DELAY    0		// 2000
 	// delay certain operations to test progress dialog etc
 	// set to 1000 or 2000 ms to slow things down
 
-#define MAX_PARAMS	  3
-	// maximum number of paremeters per command
+#define FILE_TIMEOUT  15000	  // ms
+	// time to wait for next BASE64 packet in FILE command
 
-#define QUEUE_TIMEOUT    5		// ms
-	// timeout for semaphore to get access to queue
-#define FILE_TIMEOUT	15000	// ms
-	// amount of time to wait for the next BASE64 packet
-
-#define THREAD_STACK_SIZE   4096
-	// stack for doCommand()
-#define MAX_DIRECTORY_BUF   4096
-	// maximum size of a directory listing returned by _list
-
+#define SIZE_TIMESTAMP	   20
+	// YYYY-MM-DD HH:MM:SS plus nul terminator
 #define MAX_FILENAME    255
 	// maximum length of fully qualified filename supported by fileCommands
+#define MAX_DIRECTORY_BUF   4096
+	// maximum size of a directory listing returned by _list
 #define MAX_FILE_BUF	10000
 	// 10000 is agreed upon limit in Perl
 #define MAX_DECODED_BUF    (MAX_FILE_BUF + 5)
@@ -56,374 +42,10 @@
 #define MAX_ENCODED_BUF	   14000
 	// must be big enough to encode MAX_DECODED_BUF
 	// invariantly allocated in PUT
-#define SIZE_TIMESTAMP	   20
-	// YYYY-MM-DD HH:MM:SS plus nul terminator
-#define DISK_FULL_MARGIN	(1024 * 1024)
-	// leave at least 1MB free during FILE command
-
-
-
-// structure for getNextEntry
-
-typedef struct
-{
-	char size[10];
-	char ts[22];
-	char entry[255];
-	bool is_dir;
-}   textEntry_t;
-
 
 
 //---------------------------------------------
-// commands
-//---------------------------------------------
-
-static void fileCommand(int req_num);	// forward
-	// expects the initial_buffer to be first in the queue
-
-static volatile int command_sem;
-static fileCommand_t *commands[MAX_ACTIVE_COMMANDS];
-	// pointer to a command remains valid through it's lifetime
-
-static bool missing_command_reported;
-	// implentation only reports one per program invocation
-	// for debugging.
-
-
-static bool waitCommandSem(int sem_level)
-{
-	uint32_t started = millis();
-	while (command_sem > sem_level && millis() - started < QUEUE_TIMEOUT)
-	{
-		delay(1);
-	}
-	if (command_sem <= sem_level)
-	{
-		command_sem++;
-		return true;
-	}
-	my_error("timed out in waitCommandSem(%d)",sem_level);
-	return false;
-}
-
-
-fileCommand_t *getCommand(int req_num, int sem_level /* = 0*/)
-{
-	fileCommand_t *retval = NULL;
-	if (waitCommandSem(sem_level))
-	{
-		for (int i=0; i<MAX_ACTIVE_COMMANDS; i++)
-		{
-			if (commands[i] && commands[i]->req_num == req_num)
-			{
-				retval = commands[i];
-				break;
-			}
-		}
-		command_sem--;
-	}
-	return retval;
-}
-
-
-
-bool startCommand(int req_num, char *initial_buffer)
-{
-	display_level(dbg_queue,1,"startCommand(%d) buf_len(%d)",
-		req_num,
-		strlen(initial_buffer));
-
-	bool ok = 0;
-	if (waitCommandSem(0))
-	{
-		if (getCommand(req_num,command_sem))
-		{
-			my_error("startCommand(%d) already active in addCommand()",req_num);
-		}
-		else
-		{
-			int cmd_num = -1;
-			for (int i=0; i<MAX_ACTIVE_COMMANDS; i++)
-			{
-				if (!commands[i])
-				{
-					cmd_num = i;
-					break;
-				}
-			}
-
-			if (cmd_num == -1)
-			{
-				my_error("startCommand(%d) number commands overflow",req_num);
-			}
-			else
-			{
-				// mem_check("before new fileCommand_t");
-				fileCommand_t *cmd = (fileCommand_t *) malloc(sizeof(fileCommand_t));
-				// mem_check("after new fileCommand_t");
-
-				if (!cmd)
-				{
-					my_error("unable to allocate new fileCommand_t(%d)",req_num);
-				}
-				else
-				{
-					memset(cmd,0,sizeof(fileCommand_t));
-					cmd->req_num = req_num;
-					cmd->queue[cmd->tail++] = initial_buffer;
-					commands[cmd_num] = cmd;
-					ok = 1;
-				}
-			}	// found an empty slot for command
-		}	// command doesn't already exist
-
-		command_sem--;
-	}
-
-	if (ok)
-	{
-		threads.addThread(fileCommand,req_num,10240);
-	}
-
-	return ok;
-}
-
-
-static void endCommand(int req_num)
-	// only called by the threaded fileCommand()
-{
-	display_level(dbg_queue,1,"endCommand(%d)",req_num);
-
-	if (waitCommandSem(0))
-	{
-		for (int i=0; i<MAX_ACTIVE_COMMANDS; i++)
-		{
-			fileCommand_t *cmd = commands[i];
-			if (cmd && cmd->req_num == req_num)
-			{
-				int head = cmd->head;
-				int tail = cmd->head;
-				char **queue = commands[i]->queue;
-				while (head != tail)
-				{
-					free(queue[head++]);
-					if (head >= MAX_QUEUED_BUFFERS)
-						head = 0;
-				}
-				free(cmd);
-				commands[i] = 0;
-				command_sem--;
-				return;
-			}
-		}
-		my_error("Could not endCommand(%d)",req_num);
-		command_sem--;
-	}
-}
-
-
-bool addCommandQueue(int req_num, char *buf)
-{
-	bool retval = false;
-	display_level(dbg_queue,1,"addCommandQueue(%d) buf_len(%d)",
-		req_num,
-		strlen(buf));
-
-	if (waitCommandSem(0))
-	{
-		fileCommand_t *cmd = getCommand(req_num,command_sem);
-		if (!cmd)
-		{
-			my_error("addCommandQueue() could not find command(%d)",req_num);
-		}
-		else
-		{
-			int next_tail = cmd->tail + 1;
-			if (next_tail > MAX_QUEUED_BUFFERS)
-				next_tail = 0;
-
-			if (next_tail == cmd->head)
-			{
-				my_error("commands(%d) overflow",req_num);
-			}
-			else
-			{
-				display(dbg_queue+1,"    adding at %d",next_tail);
-				cmd->queue[cmd->tail++] = buf;
-				retval = true;
-			}
-		}
-		command_sem--;
-	}
-	return retval;
-}
-
-
-static char *getCommandQueue(int req_num)
-	// returns buffer which must be freed by caller
-	// and pointer to the command for passing to _methods
-{
-	char *retval = NULL;
-	if (waitCommandSem(0))
-	{
-		fileCommand_t *cmd = getCommand(req_num,command_sem);
-		if (!cmd)
-		{
-			if (!missing_command_reported)
-				my_error("getCommandQueue() could not find commands(%d)",req_num);
-			missing_command_reported = 1;
-		}
-		else if (cmd->head != cmd->tail)
-		{
-			retval = cmd->queue[cmd->head];
-			cmd->queue[cmd->head] = 0;
-			cmd->head++;
-			if (cmd->head >= MAX_QUEUED_BUFFERS)
-				cmd->head = 0;
-
-			display_level(dbg_queue,2,"getCommandQueue(%d) returning buf_len(%d)",
-				req_num,
-				strlen(retval));
-		}
-		command_sem--;
-	}
-	return retval;
-}
-
-
-//---------------------------------------
-// reply methods
-//---------------------------------------
-
-static void fileReplyError(Stream *fsd, int req_num, const char *format, ...)
-{
-	char buffer[255];
-	char format_buffer[255];
-	sprintf(format_buffer,"file_reply(%d):ERROR - %s\r\n",req_num,format);
-
-	va_list var;
-	va_start(var, format);
-	vsprintf(buffer,format_buffer,var);
-	my_error(buffer,0);
-	fsd->print(buffer);
-}
-
-
-void fileReply(Stream *fsd, int req_num, const char *format, ...)
-{
-	char buffer[255];
-	char format_buffer[255];
-	sprintf(format_buffer,"file_reply(%d):%s\r\n",req_num,format);
-
-	va_list var;
-	va_start(var, format);
-	vsprintf(buffer,format_buffer,var);
-	fsd->print(buffer);
-}
-
-
-
-//-------------------------------------------------------
-// Command and Entry Parsers
-//-------------------------------------------------------
-
-static int parseCommand(		// returns num_params
-	char *buf,					// buffer to parse == the command
-	const char **params,		// null terminates command, fills in param pointers (will null terminate BASE64 CONTENT)
-	const char **entries = 0)	// optional returns pointer to entries which may be NULL_ptr
-{
-	char *in = buf;
-	int num_params = 0;
-	while (*in && *in != '\r')
-	{
-		display_level(dbg_parse+2,4,"parseCommand() in='%c' 0x%02x",*in>=' '?*in:'.',*in);
-		if (*in == '\t')
-		{
-			*in++ = 0;
-			if (num_params < MAX_PARAMS)
-			{
-				params[num_params++] = in;
-				display_level(dbg_parse+1,3,"parseCommand() num_params=%d",num_params);
-			}
-		}
-		else
-		{
-			in++;
-		}
-	}
-	if (*in == '\r')
-		*in++ = 0;
-	if (entries)
-		*entries = in;
-	for (int i=num_params; i<MAX_PARAMS; i++)
-	{
-		params[i] = "";
-	}
-	return num_params;
-}
-
-
-static int getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const char **ptr)
-	// parser for commands that have lists of entries
-	// pass in ptr, starting at the list of entries
-	// returns 0 if no entry, -1 if error, or 1 if entry
-{
-	the_entry->size[0] = 0;
-	the_entry->ts[0] = 0;
-	the_entry->entry[0] = 0;
-	the_entry->is_dir = 0;
-
-	if (!**ptr)
-		return 0;
-
-	// we set all 3 fields or fail
-	// there is a tab after each entry
-
-	int num_params = 0;
-	char *out = the_entry->size;
-
-	while (**ptr)
-	{
-		if (**ptr == '\t' ||
-			**ptr == '\r')
-		{
-			*out = 0;
-			num_params++;
-			if (num_params == 1)
-				out  = the_entry->ts;
-			else if (num_params == 2)
-				out = the_entry->entry;
-			else if (num_params == 3 && *(out-1) == '/')
-				// get rid of terminating '/' on dir entries
-			{
-				the_entry->is_dir = 1;
-				*(out-1) = 0;
-			}
-
-			bool is_cr = (**ptr == '\r');
-			(*ptr)++;
-			if (is_cr)
-				break;
-		}
-		else
-		{
-			*out++ = *(*ptr)++;
-		}
-	}
-
-	if (num_params != 3)
-	{
-		fileReplyError(fsd,req_num,"Incorrect number of fields(%d) in fileEntry",num_params);
-		return -1;
-	}
-
-	return 1;
-}
-
-
-//---------------------------------------------
-// atomic commands
+// simple commands
 //---------------------------------------------
 
 static void _list(Stream *fsd, int req_num, const char *dir)
@@ -497,39 +119,53 @@ static void _list(Stream *fsd, int req_num, const char *dir)
 }
 
 
-static void _mkdir(Stream *fsd, int req_num, const char *dir, const char *name)
+static void _mkdir(Stream *fsd, int req_num, const char *path, const char *ts,  const char *may_exist)
 {
-	// name has trailing slash removed
-
-	char path[255];
-	strcpy(path,dir);
-	strcat(path,"/");
-	strcat(path,name);
-
-	display_level(dbg_cmd,2,"MKDIR(%s,%s) path=%s",dir,name,path);
-
+	display_level(dbg_cmd,2,"MKDIR(%s,%s,%s)",path,ts,may_exist);
+	bool use_exist = *may_exist && *may_exist != '0';
 	if (SD.exists(path))
 	{
-		fileReplyError(fsd,req_num,"MKDIR %s already exists",name);
+		if (use_exist)
+		{
+			myFile_t check_file = SD.open(path);
+			if (!check_file || !check_file.isDirectory())
+				fileReplyError(fsd,req_num,"MKDIR %s is not a directory",path);
+			else
+				fileReply(fsd,req_num,"OK");
+			return;
+		}
+
+		fileReplyError(fsd,req_num,"MKDIR %s already exists",path);
 		return;
 	}
-	// excluded code to set timestamp on dir
-	// strcpy(write_timestamp,ts);
 
-	#if USE_OLD_FAT
-		// FatFile::dateTimeCallback(dtCallback);
-		int rslt = SD.mkdir(path);
-		// FatFile::dateTimeCallbackCancel();
-	#else
-		// FsDateTime::setCallback(dtCallback);
-		int rslt = SD.mkdir(path);
-		// FsDateTime::clearCallback();
-	#endif
+	if (mkDirTS(path,ts))
+	{
+		if (use_exist)
+			fileReply(fsd,req_num,"OK");
+		else
+		{
+			// override the const on path so we
+			// can list the directory portion only
 
-	if (rslt)
-		_list(fsd,req_num,dir);
+			char *pppp = (char *) path;
+			int i = strlen(pppp)-1;
+			while (i>0)
+			{
+				if (pppp[i] == '/')
+				{
+					pppp[i] = 0;
+					break;
+				}
+				i--;
+			}
+			if (!i)
+				pppp[1] = 0;
+			_list(fsd,req_num,pppp);
+		}
+	}
 	else
-		fileReplyError(fsd,req_num,"MKDIR could not make directory %s",name);
+		fileReplyError(fsd,req_num,"MKDIR could not make directory %s",path);
 }
 
 
@@ -569,7 +205,7 @@ static void _rename(Stream *fsd, int req_num, const char *dir, const char *name1
 
 
 //---------------------------------------------
-// session-like _delete command
+// session-like DELETE command
 //---------------------------------------------
 
 static bool abortPending(Stream *fsd, int req_num, const char *command)
@@ -641,13 +277,13 @@ static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry
 
 
 //-------------------------------------------------------
-// session-like _file() command
+// session-like FILE command
 //-------------------------------------------------------
+// contains BASE64 loop
 
 const char *leafName(const char *filename)
 {
 	return filename;
-
 	const char *retval = filename;
 	while (*filename)
 	{
@@ -715,7 +351,6 @@ bool makeSubdirs(Stream *fsd, int req_num, const char *in)
 }
 
 
-
 static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts, const char *file_name)
 {
 	uint32_t size = atol(sz_size);
@@ -733,8 +368,10 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 	}
 
 	#if 0
-		# getFreeBytes() is the slow culprit().
-		# Instead, we let write() file if there is not room
+		// getFreeBytes() is the slow culprit().
+		// Instead, we let write() file if there is not room
+		#define DISK_FULL_MARGIN	(1024 * 1024)
+		// leave at least 1MB free during FILE command
 		uint64_t avail = getFreeBytes();
 		uint64_t size_64 = size;
 		if (avail <= size_64 + DISK_FULL_MARGIN)
@@ -824,7 +461,7 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 				// got a BASE64 packet
 				//------------------------------------
 
-				const char *param[MAX_PARAMS];
+				const char *param[MAX_FILE_PARAMS];
 				int num_params = parseCommand(buf, &param[0]);
 
 				uint32_t got_offset = atol(param[0]);
@@ -953,10 +590,18 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 
 
 //-------------------------------------------------------
-// fileCommand()
+// session-like PUT command
 //-------------------------------------------------------
 
-static void fileCommand(int req_num)
+
+
+
+
+//=========================================================
+// fileCommand()
+//=========================================================
+
+void fileCommand(int req_num)
 	// buf is pointing at req_num \t
 	// the buf we are passed must be freed when done!!
 {
@@ -968,7 +613,7 @@ static void fileCommand(int req_num)
 
 
 	const char *entries;
-	const char *param[MAX_PARAMS];
+	const char *param[MAX_FILE_PARAMS];
 	char *command = getCommandQueue(req_num);
 	if (!command)
 	{
@@ -1015,7 +660,7 @@ static void fileCommand(int req_num)
 		else
 			num_files++;
 
-		display_level(dbg_parse+1,3,"entry(%s) is_dir(%d) size(%s) ts(%s)",
+		display_level(dbg_entries,3,"entry(%s) is_dir(%d) size(%s) ts(%s)",
 			the_entry.entry, the_entry.is_dir, the_entry.size, the_entry.ts);
 		rslt = getNextEntry(fsd,req_num,&the_entry,&ptr);
 	}
@@ -1035,7 +680,7 @@ static void fileCommand(int req_num)
 	}
 	else if (!strcmp(command,"MKDIR"))
 	{
-		_mkdir(fsd,req_num,param[0],param[1]);
+		_mkdir(fsd,req_num,param[0],param[1],param[2]);
 	}
 	else if (!strcmp(command,"RENAME"))
 	{
