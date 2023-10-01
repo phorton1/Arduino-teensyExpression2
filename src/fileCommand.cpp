@@ -16,7 +16,7 @@
 #define dbg_cmd	  -1
 	//  0 = show file commands
 	// -1 = show command details
-#define dbg_entries  0
+#define dbg_entries  1
 	//  0 = show command entries as parsed
 
 
@@ -26,6 +26,9 @@
 
 #define FILE_TIMEOUT  15000	  // ms
 	// time to wait for next BASE64 packet in FILE command
+
+#define MAX_RECURSION_DEPTH  8
+	// see notes in fileUtils.cpp
 
 #define SIZE_TIMESTAMP	   20
 	// YYYY-MM-DD HH:MM:SS plus nul terminator
@@ -42,6 +45,50 @@
 #define MAX_ENCODED_BUF	   14000
 	// must be big enough to encode MAX_DECODED_BUF
 	// invariantly allocated in PUT
+
+//---------------------------------
+// common utilities
+//---------------------------------
+
+static bool makePath(Stream *fsd, int req_num, char *buf, const char *dir, const char *entry)
+{
+	if (strlen(dir) + strlen(entry) + 1 >= MAX_FILENAME)
+	{
+		fileReplyError(fsd, req_num, "path too long(%d)!!",strlen(dir) + strlen(entry) + 1);
+		return 0;
+	}
+	buf[0] = 0;
+	strcat(buf,dir);
+	if (strcmp(dir,"/"))
+		strcat(buf,"/");
+	strcat(buf,entry);
+	return 1;
+}
+
+static uint32_t calcChecksum(const uint8_t *buf)
+{
+	uint32_t cs = 0;
+	while (*buf) { cs += *buf++; }
+	return cs;
+}
+
+static char *waitReply(int req_num, const char *command_name)
+{
+	uint32_t wait = millis();
+	char *buf = getCommandQueue(req_num);
+	while (!buf && millis() - wait < FILE_TIMEOUT)
+	{
+		threads.delay(100);		// yield thread for 100 ms
+		buf = getCommandQueue(req_num);
+	}
+	if (!buf)
+		my_error("fileCommand::waitReply(%s) timeout",command_name);
+	else if (!strncmp(buf,"BASE64",6))
+		display_level(dbg_cmd+2,0,"waitReply got: BASE64 packet_len(%d)",strlen(buf))
+	else
+		display_level(dbg_cmd+2,0,"waitReply got: %s",buf)
+	return buf;
+}
 
 
 //---------------------------------------------
@@ -86,17 +133,17 @@ static void _list(Stream *fsd, int req_num, const char *dir)
 	myFile_t entry = the_dir.openNextFile();
 	while (entry)
 	{
-		char name[255];
+		char name[MAX_FILENAME + 1];
 		entry.getName(name, sizeof(name));
-		display(0,"got name(%s)",name);
+		display_level(dbg_cmd+2,4,"got name(%s)",name);
 
 		const char *ts = getTimeStamp(&entry);
-		uint32_t size = entry.size();
+		int32_t size = entry.size();
 		bool is_dir = entry.isDirectory();
 
 		#define MAX_FILE_SIZE_CHARS   10	// 9GB
 
-		display_level(dbg_cmd+1,3,"_list at(%d) is_dir(%d) size(%lu) ts(%d) name(%s)",at,is_dir,size,ts,name);
+		display_level(dbg_cmd+1,3,"_list at(%d) is_dir(%d) size(%ld) ts(%d) name(%s)",at,is_dir,size,ts,name);
 
 		if (at > MAX_DIRECTORY_BUF - MAX_FILE_SIZE_CHARS - 1 - strlen(ts) - 1 - strlen(name) - 2)
 		{
@@ -105,7 +152,7 @@ static void _list(Stream *fsd, int req_num, const char *dir)
 			break;
 		}
 
-		sprintf(out,"%lu\t%s\t%s%s\r",size,ts,name,is_dir?"/":"");
+		sprintf(out,"%ld\t%s\t%s%s\r",size,ts,name,is_dir?"/":"");
 		at += strlen(out);
 		out = &buffer[at];
 		entry = the_dir.openNextFile();
@@ -173,15 +220,11 @@ static void _rename(Stream *fsd, int req_num, const char *dir, const char *name1
 {
 	// names already have trailing /'s removed
 
-	char path1[255];
-	strcpy(path1,dir);
-	strcat(path1,"/");
-	strcat(path1,name1);
-
-	char path2[255];
-	strcpy(path2,dir);
-	strcat(path2,"/");
-	strcat(path2,name2);
+	char path1[MAX_FILENAME + 1];
+	char path2[MAX_FILENAME + 1];
+	if (!makePath(fsd,req_num,path1,dir,name1) ||
+		!makePath(fsd,req_num,path2,dir,name2))
+		return;
 
 	myFile_t file = SD.open(path1);
 	if (!file)
@@ -227,11 +270,9 @@ static bool abortPending(Stream *fsd, int req_num, const char *command)
 
 static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry)
 {
-	char path[255];
-	strcpy(path,dir);
-	if (strcmp(dir,"/"))
-		strcat(path,"/");
-	strcat(path,entry);
+	char path[MAX_FILENAME];
+	if (!makePath(fsd,req_num,path,dir,entry))
+		return 0;
     display_level(dbg_cmd,2,"DELETE(%s)",path);
 	fileReply(fsd,req_num,"PROGRESS\tENTRY\t%s",entry);
 
@@ -281,29 +322,10 @@ static bool _delete(Stream *fsd, int req_num, const char *dir, const char *entry
 //-------------------------------------------------------
 // contains BASE64 loop
 
-const char *leafName(const char *filename)
-{
-	return filename;
-	const char *retval = filename;
-	while (*filename)
-	{
-		if (*filename == '/')
-			retval = &filename[1];
-		filename++;
-	}
-	return retval;
-}
-
-
-uint32_t calcChecksum(const uint8_t *buf)
-{
-	uint32_t cs = 0;
-	while (*buf) { cs += *buf++; }
-	return cs;
-}
 
 
 bool makeSubdirs(Stream *fsd, int req_num, const char *in)
+	// probably not needed now that PUT protocol includes MKDIR
 	// expects a fully qualified path name starting with /
 	// with a leaf terminal filename
 	// makes any needed subdirectories for the file
@@ -314,8 +336,7 @@ bool makeSubdirs(Stream *fsd, int req_num, const char *in)
 		return 0;
 	}
 
-
-	char path[MAX_FILENAME];
+	char path[MAX_FILENAME+1];
 	char *out = path;
 	*out++ = *in++;
 
@@ -351,19 +372,19 @@ bool makeSubdirs(Stream *fsd, int req_num, const char *in)
 }
 
 
-static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts, const char *file_name)
+static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts, const char *full_name)
 {
-	uint32_t size = atol(sz_size);
-	display_level(dbg_cmd,2,"FILE(%s,%u,%s)",leafName(file_name),size,ts);
+	int32_t size = atol(sz_size);
+	display_level(dbg_cmd,2,"FILE(%s,%ld,%s)",full_name,size,ts);
 
 	//--------------------------------
 	// validate _file request
 	//--------------------------------
 
-	int name_len = strlen(file_name);
+	int name_len = strlen(full_name);
 	if ( name_len >= MAX_FILENAME)
 	{
-		fileReplyError(fsd,req_num,"FILE file(%s) name(%d) too long",leafName(file_name),name_len);
+		fileReplyError(fsd,req_num,"FILE file(%s) name(%d) too long",full_name,name_len);
 		return;
 	}
 
@@ -378,26 +399,26 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 		{
 			uint64_t mb = size_64 / BYTES_PER_MB;
 			uint32_t mb_32 = mb;
-			fileReplyError(fsd,req_num,"FILE(%s) size(%lu) too large to fit in remaining MB(%lu)",leafName(file_name),size,mb_32);
+			fileReplyError(fsd,req_num,"FILE(%s) size(%lu) too large to fit in remaining MB(%lu)",full_name,size,mb_32);
 			return;
 		}
 	#endif
 
-	const char *use_name = file_name;
+	const char *use_name = full_name;
 	char temp_name[MAX_FILENAME + 6];	// temp_name gets the thread id as an extension
 	temp_name[0] = 0;
 
-	if (SD.exists(file_name))
+	if (SD.exists(full_name))
 	{
-		File check_file = SD.open(file_name);
+		File check_file = SD.open(full_name);
 		if (check_file.isDirectory())
 		{
-			fileReplyError(fsd,req_num,"FILE(%s) is a directory",leafName(file_name));
+			fileReplyError(fsd,req_num,"FILE(%s) is a directory",full_name);
 			check_file.close();
 			return;
 		}
 		check_file.close();
-		strcpy(temp_name,file_name);
+		strcpy(temp_name,full_name);
 		sprintf(&temp_name[name_len],".%d",threads.id());
 		use_name = temp_name;
 	}
@@ -419,7 +440,7 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 	myFile_t the_file = SD.open(use_name,FILE_WRITE);
 	if (!the_file)
 	{
-		fileReplyError(fsd,req_num,"could not open FILE(%s) for output",leafName(file_name));
+		fileReplyError(fsd,req_num,"could not open FILE(%s) for output",full_name);
 		free(decoded_buf);
 		return;
 	}
@@ -429,30 +450,23 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 	//------------------------------------------
 
 	bool ok = 1;
-	uint32_t offset = 0;
+	int32_t offset = 0;
 	while (ok && offset < size)
 	{
 		// send CONTINUE and wait for the BASE64
 		// anything else consitutes an error and stops the transfer
 
 		fileReply(fsd,req_num,"CONTINUE");
-		uint32_t wait_base64 = millis();
-		char *buf = getCommandQueue(req_num);
-		while (!buf && millis() - wait_base64 < FILE_TIMEOUT)
-		{
-			threads.delay(100);		// yield thread for 100 ms
-			buf = getCommandQueue(req_num);
-		}
+		char *buf = waitReply(req_num,"FILE");
 		if (!buf)
 		{
-			my_error("fileCommand::FILE(%s) offset(%d) timeout waiting for buf",leafName(file_name),offset);
 			ok = 0;
 		}
 		else
 		{
 			if (strncmp(buf,"BASE64",6))
 			{
-				my_error("FILE(%s) offset(%d) got: %s",leafName(file_name),offset,buf);
+				my_error("FILE(%s) offset(%d) got: %s",full_name,offset,buf);
 				ok = 0;
 			}
 			else
@@ -464,10 +478,10 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 				const char *param[MAX_FILE_PARAMS];
 				int num_params = parseCommand(buf, &param[0]);
 
-				uint32_t got_offset = atol(param[0]);
+				int32_t got_offset = atol(param[0]);
 				int32_t got_size   = atol(param[1]);	// limited to 10000
 				int32_t encoded_size = strlen(param[2]);
-				display_level(dbg_cmd+1,3,"BASE64(%lu,%l) encoded=%l bytes",got_offset,got_size,encoded_size);
+				display_level(dbg_cmd+1,3,"BASE64(%ld,%ld) encoded=%ld bytes",got_offset,got_size,encoded_size);
 
 				int32_t expected_size = size - offset;
 				if (expected_size > MAX_FILE_BUF)
@@ -480,12 +494,12 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 				}
 				else if (got_size != expected_size)
 				{
-					fileReplyError(fsd,req_num,"BASE64 got_size(%l) but expected(%l)",got_size,expected_size);
+					fileReplyError(fsd,req_num,"BASE64 got_size(%ld) but expected(%ld)",got_size,expected_size);
 					ok = 0;
 				}
 				else if (got_offset != offset)
 				{
-					fileReplyError(fsd,req_num,"BASE64 got_offset(%lu) but expected(%lu)",got_offset,offset);
+					fileReplyError(fsd,req_num,"BASE64 got_offset(%ld) but expected(%ld)",got_offset,offset);
 					ok = 0;
 				}
 
@@ -498,7 +512,7 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 					int32_t decoded_size = base64_decode(decoded_buf,(char *) param[2],encoded_size);
 					if (decoded_size != got_size+4)
 					{
-						fileReplyError(fsd,req_num,"BASE64 decoded_size(%l) but expected(%l)",decoded_size,got_size+4);
+						fileReplyError(fsd,req_num,"BASE64 decoded_size(%ld) but expected(%ld)",decoded_size,got_size+4);
 						ok = 0;
 					}
 					else
@@ -524,8 +538,8 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 							int32_t bytes_written = the_file.write(decoded_buf,got_size);
 							if (bytes_written != got_size)
 							{
-								fileReplyError(fsd,req_num,"BASE64(%s) file write error at(%lu) wrote(%l) expected(%l)",
-									leafName(use_name),
+								fileReplyError(fsd,req_num,"BASE64(%s) file write error at(%ld) wrote(%ld) expected(%ld)",
+									use_name,
 									got_offset,
 									bytes_written,
 									got_size);
@@ -548,7 +562,7 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 	//-----------------------------------------------------
 	// finished
 	//-----------------------------------------------------
-	// rename temp_name to file_name if needed
+	// rename temp_name to full_name if needed
 	// 		and set the timeStamp()
 	// or remove the file on any errors
 
@@ -560,17 +574,16 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 		the_file.close();
 		if (temp_name[0])
 		{
-			if (!SD.remove(file_name))
+			if (!SD.remove(full_name))
 			{
-				fileReplyError(fsd,req_num,"FILE could not remove old(%s)",
-					leafName(file_name));
+				fileReplyError(fsd,req_num,"FILE could not remove old(%s)",full_name);
 				ok = 0;
 			}
-			else if (!SD.rename(temp_name,file_name))
+			else if (!SD.rename(temp_name,full_name))
 			{
 				fileReplyError(fsd,req_num,"FILE could not rename(%s) to(%s)",
-					leafName(temp_name),
-					leafName(file_name));
+					temp_name,
+					full_name);
 				ok = 0;
 			}
 		}
@@ -593,7 +606,230 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 // session-like PUT command
 //-------------------------------------------------------
 
+static bool _putFile(
+	Stream *fsd,
+	int req_num,
+	char *decoded_buf,
+	char *encoded_buf,
+	const char *dir,
+	const char *target_dir,
+	const char *entry,
+	int level = 0)
+	// note that BASE64 handles the client progress messages
+{
+	display_level(dbg_cmd,3+level,"_putFile(%s,%s,%s)",dir,target_dir,entry);
+	char path[MAX_FILENAME];
+	if (!makePath(fsd,req_num,path,dir,entry))
+		return 0;
 
+	// open the file for input
+
+	myFile_t the_file = SD.open(path);
+	if (!the_file)
+	{
+		fileReplyError(fsd,req_num,"_putFile could not open %s for input",path);
+		return 0;
+	}
+	else if (the_file.isDirectory())
+	{
+		fileReplyError(fsd,req_num,"%s is a directory in _putFile",path);
+		the_file.close();
+		return 0;
+	}
+	if (!makePath(fsd,req_num,path,target_dir,entry))
+	{
+		the_file.close();
+		return 0;
+	}
+
+	// send the FILE command
+
+	bool ok = 0;
+	int32_t offset = 0;
+	int32_t size = the_file.size();
+	const char *ts = getTimeStamp(&the_file);
+
+	fileReply(fsd,req_num,"FILE\t%d\t%s\t%s",size,ts,path);
+	while (1)
+	{
+		char *buf = waitReply(req_num,"_putFile");
+		if (!buf)
+		{
+			break;
+		}
+		else
+		{
+			bool is_ok = !strncmp(buf,"OK",2);
+			bool is_continue = !strncmp(buf,"CONTINUE",8);
+			if (!is_ok && !is_continue)
+			{
+				my_error("FILE(%s) offset(%d) got: %s",path,offset,buf);
+				break;
+			}
+			else if (is_ok)
+			{
+				if (offset < size)
+					fileReplyError(fsd,req_num,"unexpected OK with offset(%ld) and size(%ld)",offset,size);
+				break;
+			}
+			else if (offset >= size)
+			{
+				fileReplyError(fsd,req_num,"expected OK with offset(%ld) and size(%ld)",offset,size);
+				break;
+			}
+
+			// read, checksum, encode, and send
+
+			else	// is_continue
+			{
+				// read
+
+				int32_t get = size - offset;
+				if (get > MAX_DECODED_BUF - 5)
+					get = MAX_DECODED_BUF - 5;
+				int32_t got = the_file.read(decoded_buf,get);
+				if (got != get)
+				{
+					fileReplyError(fsd,req_num,"file read error at(%ld) got(%ld) expected(%ld)",offset,got,get);
+					break;
+				}
+				else
+				{
+					// checksum
+
+					decoded_buf[get] = 0;
+					uint32_t calc_cs = calcChecksum((uint8_t *) decoded_buf);
+					display_level(dbg_cmd+1,4+level,"calc_cs(0x%08x)",calc_cs);
+					uint8_t *cs_ptr = (uint8_t *) &decoded_buf[get];
+					for (int i=0; i<4; i++)
+					{
+						uint8_t byte = (calc_cs >> (3-i)*8) & 0xff;
+						*cs_ptr++ = byte;
+					}
+					*cs_ptr = 0;
+
+					// encode
+
+					sprintf(encoded_buf,"file_reply(%d):BASE64\t%ld\t%ld\t",req_num,offset,get);
+					char *out = &encoded_buf[strlen(encoded_buf)];
+					base64_encode(out,decoded_buf,get+4);
+						// assume encoding works
+
+					// send the packet
+
+					strcat(encoded_buf,"\r\n");
+					fsd->print(encoded_buf);
+					offset += get;
+					ok = 1;
+
+				}	// got == get
+			}	// is_continue
+		}	// no timeout waiting for buf
+	}	// while (1)
+
+	the_file.close();
+
+	display_level(dbg_cmd,3+level,"_putFile(%s,%s,%s) returning %d",dir,target_dir,entry,ok);
+	return ok;
+}
+
+
+
+static bool _putDir(
+	Stream *fsd,
+	int req_num,
+	char *decoded_buf,
+	char *encoded_buf,
+	const char *dir,
+	const char *target_dir,
+	const char *entry,
+	int level = 0)
+{
+	display_level(dbg_cmd,2+level,"_putDir(%d,%s,%s,%s)",level,dir,target_dir,entry);
+
+	if (level >= MAX_RECURSION_DEPTH)
+	{
+		fileReplyError(fsd,req_num,"too many(%d) nested directory levels",level);
+		return 0;
+	}
+	char path[MAX_FILENAME];
+	char target_path[MAX_FILENAME];
+	if (!makePath(fsd,req_num,path,dir,entry))
+		return 0;
+	if (!makePath(fsd,req_num,target_path,target_dir,entry))
+		return 0;
+
+	myFile_t the_dir = SD.open(path);
+	if (!the_dir)
+	{
+		fileReplyError(fsd,req_num,"_putDir(%s) could not open directory",path);
+		return 0;
+	}
+	if (!the_dir.isDirectory())
+	{
+		fileReplyError(fsd,req_num,"_putDir(%s) is not a directory",path);
+		the_dir.close();
+		return 0;
+	}
+
+	if (level)
+	{
+		fileReply(fsd,req_num,"MKDIR\t%s\t%s\t1",
+			target_dir,getTimeStamp(&the_dir));
+		char *buf = waitReply(req_num,"putDir(MKDIR)");
+		if (!buf || strncmp(buf,"OK",2))
+		{
+			the_dir.close();
+			return 0;
+		}
+	}
+
+	// many PROGRESS ADDS
+
+	bool ok = 1;
+	myFile_t dir_entry = the_dir.openNextFile();
+	while (ok && dir_entry)
+	{
+		char name[255];
+		dir_entry.getName(name, sizeof(name));
+		bool is_dir = dir_entry.isDirectory();
+		display_level(dbg_cmd+2,4+level,"got is_dir(%d) name(%s)",is_dir,name);
+
+		fileReply(fsd,req_num,"PROGRESS\tADD\t%d\t%d",is_dir,!is_dir);
+
+		if (is_dir)
+		{
+			ok = _putDir(
+				fsd,
+				req_num,
+				decoded_buf,
+				encoded_buf,
+				path,
+				target_path,
+				name,
+				level+1);
+		}
+		else
+		{
+			ok = _putFile(
+				fsd,
+				req_num,
+				decoded_buf,
+				encoded_buf,
+				path,
+				target_path,
+				name,
+				level);
+		}
+
+		dir_entry = the_dir.openNextFile();
+
+	}   // while (entry)
+
+	the_dir.close();
+	display_level(dbg_cmd,2+level,"_putDir(%d,%s,%s,%s) returning %d",level,dir,target_dir,entry,ok);
+	return ok;
+}
 
 
 
@@ -686,40 +922,96 @@ void fileCommand(int req_num)
 	{
 		_rename(fsd,req_num,param[0],param[1],param[2]);
 	}
-	else if (!strcmp(command,"DELETE"))
-	{
-		bool ok = 1;
-		if (num_params == 2)		// single_file item is in param[1]
-		{
-			ok = _delete(fsd,req_num,param[0],param[1]);
-		}
-		else if (!abortPending(fsd, req_num, command))
-		{
-			// process entry list
-			fileReply(fsd,req_num,"PROGRESS\tADD\t%d\t%d",num_dirs,num_files);
-
-			ptr = entries;
-			int cont = getNextEntry(fsd,req_num,&the_entry,&ptr);
-			while (ok && cont == 1)
-			{
-				if (abortPending(fsd, req_num, command))
-					break;
-				ok = _delete(fsd,req_num,param[0],the_entry.entry);
-				if (ok)
-					cont = getNextEntry(fsd,req_num,&the_entry,&ptr);
-			}
-			ok = cont == -1 ? 0 : ok;
-		}
-		if (ok)
-			_list(fsd,req_num,param[0]);
-	}
-
-	// FILE and PUT
-
 	else if (!strcmp(command,"FILE"))
 	{
+		// FILE contains the BASE64 sub-session
 		_file(fsd,req_num,param[0],param[1],param[2]);
 	}
+
+	// session like PUT and DELETE commands
+
+	else if (!strcmp(command,"PUT") ||
+			 !strcmp(command,"DELETE"))
+	{
+		bool ok = 1;
+		bool is_put = !strcmp(command,"PUT");
+		char *decoded_buf = 0;
+		char *encoded_buf = 0;
+
+		if (is_put)
+		{
+			decoded_buf = (char *) malloc(MAX_DECODED_BUF);
+			if (!decoded_buf)
+			{
+				ok = 0;
+				fileReplyError(fsd,req_num,"Could not allocate decoded_buf");
+			}
+			encoded_buf = (char *) malloc(MAX_ENCODED_BUF);
+			if (!encoded_buf)
+			{
+				ok = 0;
+				fileReplyError(fsd,req_num,"Could not allocate encoded_buf");
+			}
+		}
+
+		if (ok)
+		{
+			// single_file item
+
+			if ((!is_put && num_params == 2) ||
+				(is_put && num_params == 3))
+			{
+				ok = is_put ?
+					_putFile(fsd,req_num,decoded_buf,encoded_buf,param[0],param[1],param[2]) :
+					_delete(fsd,req_num,param[0],param[1]);
+			}
+
+			// entries
+
+			else if (ok && !abortPending(fsd, req_num, command))
+			{
+				// process entry list
+				fileReply(fsd,req_num,"PROGRESS\tADD\t%d\t%d",num_dirs,num_files);
+
+				ptr = entries;
+				int cont = getNextEntry(fsd,req_num,&the_entry,&ptr);
+				while (ok && cont == 1)
+				{
+					if (abortPending(fsd, req_num, command))
+						break;
+
+					ok = is_put ? the_entry.is_dir ?
+						_putDir(fsd,req_num,decoded_buf,encoded_buf,param[0],param[1],the_entry.entry) :
+						_putFile(fsd,req_num,decoded_buf,encoded_buf,param[0],param[1],the_entry.entry) :
+						_delete(fsd,req_num,param[0],the_entry.entry);
+
+					if (ok)
+					{
+						cont = getNextEntry(fsd,req_num,&the_entry,&ptr);
+						display(0,0,"cont=%d",cont);
+					}
+				}
+				ok = cont == -1 ? 0 : ok;
+			}
+
+			if (decoded_buf)
+				free(decoded_buf);
+			if (encoded_buf)
+				free(encoded_buf);
+
+			if (ok)
+			{
+				if (is_put)
+					fileReply(fsd,req_num,"OK");
+				else
+					_list(fsd,req_num,param[0]);
+			}
+
+		}	// allocated buffers
+	}	// PUT or DELETE
+
+	// Unknown Command
+
 	else
 	{
 		fileReplyError(fsd,req_num,"Unknown Command %s",command);

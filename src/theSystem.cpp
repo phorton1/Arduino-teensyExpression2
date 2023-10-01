@@ -214,7 +214,7 @@ void theSystem::critical_timer_handler()
 #define FILE_COMMAND_SIG_LEN	12
 #define MAX_NUM_LENGTH			10
 
-#define MIN_COMMAND_BUF_LEN		5   	// ABORT
+#define MIN_COMMAND_BUF_LEN		3   	// OK
 #define MAX_COMMAND_BUF_LEN		15000   // BASE64 size offset ENCODED_CONTENT
 	// probably have to tune this last one
 

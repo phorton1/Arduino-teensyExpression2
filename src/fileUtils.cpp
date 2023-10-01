@@ -23,10 +23,18 @@
 #define QUEUE_TIMEOUT    5		// ms
 	// timeout for semaphore to get access to queue
 
-#define THREAD_STACK_SIZE   4096
+#define THREAD_STACK_SIZE   8192
 	// stack for doCommand()
+	// MAX_RECURSION_DEPTH=8 in PUT
+	// fileReplies use stack buffer of MAX_FILE_REPLY=1024
+	// and each PUT recursion uses at least 2*MAX_FILENAME=512 buffers
+	// on the stack, so with these defines, the absolute minimum
+	// THREAD_STACK_SIZE is 5K
+
 #define MAX_DIRECTORY_BUF   4096
 	// maximum size of a directory listing returned by _list
+#define MAX_FILE_REPLY		1024
+	// allocated on stack!
 
 
 //---------------------------------------------
@@ -192,7 +200,7 @@ bool addCommandQueue(int req_num, char *buf)
 		else
 		{
 			int next_tail = cmd->tail + 1;
-			if (next_tail > MAX_QUEUED_BUFFERS)
+			if (next_tail >= MAX_QUEUED_BUFFERS)
 				next_tail = 0;
 
 			if (next_tail == cmd->head)
@@ -203,6 +211,8 @@ bool addCommandQueue(int req_num, char *buf)
 			{
 				display(dbg_queue+1,"    adding at %d",next_tail);
 				cmd->queue[cmd->tail++] = buf;
+				if (cmd->tail >= MAX_QUEUED_BUFFERS)
+					cmd->tail = 0;
 				retval = true;
 			}
 		}
