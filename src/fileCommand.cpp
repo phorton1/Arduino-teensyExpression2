@@ -571,6 +571,7 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 	if (ok)
 	{
 		setTimeStamp(the_file,ts);
+
 		the_file.close();
 		if (temp_name[0])
 		{
@@ -579,12 +580,18 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 				fileReplyError(fsd,req_num,"FILE could not remove old(%s)",full_name);
 				ok = 0;
 			}
-			else if (!SD.rename(temp_name,full_name))
+			else
 			{
-				fileReplyError(fsd,req_num,"FILE could not rename(%s) to(%s)",
-					temp_name,
-					full_name);
-				ok = 0;
+				delay(20);
+					// fixes a bug with certain files not being
+					// able to be renamed
+				if (!SD.rename(temp_name,full_name))
+				{
+					fileReplyError(fsd,req_num,"FILE could not rename(%s) to(%s)",
+						temp_name,
+						full_name);
+					ok = 0;
+				}
 			}
 		}
 	}
