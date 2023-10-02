@@ -8,6 +8,7 @@
 // as long as I allow enough room in the declaration for any overwrites,
 // I can overwrite these at my will.
 
+#define MAX_SERIAL_NUMBER  14
 
 
 struct usb_string_descriptor_struct usb_string_manufacturer_name = {
@@ -77,6 +78,24 @@ void setUSBSerialNum()
 	memcpy(&usb_string_serial_number.wString[len],usb_string_serial_number_default.wString,10 * sizeof(uint16_t));
 	usb_string_serial_number.bLength = 2 + (len + 10) * 2;
 }
+
+
+const char *getUSBSerialNum()
+	// return the USB Serial Number as a null termianted C string
+{
+	static char buffer[MAX_SERIAL_NUMBER+1];
+	char *out = buffer;
+	uint16_t *in = &usb_string_serial_number.wString[0];
+	int len = usb_string_serial_number.bLength - 4;
+
+	while (len && *in)
+	{
+		*out++ = *((char *) in++);
+	}
+	*out = 0;
+	return buffer;
+}
+
 
 
 

@@ -66,6 +66,18 @@ extern bool legalFilename(const char *name);
 	// in rigParser.cpp
 
 
+// Uses slightly modified _usbDev.c that allows me to defer
+// usb_init() call until I am ready, and _usbNames.c that
+// works to allow overrides of teensy USB descriptors.
+
+extern "C" {
+    extern void my_usb_init();          	// in usb_dev.c
+    extern void setFTPDescriptors();    	// _usbNames.c
+	extern const char *getUSBSerialNum();	// _usbNames.c
+}
+
+
+
 // basics
 
 #define NUM_BUTTON_COLS     5

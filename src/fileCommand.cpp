@@ -2,6 +2,9 @@
 // fileCommand.cpp
 //----------------------------------------------------------
 // contains fileCommand() and associated methods
+// PRH - fileCommand() needs to send FILE and BASE64 progress messags,
+// and/or I can try to re-implement the 'bestReport' scheme in
+// Session.pm.
 
 #include "fileSystem.h"
 #include "prefs.h"
@@ -582,7 +585,8 @@ static void _file(Stream *fsd, int req_num, const char *sz_size, const char *ts,
 			}
 			else
 			{
-				delay(20);
+				// threads.delay(50);		// yield thread for 100 ms
+				delay(50);
 					// fixes a bug with certain files not being
 					// able to be renamed
 				if (!SD.rename(temp_name,full_name))
@@ -865,12 +869,6 @@ void fileCommand(int req_num)
 	}
 
 	int num_params = parseCommand(command, &param[0], &entries);
-	if (!num_params)
-	{
-		fileReplyError(fsd,req_num,"fileCommand(%d) with no params!",command);
-		endCommand(req_num);
-		return;
-	}
 
 	char dbg_buf[18];
 	const char *dbg_ptr = param[2];
@@ -917,7 +915,11 @@ void fileCommand(int req_num)
 	// do the commands
 	//--------------------------------------
 
-	if (!strcmp(command,"LIST"))
+	if (!strcmp(command,"HELLO"))
+	{
+		fileReply(fsd,req_num,"WASSUP\t%s",getUSBSerialNum());
+	}
+	else if (!strcmp(command,"LIST"))
 	{
 		_list(fsd,req_num,param[0]);
 	}
