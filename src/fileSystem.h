@@ -99,6 +99,12 @@ extern int   parseCommand(char *buf, const char **params, const char **entries =
 extern int   getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const char **ptr);
 
 
+// in fileFormat.cpp
+
+extern bool eraseCard();
+	// erases but does not format card
+extern bool formatCard();
+
 
 //----------------------------------------------
 // doCommand() method
