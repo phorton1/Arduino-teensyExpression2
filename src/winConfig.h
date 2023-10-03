@@ -50,4 +50,6 @@ class winConfig : public sysWindow
 extern winConfig win_config;
 
 
+
+
 // end of winConfig.h

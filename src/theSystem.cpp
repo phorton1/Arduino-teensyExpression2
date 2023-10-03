@@ -445,7 +445,14 @@ static void handleChar(bool is_serial, char c)
 		int req_num = atoi(pcmd->req_num);
 		if (pcmd->type)
 		{
-			if (!getCommand(req_num))
+			if (!hasFileSystem())
+			{
+				warning(dbg_file_command,"handleChar() noFileSytem file_message(%d) dropping buffer of len(%d)",
+					req_num,
+					pcmd->len);
+				free(pcmd->buf);
+			}
+			else if (!getCommand(req_num))
 			{
 				warning(dbg_file_command,"handleChar() find queue for file_message(%d) dropping buffer of len(%d)",
 					req_num,

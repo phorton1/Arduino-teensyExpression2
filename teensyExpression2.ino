@@ -196,9 +196,17 @@ void setup()
     // start the file system
     //--------------------------------
 
-	if (!initFileSystem())
+	initFileSystem();
+	if (!hasSDCard())
 	{
-        const char *msg = "    COULD NOT START FILE SYSTEM!!";
+        const char *msg = "    NO SD CARD FOUND!!";
+        warning(0,"%s",msg);
+        mylcd.println(msg);
+        do_delay = 5000;
+	}
+	else if (!hasFileSystem())
+	{
+        const char *msg = "    COULD NOT START FILE SYSTEM!";
         warning(0,"%s",msg);
         mylcd.println(msg);
         do_delay = 5000;

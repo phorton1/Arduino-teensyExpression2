@@ -295,26 +295,30 @@ void winConfig::onButton(int row, int col, int event)
 			// increment the value, call a dialog window,
 			// or do some special function
 
-			if (m_cur_option->getType() & OPTION_LOAD_RIG)
+			if (m_cur_option->getType() == OPTION_LOAD_RIG)
 			{
 				display(dbg_cfg,"winConfig::onButtonSelect(OPTION_LOAD_RIG)",0);
 				win_file_dlg.setup(OPTION_LOAD_RIG,"Load Rig ..","/",".rig",DEFAULT_RIG_TOKEN);
 				the_system.startWindow(&win_file_dlg);
 			}
-			else if (m_cur_option->getType() & OPTION_DUMP_H_FILE)
+			else if (m_cur_option->getType() == OPTION_DUMP_H_FILE)
 			{
 				display(dbg_cfg,"winConfig::onButtonSelect(OPTION_DUMP_H_FILE)",0);
 				win_file_dlg.setup(OPTION_DUMP_H_FILE,"Dump H File ..","/",".rig",0);
 				the_system.startWindow(&win_file_dlg);
 			}
-			else if (m_cur_option->getType() & OPTION_FACTORY_RESET)
+			else if (m_cur_option->getType() ==  OPTION_FORMAT_SD)
+			{
+				the_system.startWindow(&format_sd_dialog);
+			}
+			else if (m_cur_option->getType() == OPTION_FACTORY_RESET)
 			{
 				yes_no_dlg.setId(OPTION_FACTORY_RESET);
 				yes_no_dlg.setName("Confirm Factory Reset");
 				yes_no_dlg.setMessage("Are you sure you want to do a\nfactory reset?");
 				the_system.startWindow(&yes_no_dlg);
 			}
-			else if (m_cur_option->getType() & OPTION_SPOOF_FTP)
+			else if (m_cur_option->getType() == OPTION_SPOOF_FTP)
 			{
 				char display_buf[255];
 				bool new_value = !((bool)m_cur_option->getValue());

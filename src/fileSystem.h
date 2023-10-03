@@ -29,9 +29,18 @@
 //----------------------------------------------
 
 extern bool initFileSystem();
+extern bool hasFileSystem();
+	// returns true if there is both an SDCard
+	// and it has a file system.
+extern bool hasSDCard();
+	// there may be an SDCard() with no valid fileSystem
+	// that can still be formatted.
+
 extern uint32_t getFreeMB();
 extern uint32_t getTotalMB();
 extern uint64_t getFreeBytes();
+	// These are fileSystem values
+
 
 extern const char *getTimeStamp(myFile_t *file);
 extern const char *getTimeStamp(const char *path);
@@ -97,13 +106,6 @@ extern void  fileReplyError(Stream *fsd, int req_num, const char *format, ...);
 extern void  fileReply(Stream *fsd, int req_num, const char *format, ...);
 extern int   parseCommand(char *buf, const char **params, const char **entries = 0);
 extern int   getNextEntry(Stream *fsd, int req_num, textEntry_t *the_entry, const char **ptr);
-
-
-// in fileFormat.cpp
-
-extern bool eraseCard();
-	// erases but does not format card
-extern bool formatCard();
 
 
 //----------------------------------------------

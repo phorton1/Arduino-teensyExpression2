@@ -82,6 +82,12 @@ char write_timestamp[32];
 char static_timestamp[32];
 	// buffers for use by getTimeStamp and dtCallback
 
+bool has_file_system;
+bool has_sd_card;
+
+bool hasFileSystem() { return has_file_system; }
+bool hasSDCard()     { return has_sd_card; }
+
 
 //---------------------------------------------
 // debugging
@@ -187,38 +193,49 @@ bool initFileSystem()
 		"follows DEBUG_DEVICE which is OFF" );
 
 #if USE_OLD_FAT
-    if (!SD.begin())
+	SdioCard *card = SD.card();
+	has_file_system = SD.begin();
+	has_sd_card = has_file_system || card->begin();
 #else
-	if (!SD.begin(BUILTIN_SDCARD))
+	SDFat32Card *card = SD.card();
+	has_file_system = SD.begin(BUILTIN_SDCARD);
+	has_sd_card = has_file_system || card)->begin();
 #endif
+
+	if (!has_sd_card)
 	{
-        my_error("Could not initialize SD",0);
+        my_error("NO SD CARD!!",0);
         return false;
     }
+	if (!has_file_system)
+	{
+        warning(0,"NO fileSystem found!",0);
+    }
 
-    #if 1   // SHOW CID
+   #if 0   // SHOW CID
 
 		delay(1000);
 
-        // detailed SD card debugging
-        // prh - I could not effing figure out how to get the volumeLabel from the (?) MBR
-
-        cid_t cid;
-		SdioCard *card = SD.card();
 		uint8_t type = card->type();
 		uint32_t blocks = card->cardCapacity();
 			// 'sectors' == 'blocks' == 512 bytes each
 		display(0,"fileSystem: type(%d)=%s  blocks/sectors=%lu",
 			type,
-			type == 3 ? "SDHC" :
-			type == 1 ? "SDV2" : "SDV1",
+			type == SD_CARD_TYPE_SDHC ? "SDHC" :
+			type == SD_CARD_TYPE_SD2 ? "SDV2" :
+			type == SD_CARD_TYPE_SD1 ? "SDV1" :
+			"NO SDCARD",
 			blocks);
 
+        cid_t cid;
+		memset(&cid,0,sizeof(cid_t));
+
+		// readCID returns true, with no information
+		// if card->begin() not called.  I think on the teensy
+		// it just returns the memory that is gotten in card.begin()
+
         if (!card->readCID(&cid))
-        {
-            my_error("Could not readCID()",0);
-            return false;
-        }
+			warning(0,"Could not read SDCard cid",0);
 
         // unsigned char mid;                  // manufacturer id
         // char oid[2];                        // OEM/Application ID
@@ -229,6 +246,12 @@ bool initFileSystem()
         // unsigned char mdt_year_high : 4;    //  Manufacturing date year high digit
         // unsigned char mdt_month : 4;        // Manufacturing date month
         // unsigned char mdt_year_low : 4;     // Manufacturing date year low digit
+
+		if (!cid.pnm[0]) cid.pnm[0] = ' ';
+		if (!cid.pnm[1]) cid.pnm[1] = ' ';
+		if (!cid.pnm[2]) cid.pnm[2] = ' ';
+		if (!cid.pnm[3]) cid.pnm[3] = ' ';
+		if (!cid.pnm[4]) cid.pnm[4] = ' ';
 
         display(0,"fileSystem: Mfr(0x%02x) OEM_ID(0x%02x,0x%02x) Product(%c%c%c%c%c) Version(%d.%d) SN(0x%08x)",
             cid.mid,
@@ -241,7 +264,7 @@ bool initFileSystem()
             cid.mdt_month);
     #endif  // SHOW_CID
 
-    #if 1   // SHOW_SIZE_DETAILS
+    #if 0   // SHOW_SIZE_DETAILS
         uint8_t fat_type = SD.fatType();
         uint32_t cluster_count = SD.clusterCount();
         int32_t free_cluster_count = SD.freeClusterCount();
@@ -269,8 +292,7 @@ bool initFileSystem()
         root.close();
     #endif
 
-
-    return true;
+    return has_file_system;
 }
 
 

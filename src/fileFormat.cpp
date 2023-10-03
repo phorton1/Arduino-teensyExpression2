@@ -42,10 +42,37 @@ static char fat16str[] = "FAT16   ";
 static char fat32str[] = "FAT32   ";
 
 
-static void sdError(const char *msg)
+
+
+
+extern void sdFormatDot();
+extern void sdFormatMsg(const char *msg, bool err = false);
+	// in winDialogs.cpp
+
+static void _sdMessage(bool err, const char *format, va_list args)
 {
-	my_error(msg,0);
+	char buffer[255];
+	vsprintf(buffer,format,args);
+	if (err)
+		my_error(buffer,0);
+	else
+		display(dbg_format,buffer,0);
+	sdFormatMsg(buffer,err);
 }
+static void sdError(const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	_sdMessage(true,format,args);
+}
+static void sdMessage(const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	_sdMessage(false,format,args);
+}
+
+
 
 
 
@@ -56,7 +83,7 @@ static uint8_t writeCache(uint32_t lbn)
 }
 
 
-static bool initSizes()
+bool initSizes()
 	// initialize appropriate sizes for SD capacity
 {
 	cardSizeBlocks = SD.card()->cardSize();
@@ -75,7 +102,7 @@ static bool initSizes()
 
 	if (cardSizeBlocks == 0)
 	{
-		sdError("cardSize==0");
+		sdError("Bad SD Card Size(0)");
 		return false;
 	}
 	cardCapacityMB = (cardSizeBlocks + 2047)/2048;
@@ -83,7 +110,8 @@ static bool initSizes()
 
 	if (cardCapacityMB <= 6)
 	{
-		sdError("Card is too small.");
+		sectorsPerCluster = 0;
+		sdError("SD Card of %lu MB is too small",cardCapacityMB);
 		return false;
 
 	} else if (cardCapacityMB <= 16) {
@@ -103,7 +131,7 @@ static bool initSizes()
 		sectorsPerCluster = 128;
 	}
 
-	display(dbg_format,"Blocks/Cluster: %d",int(sectorsPerCluster));
+	sdMessage("Blocks/Cluster: %d",int(sectorsPerCluster));
 
   // set fake disk geometry
 
@@ -146,7 +174,7 @@ static void clearCache(uint8_t addSig)
 static bool clearFatDir(uint32_t bgn, uint32_t count)
 	// zero FAT and root dir area on SD
 {
-	display(dbg_format,"clearFatDir(%lu)",count);
+	sdMessage("clearFatDir(%lu)",count);
 	proc_entry();
 
 	clearCache(false);
@@ -154,13 +182,14 @@ static bool clearFatDir(uint32_t bgn, uint32_t count)
 	{
 		if (!SD.card()->writeBlock(bgn + i, cache.data))
 		{
-			sdError("Clear FAT/DIR writeBlock failed");
+			sdError("DIR writeBlock(%lu) failed",bgn+i);
 			proc_leave();
 			return false;
 		}
 		if ((i & 0XFF) == 0)
 		{
-			display(dbg_format,"count(%lu)",i);;
+			sdFormatDot();
+			// display(dbg_format,"count(%lu)",i);;
 		}
 	}
 	proc_leave();
@@ -192,7 +221,7 @@ static uint8_t lbnToSector(uint32_t lbn)
 static bool writeMbr()
 	// format and write the Master Boot Record
 {
-	display(dbg_format,"writeMbr()",0);
+	sdMessage("writeMbr()");
 	proc_entry();
 
 	clearCache(true);
@@ -202,7 +231,7 @@ static bool writeMbr()
 	uint16_t c = lbnToCylinder(relSector);
 	if (c > 1023)
 	{
-		sdError("MBR CHS");
+		sdError("MBR bad cylinder number(%d)",c);
 		proc_leave();
 		return false;
 	}
@@ -233,7 +262,7 @@ static bool writeMbr()
 	p->totalSectors = partSize;
 	if (!writeCache(0))
 	{
-		sdError("write MBR");
+		sdError("MBR write failed");
 		proc_leave();
 		return false;
 	}
@@ -275,7 +304,7 @@ static bool makeFat16()
 	// check valid cluster count for FAT16 volume
 	if (nc < 4085 || nc >= 65525)
 	{
-		sdError("Bad cluster count");
+		sdError("FAT16 bad cluster count(%lu)",nc);
 		proc_leave();
 		return false;
 	}
@@ -327,10 +356,10 @@ static bool makeFat16()
 
 	// write partition boot sector
 
-	display(dbg_format,"write partition boot sector ...",0);
+	sdMessage("write partition boot sector");
 	if (!writeCache(relSector))
 	{
-		sdError("FAT16 write PBS failed");
+		sdError("FAT16 write Boot Sector failed");
 		proc_leave();
 		return false;
 	}
@@ -349,11 +378,11 @@ static bool makeFat16()
 
 	// write first block of FAT and backup for reserved clusters
 
-	display(dbg_format,"write first block of FAT  ...",0);
+	sdMessage("write first block of FAT ");
 	if (!writeCache(fatStart) ||
 		!writeCache(fatStart + fatSize))
 	{
-		sdError("FAT16 reserve failed");
+		sdError("FAT16 write failed");
 		proc_leave();
 		return false;
 	}
@@ -387,7 +416,7 @@ static bool makeFat32()
 
 	if (nc < 65525)
 	{
-		sdError("Bad cluster count");
+		sdError("FAT32 bad cluster count(%lu)",nc);
 		proc_leave();
 		return false;
 	}
@@ -444,11 +473,11 @@ static bool makeFat32()
 
 	// write partition boot sector and backup
 
-	display(dbg_format,"write partition boot sector ...",0);
+	sdMessage("write partition boot sector");
 	if (!writeCache(relSector) ||
 		!writeCache(relSector + 6))
 	{
-		sdError("FAT32 write PBS failed");
+		sdError("FAT32 write Boot Sector failed");
 		proc_leave();
 		return false;
 	}
@@ -457,10 +486,10 @@ static bool makeFat32()
 
 	// write extra boot area and backup
 
-	display(dbg_format,"write extra boot area ...",0);
+	sdMessage("write extra boot area");
 	if (!writeCache(relSector + 2) || !writeCache(relSector + 8))
 	{
-		sdError("FAT32 PBS ext failed");
+		sdError("FAT32 write extra boot area failed");
 		proc_leave();
 		return false;
 	}
@@ -473,11 +502,11 @@ static bool makeFat32()
 
 	// write FSINFO sector and backup
 
-	display(dbg_format,"write FSINFO sector ...",0);
+	sdMessage("write FSINFO sector");
 	if (!writeCache(relSector + 1) ||
 		!writeCache(relSector + 7))
 	{
-		sdError("FAT32 FSINFO failed");
+		sdError("FAT32 write FSINFO failed");
 		proc_leave();
 		return false;
 	}
@@ -497,11 +526,11 @@ static bool makeFat32()
 
 	// write first block of FAT and backup for reserved clusters
 
-	display(dbg_format,"write first block of FAT  ...",0);
+	sdMessage("write first block of FAT");
 	if (!writeCache(fatStart) ||
 		!writeCache(fatStart + fatSize))
 	{
-		sdError("FAT32 reserve failed");
+		sdError("FAT32 write failed");
 		proc_leave();
 		return false;
 	}
@@ -510,56 +539,6 @@ static bool makeFat32()
 	display(dbg_format,"makeFat32() done",0);
 	return true;
 }
-
-
-uint32_t const ERASE_SIZE = 262144L;
-
-
-
-bool eraseCard()
-	// flash erase all data
-{
-	display(dbg_format,"eraseCard()",0);
-	proc_entry();
-
-	uint32_t firstBlock = 0;
-	uint32_t lastBlock;
-	uint16_t n = 0;
-
-	do
-	{
-		lastBlock = firstBlock + ERASE_SIZE - 1;
-		if (lastBlock >= cardSizeBlocks)
-		{
-			lastBlock = cardSizeBlocks - 1;
-		}
-		if (!SD.card()->erase(firstBlock, lastBlock))
-		{
-			sdError("erase failed");
-			proc_leave();
-			return false;
-		}
-		if ((n++)%32 == 31)
-		{
-			display(dbg_format,"eraseCard(%d)",n);
-		}
-		firstBlock += ERASE_SIZE;
-
-	} while (firstBlock < cardSizeBlocks);
-
-	if (!SD.card()->readBlock(0, cache.data))
-	{
-		sdError("readBlock");
-		proc_leave();
-		return false;
-	}
-
-	proc_leave();
-	display(dbg_format,"eraseCard() done",0);
-	return true;
-}
-
-
 
 
 bool formatCard()
@@ -591,6 +570,64 @@ bool formatCard()
 	}
 
 	proc_leave();
-	display(dbg_format,"formatCard() done",0);
+	sdMessage("SD Card Format Done!!",0);
 	return true;
+}
+
+
+
+
+
+uint32_t const ERASE_SIZE = 262144L;
+
+
+
+bool eraseCard()
+	// flash erase all data
+{
+	sdMessage("eraseCard()");
+	proc_entry();
+
+	if (!initSizes())
+	{
+		proc_leave();
+		return false;
+	}
+
+	uint32_t firstBlock = 0;
+	uint32_t lastBlock;
+	uint16_t n = 0;
+
+	do
+	{
+		lastBlock = firstBlock + ERASE_SIZE - 1;
+		if (lastBlock >= cardSizeBlocks)
+		{
+			lastBlock = cardSizeBlocks - 1;
+		}
+		if (!SD.card()->erase(firstBlock, lastBlock))
+		{
+			sdError("eraseCard failed at firstBlock(%lu)",firstBlock);
+			proc_leave();
+			return false;
+		}
+		if ((n++)%32 == 31)
+		{
+			sdFormatDot();
+			// display(dbg_format,"eraseCard(%d)",n);
+		}
+		firstBlock += ERASE_SIZE;
+
+	} while (firstBlock < cardSizeBlocks);
+
+	if (!SD.card()->readBlock(0, cache.data))
+	{
+		sdError("eraseCard failed to read block(0)");
+		proc_leave();
+		return false;
+	}
+
+	proc_leave();
+	sdMessage("eraseCard() done");
+	return formatCard();
 }
