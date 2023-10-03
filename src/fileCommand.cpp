@@ -27,6 +27,12 @@
 	// delay certain operations to test progress dialog etc
 	// set to 1000 or 2000 ms to slow things down
 
+#define WITH_LOCAL_PROGRESS  	1
+	// i envision a scheme where servers send minimal
+	// progress messags. This defines those that could
+	// be done on the other side with knowlege of both sessions.
+
+
 #define FILE_TIMEOUT  15000	  // ms
 	// time to wait for next BASE64 packet in FILE command
 
@@ -661,6 +667,11 @@ static bool _putFile(
 	const char *ts = getTimeStamp(&the_file);
 
 	fileReply(fsd,req_num,"FILE\t%d\t%s\t%s",size,ts,path);
+
+	#if WITH_LOCAL_PROGRESS
+		fileReply(fsd,req_num,"PROGRESS\tENTRY\t%s\t%d",path,size);
+	#endif
+
 	while (1)
 	{
 		char *buf = waitReply(req_num,"_putFile");
@@ -698,6 +709,11 @@ static bool _putFile(
 				int32_t get = size - offset;
 				if (get > MAX_DECODED_BUF - 5)
 					get = MAX_DECODED_BUF - 5;
+
+				#if WITH_LOCAL_PROGRESS
+					fileReply(fsd,req_num,"PROGRESS\tBYTES\t%d",offset+get);
+				#endif
+
 				int32_t got = the_file.read(decoded_buf,get);
 				if (got != get)
 				{
@@ -739,6 +755,10 @@ static bool _putFile(
 	}	// while (1)
 
 	the_file.close();
+
+	#if WITH_LOCAL_PROGRESS
+		fileReply(fsd,req_num,"PROGRESS\tDONE\t0\t1");
+	#endif
 
 	display_level(dbg_cmd,3+level,"_putFile(%s,%s,%s) returning %d",dir,target_dir,entry,ok);
 	return ok;
@@ -794,6 +814,10 @@ static bool _putDir(
 			return 0;
 		}
 	}
+
+	#if WITH_LOCAL_PROGRESS
+		fileReply(fsd,req_num,"PROGRESS\tDONE\t1\t0");
+	#endif
 
 	// many PROGRESS ADDS
 
