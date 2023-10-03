@@ -196,13 +196,25 @@ bool initFileSystem()
         return false;
     }
 
-    #if 0   // SHOW CID
+    #if 1   // SHOW CID
+
+		delay(1000);
 
         // detailed SD card debugging
         // prh - I could not effing figure out how to get the volumeLabel from the (?) MBR
 
         cid_t cid;
-        if (!SD.card()->readCID(&cid))
+		SdioCard *card = SD.card();
+		uint8_t type = card->type();
+		uint32_t blocks = card->cardCapacity();
+			// 'sectors' == 'blocks' == 512 bytes each
+		display(0,"fileSystem: type(%d)=%s  blocks/sectors=%lu",
+			type,
+			type == 3 ? "SDHC" :
+			type == 1 ? "SDV2" : "SDV1",
+			blocks);
+
+        if (!card->readCID(&cid))
         {
             my_error("Could not readCID()",0);
             return false;
@@ -229,7 +241,7 @@ bool initFileSystem()
             cid.mdt_month);
     #endif  // SHOW_CID
 
-    #if 0   // SHOW_SIZE_DETAILS
+    #if 1   // SHOW_SIZE_DETAILS
         uint8_t fat_type = SD.fatType();
         uint32_t cluster_count = SD.clusterCount();
         int32_t free_cluster_count = SD.freeClusterCount();
