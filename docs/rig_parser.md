@@ -106,8 +106,8 @@ These were already noted to be *reserved words* above.
 NUMBER is a constant number that is either decimal or hexedecimal
 as given by the following two RE's
 
-- **^[0-9]+$** is a decimal number
-- **^0x[0-9A-F]+$** is a hexedecimal number
+- **^\[0-9]+$** is a decimal number
+- **^0x\[0-9A-F]+$** is a hexedecimal number
 
 
 ### Strings
@@ -119,7 +119,7 @@ They will probably need to be checked for appropriate lengths in usage.
 
 ### Identifiers
 
-Any other word matching ^[a-z]1[a-z0-9_]$ is an **identifier**.
+Any other word matching ^\[a-z]1\[a-z0-9_]$ is an **identifier**.
 It is illegal to define the same identifier more than once.
 
 - IDENTIFIER
@@ -156,7 +156,7 @@ Certain internal variables may be used in certain sections.
 
 ### Overall Structure
 
-rig_definition = rig_section [ rig_section ]\*
+rig_definition = rig_section \[ rig_section ]\*
 
 rig_section =
 - CONSTANTS_section
@@ -172,13 +172,13 @@ rig_section =
 ## C. Constants and Constant Expressions
 
 
-CONSTANTS_section = CONSTANTS COLON constant_decl [ constant_decl ]\*
+CONSTANTS_section = CONSTANTS COLON constant_decl \[ constant_decl ]\*
 
 constant_decl =
 - CONSTANT_ID EQUALS constant_expression SEMI_COLON
 - CONSTANT_STRING_ID EQUALS constant_string_expression SEMI_COLON
-- CONSTANT_ARRAYED_ID EQUALS LEFT_BRACKET contant_expression [ COMMA constant_expression ]\* RIGHT_BRACKET SEMI_COLON
-- CONSTANT_ARRAAYED_STRING_ID EQUALS LEFT_BRACKET constant_string_expression [ COMMA constant_string_expression ]\* RIGHT_BRACKET SEMI_COLON
+- CONSTANT_ARRAYED_ID EQUALS LEFT_BRACKET contant_expression \[ COMMA constant_expression ]\* RIGHT_BRACKET SEMI_COLON
+- CONSTANT_ARRAAYED_STRING_ID EQUALS LEFT_BRACKET constant_string_expression \[ COMMA constant_string_expression ]\* RIGHT_BRACKET SEMI_COLON
 
 constant_string_expression =
 - STRING
@@ -212,13 +212,13 @@ pedal_num = constant_expression
 
 ## D. Variables and Variable Expressions
 
-VARIABLES_section = VARIABLES var_decl [ var_decl ]\*
+VARIABLES_section = VARIABLES var_decl \[ var_decl ]\*
 
 var_decl =
 - VARIABLE_ID EQUALS constant_expression SEMI_COLON
 - VARIABLE_STRING_ID EQUALS constant_string_expression SEMI_COLON
-- VARIABLE_ARRAYED_ID EQUALS LEFT_BRACKET constant_expression [ COMMA constant_expression ]\* RIGHT_BRACKET SEMI_COLON
-- VARIABLE_ARRAAYED_STRING_ID EQUALS LEFT_BRACKET constant_string_expression [ COMMA constant_string_expression ]\* RIGHT_BRACKET SEMI_COLON
+- VARIABLE_ARRAYED_ID EQUALS LEFT_BRACKET constant_expression \[ COMMA constant_expression ]\* RIGHT_BRACKET SEMI_COLON
+- VARIABLE_ARRAAYED_STRING_ID EQUALS LEFT_BRACKET constant_string_expression \[ COMMA constant_string_expression ]\* RIGHT_BRACKET SEMI_COLON
 
 var_string_expression =
 - constant_string_expression
@@ -266,7 +266,7 @@ display_color_expression =
 
 ## E. Statements
 
-statement_list = statement [ statement ]\*
+statement_list = statement \[ statement ]\*
 
 statement =
 - var_assignment_statement SEMI_COLON
@@ -284,7 +284,7 @@ var_assignment_statement =
 - VARIABLE_ARRAAYED_STRING LEFT_BRACKET EQuALS var_string_expression
 
 if_statement =
-- IF LEFT_PAREN var_expression RIGHT_PAREN statement [ ELSE statement ]
+- IF LEFT_PAREN var_expression RIGHT_PAREN statement \[ ELSE statement ]
 
 sendMidiProgramChange_statement =
 - sendMidiProgramChange LEFT_PAREN var_expression COMMA var_expression RIGHT_PAREN
@@ -313,9 +313,9 @@ The button_num constant expression is limited to 0..24.
 and cannot have been previously used in any BUTTON or BUTTON_GRID sections.
 
 BUTTON_section = BUTTON LEFT_PAREN button_num RIGHT_BRACKET
-- [ color_decl [flash_decl]]
-- [ short_decl ]
-- [ long_decl ]
+- \[ color_decl \[flash_decl]]
+- \[ short_decl ]
+- \[ long_decl ]
 
 color_decl = COLOR COLON led_color_expression SEMI_COLON
 
@@ -335,10 +335,10 @@ The grid_size constant expressions are limited to 1..5, and the button_num expre
 The button_num constant expressions cannot have been previously used in any BUTTON or BUTTON_GRID sections.
 
 
-BUTTON_GRID_section = BUTTON_GRID LEFT_PAREN grid_size COMMA grid_size COMMA LEFT_BRACKET button_num [ COMMA button_num]\* RIGHT_BRACKET RIGHT_PAREN COLON
-- [ color_decl [flash_decl]]
-- [ short_decl ]
-- [ long_decl ]
+BUTTON_GRID_section = BUTTON_GRID LEFT_PAREN grid_size COMMA grid_size COMMA LEFT_BRACKET button_num \[ COMMA button_num]\* RIGHT_BRACKET RIGHT_PAREN COLON
+- \[ color_decl \[flash_decl]]
+- \[ short_decl ]
+- \[ long_decl ]
 
 
 
@@ -371,9 +371,9 @@ The midi_cc and serial_cc constant expressions are limited to 0..127.
 
 PEDAL_section = PEDAL LEFT_PAREN pedal_num RIGHT_PAREN COLON
 - name COLON constant_string_expression SEMI_COLON
-- [ midi_channel COLON constant_expression SEMI_COLON ]
-- [ midi_cc COLON constant_expression SEMI_COLON ]
-- [ serial_cc COLON constant_expression SEMI_COLON ]
+- \\[ midi_channel COLON constant_expression SEMI_COLON ]
+- \\[ midi_cc COLON constant_expression SEMI_COLON ]
+- \\[ serial_cc COLON constant_expression SEMI_COLON ]
 
 
 
@@ -388,5 +388,3 @@ constants.
 This functionality will directly impact the songMachine's memory usage.
 Both should draw from the same static pool of memory.
 Currently the songMachine allocates a number of large static buffers.
-
-
