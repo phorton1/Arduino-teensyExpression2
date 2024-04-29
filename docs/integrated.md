@@ -169,3 +169,39 @@ I have added a lot of stuff that is only "test" in nature,
 as I have explored this.  Because I am tkaing my machine to
 Panama City next week, I am going to go ahead and check it
 in.  I can remove stuff I don't want later.
+
+
+
+
+## Pins
+
+### Teensy 3.6
+
+LED_DIN				5
+
+SW_CLK				39
+SW_DIN				38
+SW_DOUT_3V			37
+
+T36_RX3				7
+T36_TX3				8
+
+ILI9488_T3_MOSI		11
+ILI9488_T3_MISO		12
+ILI9488_T3_SCLK		13
+ILI9488_T3_CS		10
+ILI9488_T3_DC		9
+
+EXPR1				23	// A9
+EXPR2				22	// A8
+EXPR3				21	// A7
+EXPR4				20	// A6
+
+ROT1A				2
+ROT1B				3
+ROT2A				4
+ROT2B				6
+ROT3A				24
+ROT3B				25
+ROT4A				26
+ROT4B				27
