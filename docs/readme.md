@@ -1,5 +1,58 @@
 # teensyExpression2 - a Consumer End User Product
 
+I am making this project public at this time because it is an important
+step in the devlopment of the
+[**vGuitar rig**](https://github.com/phorton1/phorton1/).
+The documentation here is a mess!
+
+The sotftware herein has been tested, and is working on the original
+[**teensyExpression**](https://github.com/phorton1/Arduino-teensyExpression)
+hardware using a new motherboard PCB that is
+included in that repository.
+
+This repository is a major revision to the *teensyExpression*, a complete
+rework, that provides most of the previous functionality, and a completely
+different way of **configuring the pedal**, via **preference (rig) files**
+that can be transferred to and from the device via a serial interface
+and the
+[Buddy](https://github.com/phorton1/base-apps-buddy) and
+[fileClient](https://github.com/phorton1/base-apps-fileClient) applications,
+or copied to the SDCard on the teensy in an any other manner.
+This new way of configuring the pedal is intended to make it
+completely generalized, and usable for any purpose, without the
+need to re-compile or re-install the firmware, and yet, to be, by
+default, completely configured for use within the gVuitar rig.
+
+During this re-development effort, all new Fusion 360 3D designs for the
+Pedal were produced, though never printed.  During that process a serious
+review of the electronics involved in the entire vGuitar rig led to a
+re-thinking of its entire architecture, and the role of the teensyExpression
+pedal within that architecture, leading to the notion of a new, as yet
+un-created, **teensyEpression3 repository** that will contain the streamlined
+and well documented source code, 3D files, kicad circuits, and so on.
+
+I am in the *proof of concept* stage with this next step in the
+vGuitar rig journey.  For anyone following along, that next step
+is the new
+teensyPiAudio
+repository that I am initializing today as
+a public repository, which will contain the work that I am doing
+on a day to day basis these days.
+
+Please feel free to peruse this repository and/or see the new
+work I am doing at
+
+
+**Patrick** - April 6, 2024
+
+**p.s. - in order to do this I am pushing a large amount of uncoordinated
+and unstreamlined stuff to github, particularly a bunch of new components
+and footprints for **kicad**. All that will need to be cleaned up too.
+
+
+
+## OLD
+
 Use the looper rig as an archetype of the types of rigs that can be programmed.
 
 Most of the other functionality of the system will be maintained, including things like
