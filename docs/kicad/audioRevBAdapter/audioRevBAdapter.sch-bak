@@ -1,0 +1,197 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A2 23386 16535
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+Text GLabel 10500 7000 3    50   Input ~ 0
+T3_MISO
+Text GLabel 10400 7000 3    50   Input ~ 0
+T3_MOSI
+Text GLabel 11200 7000 3    50   Input ~ 10
+LED_DIN
+$Comp
+L power:+3V3 #PWR015
+U 1 1 6637C7EA
+P 10600 7000
+F 0 "#PWR015" H 10600 6850 50  0001 C CNN
+F 1 "+3V3" V 10600 7200 50  0000 C CNN
+F 2 "" H 10600 7000 50  0001 C CNN
+F 3 "" H 10600 7000 50  0001 C CNN
+	1    10600 7000
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:GND #PWR014
+U 1 1 6637C7F0
+P 9200 7000
+F 0 "#PWR014" H 9200 6750 50  0001 C CNN
+F 1 "GND" V 9200 6800 50  0000 C CNN
+F 2 "" H 9200 7000 50  0001 C CNN
+F 3 "" H 9200 7000 50  0001 C CNN
+	1    9200 7000
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR04
+U 1 1 66399467
+P 10600 4950
+F 0 "#PWR04" H 10600 4700 50  0001 C CNN
+F 1 "GND" V 10600 4750 50  0000 C CNN
+F 2 "" H 10600 4950 50  0001 C CNN
+F 3 "" H 10600 4950 50  0001 C CNN
+	1    10600 4950
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:GND #PWR03
+U 1 1 66399473
+P 9300 4950
+F 0 "#PWR03" H 9300 4700 50  0001 C CNN
+F 1 "GND" V 9300 4750 50  0000 C CNN
+F 2 "" H 9300 4950 50  0001 C CNN
+F 3 "" H 9300 4950 50  0001 C CNN
+	1    9300 4950
+	-1   0    0    1   
+$EndComp
+$Comp
+L 0_my_teensy:teensyAudioRevB U2
+U 1 1 663C0C59
+P 6550 10050
+F 0 "U2" H 7428 10078 60  0001 L CNN
+F 1 "teensyAudioRevB" H 7000 10000 60  0000 R CNN
+F 2 "0_my_teensy:audioShieldRevB" V 7500 10000 60  0001 C CNN
+F 3 "" V 7500 10000 60  0000 C CNN
+	1    6550 10050
+	-1   0    0    1   
+$EndComp
+$Comp
+L 0_my_teensy:myTeensy4.1 U1
+U 1 1 6636A2E9
+P 10300 5850
+F 0 "U1" H 10550 5750 50  0000 R CNN
+F 1 "myTeensy4.1" H 10800 5900 50  0000 R CNN
+F 2 "0_my_teensy:myTeensy41" H 10000 4950 50  0001 C CNN
+F 3 "" H 10000 4950 50  0001 C CNN
+	1    10300 5850
+	1    0    0    -1  
+$EndComp
+Text GLabel 9500 4950 1    50   Input ~ 0
+MCLK1
+Text GLabel 5900 9000 1    50   Input ~ 0
+MCLK1
+Text GLabel 9700 4950 1    50   Input ~ 0
+BCLK1
+Text GLabel 6100 9300 1    50   Input ~ 0
+BCLK1
+Text GLabel 9800 4950 1    50   Input ~ 0
+LRCLK1
+Text GLabel 6800 10750 3    50   Input ~ 0
+LRCLK1
+Text GLabel 9900 4950 1    50   Input ~ 0
+I2C_SCL
+Text GLabel 10000 4950 1    50   Input ~ 0
+I2C_SCA
+Text GLabel 6400 10750 3    50   Input ~ 0
+I2C_SCL
+Text GLabel 6300 10750 3    50   Input ~ 0
+I2C_SCA
+Text GLabel 5900 10750 3    50   Input ~ 0
+I2C_SCLK
+Text GLabel 10300 4950 1    50   Input ~ 0
+I2C_SCLK
+Text GLabel 5800 10750 3    50   Input ~ 0
+I2S_RX1A
+Text GLabel 6700 10750 3    50   Input ~ 0
+I2S_TX1A
+Text GLabel 10000 7000 3    50   Input ~ 0
+I2S_TX1A
+Text GLabel 10100 7000 3    50   Input ~ 0
+I2S_RX1A
+Text GLabel 11500 7000 3    50   Input ~ 0
+I2S_TX1B
+Text GLabel 9900 7000 3    50   Input ~ 0
+I2S_RX1B
+Text GLabel 9400 7000 3    50   Input ~ 0
+T41_TX
+Text GLabel 9300 7000 3    50   Input ~ 0
+T41_RX
+Text GLabel 10300 7000 3    50   Input ~ 0
+T3_LED_CS
+Text GLabel 11000 7000 3    50   Input ~ 10
+T3_TOUCH_CS
+$Comp
+L Device:R R1
+U 1 1 6652E99E
+P 5900 9150
+F 0 "R1" H 5850 9800 50  0001 L CNN
+F 1 "100" V 5900 9150 50  0000 C CNN
+F 2 "0_my_footprints:myResistor" V 5830 9150 50  0001 C CNN
+F 3 "~" H 5900 9150 50  0001 C CNN
+	1    5900 9150
+	1    0    0    -1  
+$EndComp
+Text Notes 11150 7550 0    50   ~ 10
+LED_IN chosen using teensy w2812Serial alternate pin options
+Text GLabel 10200 7000 3    50   Input ~ 0
+T3_CD
+Text Notes 10950 7800 0    50   ~ 10
+T3_TOUCH_CS chosen as "can use any digital pin" from ILI9341 page
+Text GLabel 9200 4950 1    50   Input ~ 0
+T41_VIN
+Text GLabel 9400 4950 1    50   Input ~ 0
+T41_3.3V
+Text Notes 5650 8050 0    79   ~ 16
+teensy Audio Shield Rev B
+Text Notes 5650 8350 0    50   ~ 0
+This PCB is only needed until I get the RevD audio shields,\nat which time it can be stacked with the 4.1
+Text Notes 9250 2200 0    50   ~ 10
+ILI9488_T3 pins are assumed to match ILI9341_T3 pins
+Text GLabel 10500 4950 1    50   Input ~ 0
+T3_SCLK
+Text Notes 9250 900  0    79   ~ 16
+Teensy 4.1 as test Sound/USB/MIDI device
+Text Notes 9250 1500 0    50   ~ 0
+Note that I do not see a Audio-Midi4-Serial device, so these 4.x based\ndevices will need attention to not present a huge list of midi ports
+Text Notes 9250 1850 0    50   ~ 0
+Test configuration is to do the USB stuff and Audio while being a MIDIx16 devices \nyet there is no actual MIDI in this test phase except for the USB host.  \nAll other MIDI will need to come in over serial somehow.
+Text Notes 9250 2000 0    50   ~ 0
+I will allow for a test ILI9488 display, but not sure I'll hook it up
+Text Notes 9250 1050 0    50   ~ 0
+No buttons, expression pedals or rotaries in this version.
+Text Notes 9250 1250 0    50   ~ 0
+I WILL bring all the other pins out for potential development. \nI WILL add a connector a LED strip for potential development.
+$Comp
+L power:GND #PWR0101
+U 1 1 6634081F
+P 7100 9300
+F 0 "#PWR0101" H 7100 9050 50  0001 C CNN
+F 1 "GND" V 7100 9100 50  0000 C CNN
+F 2 "" H 7100 9300 50  0001 C CNN
+F 3 "" H 7100 9300 50  0001 C CNN
+	1    7100 9300
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:GND #PWR0102
+U 1 1 66341ED9
+P 7000 10750
+F 0 "#PWR0102" H 7000 10500 50  0001 C CNN
+F 1 "GND" V 7000 10550 50  0000 C CNN
+F 2 "" H 7000 10750 50  0001 C CNN
+F 3 "" H 7000 10750 50  0001 C CNN
+	1    7000 10750
+	1    0    0    -1  
+$EndComp
+Text GLabel 6900 10750 3    50   Input ~ 0
+T41_3.3V
+$EndSCHEMATC
