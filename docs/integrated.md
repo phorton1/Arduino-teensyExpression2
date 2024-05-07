@@ -135,9 +135,15 @@ device to interface with the rPi and provide IO.
 
 teensy4.0 bottom connections:
 
-- gpio32 to VBat pin
-- D- to Program pin
-- D+ to 3.3V pin
+- my pin number 29 = VBat = gpio32 I2S_TX1B (cut trace)
+- my pin number 30 = 3.3V = USB Host D+ (cut trace)
+- my pin number 31 = GND = unchanged
+- my pin number 32 = Program = USB D- (cut trace)
+- my pin number 33 = On Off = unchanged (buried connection to CPU)
+
+One big fear is if I eliminate the Program button, and then need it,
+however I think I am only disconnecting the PIN, NOT the button!
+
 
 Requirements
 
