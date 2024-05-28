@@ -80,7 +80,7 @@ F 3 "" H 1250 1000 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 850  1000 3    50   Input ~ 0
-DIN
+LED_DIN
 $Comp
 L Connector_Generic:Conn_01x06 J1
 U 1 1 6607CA55
@@ -93,19 +93,13 @@ F 3 "~" H 950 800 50  0001 C CNN
 	0    -1   -1   0   
 $EndComp
 Text GLabel 1050 1000 3    50   Input ~ 0
-CLK
+BTN_CLK
 Text GLabel 950  1000 3    50   Input ~ 0
-SWIN
-Text GLabel 1150 1000 3    50   Input ~ 0
-SW
+BTN_DIN
 Text GLabel 900  3400 1    50   Input ~ 0
-DOUT
-Text GLabel 1100 3400 1    50   Input ~ 0
-CLK
+LED_DOUT
 Text GLabel 1000 3400 1    50   Input ~ 0
-SWOUT
-Text GLabel 1200 3400 1    50   Input ~ 0
-SW
+BTN_DOUT
 $Comp
 L Switch:SW_SPST SW2
 U 1 1 660928C5
@@ -151,15 +145,7 @@ F 3 "~" H 7750 2750 50  0001 C CNN
 	0    1    1    0   
 $EndComp
 Text GLabel 6350 2950 3    50   Input ~ 0
-SW
-Text GLabel 6700 2950 3    50   Input ~ 0
-SW
-Text GLabel 7050 2950 3    50   Input ~ 0
-SW
-Text GLabel 7400 2950 3    50   Input ~ 0
-SW
-Text GLabel 7750 2950 3    50   Input ~ 0
-SW
+BTN_SENSE
 Wire Wire Line
 	7050 2550 7050 2100
 Wire Wire Line
@@ -211,11 +197,11 @@ F 3 "" H 6850 1350 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 7050 1350 1    50   Input ~ 0
-SWIN
+BTN_DIN
 Text GLabel 7550 1350 1    50   Input ~ 0
-SWOUT
+BTN_DOUT
 Text GLabel 7350 1350 1    50   Input ~ 0
-CLK
+BTN_CLK
 NoConn ~ 7350 2100
 NoConn ~ 7450 2100
 NoConn ~ 6950 1350
@@ -242,7 +228,7 @@ F 3 "" H 7450 1350 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Text GLabel 7250 1350 1    50   Input ~ 0
-CLK
+BTN_CLK
 $Comp
 L power:+5V #PWR07
 U 1 1 660C6F1A
@@ -268,9 +254,9 @@ $EndComp
 Wire Wire Line
 	5400 1600 5450 1600
 Text GLabel 5500 1600 2    50   Input ~ 0
-DOUT
+LED_DOUT
 Text GLabel 2450 1600 0    50   Input ~ 0
-DIN
+LED_DIN
 $Comp
 L LED:WS2812B D2
 U 1 1 660FBD04
@@ -566,4 +552,18 @@ Wire Wire Line
 Connection ~ 4100 3350
 Wire Wire Line
 	4100 3350 4400 3350
+Text GLabel 1100 3400 1    50   Input ~ 0
+BTN_CLK
+Text GLabel 6700 2950 3    50   Input ~ 0
+BTN_SENSE
+Text GLabel 7050 2950 3    50   Input ~ 0
+BTN_SENSE
+Text GLabel 7400 2950 3    50   Input ~ 0
+BTN_SENSE
+Text GLabel 7750 2950 3    50   Input ~ 0
+BTN_SENSE
+Text GLabel 1150 1000 3    50   Input ~ 0
+BTN_SENSE
+Text GLabel 1200 3400 1    50   Input ~ 0
+BTN_SENSE
 $EndSCHEMATC
