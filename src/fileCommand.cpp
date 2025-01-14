@@ -2,9 +2,8 @@
 // fileCommand.cpp
 //----------------------------------------------------------
 // contains fileCommand() and associated methods
-// PRH - fileCommand() needs to send FILE and BASE64 progress messags,
-// and/or I can try to re-implement the 'bestReport' scheme in
-// Session.pm.
+// The source code files fileXXXX.cpp and h are the same in TE1 and TE2.
+// They have NOT been made into a submodule yet, so must be manually normalized.
 
 #include "fileSystem.h"
 #include "prefs.h"

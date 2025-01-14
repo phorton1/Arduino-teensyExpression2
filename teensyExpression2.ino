@@ -195,6 +195,18 @@ void setup()
     //--------------------------------
     // start the file system
     //--------------------------------
+	// this warning message, and placement of initFileSystem()
+	// is slightly different between TE1 and TE1
+	
+	uint8_t dd = prefs.DEBUG_DEVICE;
+	uint8_t fsd = prefs.FILE_SYS_DEVICE;
+    warning(0,"FILE_SYS_DEVICE %s",
+		fsd == OUTPUT_DEVICE_SERIAL ? "is SERIAL" :
+		fsd == OUTPUT_DEVICE_USB 	? "is USB" :
+		fsd == OUTPUT_DEVICE_OFF 	? "is OFF!!" :
+		dd == DEBUG_DEVICE_SERIAL 	? "follows DEBUG_DEVICE which is SERIAL" :
+		dd == DEBUG_DEVICE_USB 		? "follows DEBUG_DEVICE which is USB" :
+		"follows DEBUG_DEVICE which is OFF" );
 
 	initFileSystem();
 	if (!hasSDCard())
