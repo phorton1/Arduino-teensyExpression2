@@ -130,7 +130,9 @@ static void _list(Stream *fsd, int req_num, const char *dir)
 
 	const char *ts = getTimeStamp(&the_dir);
 
-	sprintf(buffer,"file_reply(%d):0\t%s\t%s%s\r",
+	// prh 2025-01-12  fileClient expects SIZE,ts,MODE,OWNER,GROUP,entry
+	
+	sprintf(buffer,"file_reply(%d):0\t%s\t0\t0\t0\t%s%s\r",
 		req_num,
 		ts,
 		dir,
@@ -161,7 +163,9 @@ static void _list(Stream *fsd, int req_num, const char *dir)
 			break;
 		}
 
-		sprintf(out,"%ld\t%s\t%s%s\r",size,ts,name,is_dir?"/":"");
+		// prh 2025-01-12  fileClient expects SIZE,ts,MODE,OWNER,GROUP,entry
+
+		sprintf(out,"%ld\t%s\t0\t0\t0\t%s%s\r",size,ts,name,is_dir?"/":"");
 		at += strlen(out);
 		out = &buffer[at];
 		entry = the_dir.openNextFile();
