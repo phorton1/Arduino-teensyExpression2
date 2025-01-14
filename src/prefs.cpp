@@ -72,10 +72,10 @@ uint8_t prefType(int off)
 static const prefs_t default_prefs =
 {
 	.BRIGHTNESS			= 30,				// LED brightness, 1..100 - default=30
-	.DEBUG_DEVICE		= DEBUG_DEVICE_SERIAL,		// off, USB, Serial - default(2=Serial)
+	.DEBUG_DEVICE		= DEBUG_DEVICE_USB,	// 2025-01-14 was: DEBUG_DEVICE_SERIAL,		// off, USB, Serial - default(2=Serial)
 	.FILE_SYS_DEVICE	= OUTPUT_DEVICE_DEBUG,		// off, Debug, USB, Serial - default(Debug)
 	.SPOOF_FTP          = 0,						// off, on
-	.FTP_PORT			= 1,						// off, USB, HOST
+	.FTP_PORT			= 0, 				// 2025-01-14 was: 1,						// off, USB, HOST
 
 	.RIG_NAME		    = {'S','y','s','t','e','m','_','D','e','f','a','u','l','t', 0},
 
