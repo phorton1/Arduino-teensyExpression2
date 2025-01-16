@@ -60,11 +60,8 @@
 	//   penalty if they wanted to try to load the default.rig file.
 
 
-extern void mem_check(const char *where = 0);
-	// in mem_check.cpp
 extern bool legalFilename(const char *name);
 	// in rigParser.cpp
-
 
 // Uses slightly modified _usbDev.c that allows me to defer
 // usb_init() call until I am ready, and _usbNames.c that

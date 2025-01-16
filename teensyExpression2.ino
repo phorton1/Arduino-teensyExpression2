@@ -259,5 +259,6 @@ void setup()
 
 void loop()
 {
+	freeFileCommands();
     the_system.loop();
 }

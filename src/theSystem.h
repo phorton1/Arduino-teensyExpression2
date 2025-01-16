@@ -92,8 +92,6 @@ class theSystem
         uint32_t m_midi_activity[NUM_ACTIVITY_INDICATORS];
         bool m_last_midi_activity[NUM_ACTIVITY_INDICATORS];
 
-        void handleSerialData();
-
         volatile int m_num_windows;
         sysWindow *m_window_stack[MAX_WINDOW_STACK];
         sysWindow *getTopWindow();
