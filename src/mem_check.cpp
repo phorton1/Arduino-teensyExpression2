@@ -26,7 +26,7 @@ void print_mem_info(const char *what)
         "mrs %0, msp	\r\n" :
         "=r" (tos) :: );
 
-    printf("MEM(%s) bss(%ld) heap(%ld) free(%ld) stack(%ld)\n",
+    Serial.printf("MEM(%s) bss(%ld) heap(%ld) free(%ld) stack(%ld)\n",
         what ? what : "",
         #ifdef __IMXRT1062__       // if teensy 4
             0,0,
