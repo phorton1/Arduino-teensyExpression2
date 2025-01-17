@@ -42,9 +42,9 @@ typedef struct
 const rotaryPin_t rotary_pin[NUM_ROTARY] =
 {
     { ROTARY_1A, ROTARY_1B },
-    { ROTARY_2A, ROTARY_2B },
+    { ROTARY_2B, ROTARY_2A },
     { ROTARY_3A, ROTARY_3B },
-    { ROTARY_4A, ROTARY_4B },
+    { ROTARY_4B, ROTARY_4A },
 };
 
 
@@ -66,8 +66,8 @@ void initRotary()
         rotary[i].cc      = 11 + i;
         rotary[i].listen  = 0;
 
-        pinMode(rotary_pin[i].pinA,INPUT_PULLDOWN);
-        pinMode(rotary_pin[i].pinB,INPUT_PULLDOWN);
+        pinMode(rotary_pin[i].pinA,INPUT);  // _PULLDOWN);
+        pinMode(rotary_pin[i].pinB,INPUT);  // _PULLDOWN);
 
         rotary[i].value  = 0.0;
         rotary[i].pollA = digitalRead(rotary_pin[i].pinA);
