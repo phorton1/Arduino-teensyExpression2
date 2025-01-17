@@ -255,7 +255,7 @@ void enqueueMidi(msgUnion &msg)
 	if (enqueue_it)
 	{
 		if (dbg_queue <= 0)
-			display_level(dbg_queue,4,"_enqueueMidi(0x%08x) head(%d) tail(%d)",
+			display_level(dbg_queue,4,"do _enqueueMidi(0x%08x) head(%d) tail(%d)",
 				msg.i,
 				queue_head,
 				queue_tail);
