@@ -229,9 +229,57 @@ LISTEN_RANGED(4, track_state_base, SERIAL, INPUT, 0, TRACK_STATE_BASE_CC);
 
 # LISTEN for the 16 possible clip volumes and mute states
 
-LISTEN_RANGED(16, clip_vol_base,  SERIAL, INPUT, 0, CLIP_VOL_BASE_CC);
-LISTEN_RANGED(16, clip_mute_base, SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC);
+# PRH 2025-01-17
+# After fighting a bug where the clip volume buttons in quick  mode (default_modal.rig)
+# were crashing, I decided the "simplest" solution was to modify the rig itself.
+# The paradigm of sending CCs to the looper, and then getting CCs back in order to
+# update the UI breaks down at some point.  There are a lot of things going on,
+# and it could be interrupts being disabled, or some other timing issue, but in the
+# end, I decided that we will NOT listen for CLIP volumes, WILL SET THEM TO 100
+# to start the rig, and will use one-way sends of them to the looper in the quick mode.
 
+setValue(30 +  0, 100 );
+setValue(30 +  1, 100 );
+setValue(30 +  2, 100 );
+setValue(30 +  3, 100 );
+setValue(30 +  4, 100 );
+setValue(30 +  5, 100 );
+setValue(30 +  6, 100 );
+setValue(30 +  7, 100 );
+setValue(30 +  8, 100 );
+setValue(30 +  9, 100 );
+setValue(30 + 10, 100 );
+setValue(30 + 11, 100 );
+setValue(30 + 12, 100 );
+setValue(30 + 13, 100 );
+setValue(30 + 14, 100 );
+setValue(30 + 15, 100 );
+                            
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  0, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  1, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  2, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  3, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  4, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  5, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  6, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  7, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  8, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC +  9, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + 10, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + 11, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + 12, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + 13, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + 14, 100 );
+sendCC(SERIAL, 1, CLIP_VOL_BASE_CC + 15, 100 );
+
+# end of PRH 2025-01-17 change
+
+
+
+# LISTEN_RANGED(16, clip_vol_base,  SERIAL, INPUT, 0, CLIP_VOL_BASE_CC);
+	# This was commented out
+LISTEN_RANGED(16, clip_mute_base, SERIAL, INPUT, 0, CLIP_MUTE_BASE_CC);
+	# these work ok
 
 #----------------------------------------
 # Overall Rig Initialization Section
