@@ -79,7 +79,9 @@ void print_long_mem_info(const char *where)
     #if WITH_DETAILS
         print_one(1,"ram_start",RAM_START);
         print_one(1,"bss_start",(uint32_t) &_sbss);
-        print_one(1,"heap_start",(uint32_t) &__bss_end);
+        #ifndef __IMXRT1062__       // if !teensy 4
+            print_one(1,"heap_start",(uint32_t) &__bss_end);
+        #endif
         print_one(1,"heap_end",(uint32_t) __brkval);
         print_one(1,"stack_start",(uint32_t) tos);
         print_one(1,"stack_end",(uint32_t) &_estack);
