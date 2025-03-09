@@ -6,7 +6,8 @@
 
 #pragma once
 
-#define NUM_CONFIG_OPTIONS		78
+#define NUM_CONFIG_OPTIONS		77
+	// prh 2025-03-08 changed from 78 to 77
 
 // values which must agree with table setup
 
@@ -24,10 +25,15 @@
 	// Brings up the winFileDialog dialog and returns
 	// zero or OPTION_DUMP_H_FILES. if OPTION_LOAD_RIG the
 	// new rig name is gotten from the winFileDlg and it is dumped
-#define OPTION_FORMAT_SD		0x2000
-	// brings up the formatSDDialog, which either returns
-	// control to the configSystem, or reformats the SD
-	// card and reboots.
+
+#if 0	// removed from compilation 2025-03-08 while normalizing
+		// fileSystem to TE3
+	#define OPTION_FORMAT_SD		0x2000
+		// brings up the formatSDDialog, which either returns
+		// control to the configSystem, or reformats the SD
+		// card and reboots.
+#endif
+
 #define OPTION_SPOOF_FTP		0x4000
 	// The spoof_ftp value is or'd into the bottom nibble,
 	// if if this bit is set when the yesNoDialog returns,

@@ -81,24 +81,29 @@ extern yesNoDialog yes_no_dlg;
 // formatSDDialog
 //------------------------------------
 
-class formatSDDialog : public sysWindow
-{
-    public:
 
-        formatSDDialog() {}
+#if 0	// removed from compilation 2025-03-08 while normalizing
+		// fileSystem to TE3
 
-    private:
+	class formatSDDialog : public sysWindow
+	{
+		public:
 
-        virtual const char *name()          { return "Format SD Card"; }
-        virtual const char *short_name()    { return "Format SD Card"; }
+			formatSDDialog() {}
 
-        virtual void begin(bool cold) override;
-        virtual void onButton(int row, int col, int event) override;
+		private:
 
-};
+			virtual const char *name()          { return "Format SD Card"; }
+			virtual const char *short_name()    { return "Format SD Card"; }
+
+			virtual void begin(bool cold) override;
+			virtual void onButton(int row, int col, int event) override;
+
+	};
 
 
-extern formatSDDialog format_sd_dialog;
+	extern formatSDDialog format_sd_dialog;
+#endif
 
 
 // end of winDialogs.h

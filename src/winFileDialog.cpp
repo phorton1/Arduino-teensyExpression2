@@ -132,7 +132,7 @@ void winFileDialog::getFilenames()
 	if (m_default)
 		addEntry(m_default,1);
 
-    myFile_t the_dir = SD.open(m_path);
+    File the_dir = SD.open(m_path);
     if (!the_dir)
     {
         my_error("Could not opendir %s",m_path);
@@ -143,13 +143,14 @@ void winFileDialog::getFilenames()
 	// scan the directory
 
 	int ext_len = strlen(m_ext);
-    myFile_t entry = the_dir.openNextFile();
+    File entry = the_dir.openNextFile();
     while (entry)
     {
         if (!entry.isDirectory())
         {
+			// prh 2025-03-08
 			char filename[255];	 // arbitrary max
-			entry.getName(filename, sizeof(filename));
+			strcpy(filename, entry.name());
 			int len = strlen(filename);
 			int ext_pos = len - ext_len;
 			if (len >= MAX_RIG_NAME + ext_len)

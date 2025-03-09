@@ -16,7 +16,7 @@
 #define dbgPrint(a)			{if (dbgSerial) dbgSerial->print(a); }
 
 
-static myFile_t rig_file;
+static File rig_file;
 
 static int print_level = 0;
 

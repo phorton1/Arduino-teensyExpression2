@@ -156,8 +156,12 @@ D_ENUM(		72,	d_ftp_unknown,		"Unknown commands",	&d_ftp_evts,	MONITOR_FTP_UNKNOW
 D_ENUM( 	73,	d_debug_device,		DEBUG_DEVICE_NAME,	&d_system,		DEBUG_DEVICE,		off_usb_serial );
 D_ENUM( 	74,	d_file_sys_device,	"File Sys Device",	&d_system,		FILE_SYS_DEVICE,	off_dbg_usb_host );
 D_DLG_OPT( 	75,	d_dump_h_files,		"Dump H Files",		&d_system,		0,	OPTION_DUMP_H_FILE );
-D_DLG_OPT(	76,	d_format_sdcard,	"Format SD Card",	&d_system,		0,	OPTION_FORMAT_SD );
-D_DLG_OPT(	77,	d_factory_reset,	"Factory Reset",	&d_system,		0,	OPTION_FACTORY_RESET );
+#if 0	// removed from compilation 2025-03-08 while normalizing
+		// fileSystem to TE3; changed following from 77 to 76
+	D_DLG_OPT(	76,	d_format_sdcard,	"Format SD Card",	&d_system,		0,	OPTION_FORMAT_SD );
+#endif
+
+D_DLG_OPT(	76,	d_factory_reset,	"Factory Reset",	&d_system,		0,	OPTION_FACTORY_RESET );
 
 
 //------------------------------------------------------------
@@ -242,7 +246,8 @@ static const opt_desc_t *all_opts[] =
     &d_debug_device,
     &d_file_sys_device,
 	&d_dump_h_files,
-	&d_format_sdcard,
+	// prh removed 2025-03-08
+	// &d_format_sdcard,
     &d_factory_reset,
 };
 
@@ -267,8 +272,9 @@ void configOption::init(const opt_desc_t *desc)
 	// not currently handling strings
 	m_value = getPref(desc->pref_offset, desc->title);
 
-	if (desc == &d_format_sdcard)
-		m_enabled = hasSDCard();
+	// prh removed 2025-03-8
+	// if (desc == &d_format_sdcard)
+	//	m_enabled = hasSDCard();
 	if (desc == &d_dump_h_files)
 		m_enabled = hasFileSystem();
 

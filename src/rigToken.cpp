@@ -21,7 +21,7 @@
 	// 0 = show calls to rewindRigFile
 
 
-static myFile_t rig_file;
+static File rig_file;
 static uint32_t rig_text_len;
 static uint32_t parse_ptr;
 static int parse_line_num;

@@ -307,10 +307,11 @@ void winConfig::onButton(int row, int col, int event)
 				win_file_dlg.setup(OPTION_DUMP_H_FILE,"Dump H File ..","/",".rig",0);
 				the_system.startWindow(&win_file_dlg);
 			}
-			else if (m_cur_option->getType() ==  OPTION_FORMAT_SD)
-			{
-				the_system.startWindow(&format_sd_dialog);
-			}
+			// prh 2025-03-08
+			// else if (m_cur_option->getType() ==  OPTION_FORMAT_SD)
+			// {
+			// 	the_system.startWindow(&format_sd_dialog);
+			// }
 			else if (m_cur_option->getType() == OPTION_FACTORY_RESET)
 			{
 				yes_no_dlg.setId(OPTION_FACTORY_RESET);
